@@ -7,7 +7,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 
 import { resolveProject } from "../../runtime/source/project.mjs";
-import { buildSonnerProject } from "../source/sonner.mjs";
+import { buildSonnerProject, loadWorkGraph } from "../source/sonner.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -24,7 +24,9 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
 </work-node>
 `);
   await writeFile(path.join(root, "README.md"), "---\nsummary: Portable summary.\n---\n\nBody is never projected.\n");
-  await execFileAsync("git", ["-C", root, "add", "overview/WORK_NODE.xml", "README.md"]);
+  await mkdir(path.join(root, "dist"));
+  await writeFile(path.join(root, "dist", "generated.md"), "---\nsummary: Generated output.\n---\n");
+  await execFileAsync("git", ["-C", root, "add", "overview/WORK_NODE.xml", "README.md", "dist/generated.md"]);
   const marker = path.join(root, "fsmonitor-ran");
   const fsmonitor = path.join(root, "fsmonitor.sh");
   await writeFile(fsmonitor, `#!/bin/sh\ntouch '${marker}'\nprintf '{}\\n'\n`, "utf8");
@@ -52,5 +54,23 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
   const readme = projection.files.root.children.find(({ path: entryPath }) => entryPath === "README.md");
   assert.equal(readme.type, "file");
   assert.equal(readme.summary, "Portable summary.");
+  assert.equal(projection.files.root.children.some(({ path: entryPath }) => entryPath === "dist"), false);
   await assert.rejects(access(marker), (error) => error.code === "ENOENT");
+});
+
+test("Win32 portable Sonner discovers Work Graph without a Git repository", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-sonner-work-win32-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, "overview"));
+  await writeFile(path.join(root, "overview", "WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
+<work-node id="overview" type="Overview">
+  <summary>Defines a non-Git portable project.</summary>
+  <inputs>
+  </inputs>
+</work-node>
+`);
+
+  const works = await loadWorkGraph(root, { readerOptions: { platform: "win32" } });
+
+  assert.deepEqual(works.map(({ id }) => id), ["overview"]);
 });

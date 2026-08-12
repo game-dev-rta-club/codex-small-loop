@@ -1,0 +1,75 @@
+name: Bug report
+description: Report reproducible incorrect behavior in Codex Small Loop.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here. Use the private process in SECURITY.md.
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version or commit
+      placeholder: v0.1.0 or a commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Activation or interview
+        - Task coordination
+        - Review workflow
+        - Board Activity
+        - Board Sonner
+        - Installation or update
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Include the sanitized request, relevant Task state, and steps needed to reproduce the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Codex Desktop, Node.js, Git, and operating-system versions.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed tokens, secrets, project data, and personal information.
+          required: true
+        - label: I searched existing issues for the same problem.
+          required: true

@@ -74,8 +74,8 @@ points to the distribution.
 
 The bundle includes the upstream `interview-me` source and the pinned
 `elkjs` Browser bundle under `third_party/` and Board `public/vendor/`, with its
-EPL-2.0 license, provenance, and third-party notice. The Whole Job
-Loop interview adapter remains under `skills/`; only that adapter is exposed
+EPL-2.0 license, provenance, and third-party notice. The Codex Small Loop
+interview adapter remains under `skills/`; only that adapter is exposed
 as `codex-small-loop:interview-me`. ELK is an internal Sonner layout dependency
 and adds no command or plugin surface.
 
@@ -94,6 +94,7 @@ executable from `PATH`.
 
 - [Marketplace manifest](/.agents/plugins/marketplace.json)
 - [Plugin manifest](/implementation/.codex-plugin/plugin.json)
+- [Packaged MIT License](/implementation/LICENSE)
 - [Root entry Skill](/implementation/skills/handling-user-requests/SKILL.md)
 - [Composer icon](/implementation/assets/codex-small-loop.svg)
 - [Welcome contents](/implementation/contents/welcome/initialization-guide.md)

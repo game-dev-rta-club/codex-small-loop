@@ -16,7 +16,7 @@ manage.
 First, register the Codex Small Loop repository as a plugin marketplace:
 
 ```sh
-codex plugin marketplace add nikollson/codex-small-loop
+codex plugin marketplace add game-dev-rta-club/codex-small-loop
 ```
 
 Then install Codex Small Loop:
@@ -73,8 +73,7 @@ available. Activate Codex Small Loop through either supported entry path:
 
 - Select **Codex Small Loop** from the Codex Desktop **+** menu before submitting
   the request.
-- Directly instruct Codex to use it, for example, "Use Codex Small Loop to ..."
-  or "Codex Small Loopを用いて...".
+- Directly instruct Codex to use it, for example, "Use Codex Small Loop to ...".
 
 Merely mentioning, discussing, inspecting, or asking about Codex Small Loop does
 not activate it. No separate initial readiness command is required after an

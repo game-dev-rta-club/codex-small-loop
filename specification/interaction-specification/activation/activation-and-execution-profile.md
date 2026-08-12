@@ -34,7 +34,7 @@ asks only for the missing setting. If neither is present, it proposes Terra
 Medium at 1x speed and asks one confirmation in the user's language in the
 guide's Next Action section, for example:
 
-> Terra Medium・1xで始めてよいですか？
+> Start with Terra Medium at 1x speed?
 
 An explicit answer that supplies or changes a setting is agreement to that
 value and is not reconfirmed. On that next user-authored turn, the entry Skill

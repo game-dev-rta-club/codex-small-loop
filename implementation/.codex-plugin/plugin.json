@@ -1,13 +1,14 @@
 {
   "name": "codex-small-loop",
-  "version": "0.1.0+codex.20260812044253",
+  "version": "0.1.0+codex.20260812061310",
   "description": "A Codex-native loop-engineering environment for delegating outcomes and continuing until completion is proven.",
   "author": {
-    "name": "Nikollson",
-    "url": "https://github.com/nikollson"
+    "name": "Game Dev RTA Club",
+    "url": "https://github.com/game-dev-rta-club"
   },
-  "homepage": "https://github.com/nikollson/codex-small-loop",
-  "repository": "https://github.com/nikollson/codex-small-loop",
+  "homepage": "https://github.com/game-dev-rta-club/codex-small-loop",
+  "repository": "https://github.com/game-dev-rta-club/codex-small-loop",
+  "license": "MIT",
   "keywords": [
     "codex",
     "orchestration",
@@ -18,7 +19,7 @@
     "displayName": "Codex Small Loop",
     "shortDescription": "Give Codex the whole job.",
     "longDescription": "A minimal Codex-native environment that keeps work moving toward a proven outcome.",
-    "developerName": "Nikollson",
+    "developerName": "Game Dev RTA Club",
     "category": "Productivity",
     "capabilities": [
       "Interactive",

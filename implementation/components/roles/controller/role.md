@@ -399,9 +399,9 @@ Keep user notifications brief. Use a heading that identifies the work and its
 current boundary:
 
 ```text
-<work>｜✅ M<number> 完了
-<work>｜✅ すべて完了
-<work>｜🚨 中断
+<work> | ✅ M<number> complete
+<work> | ✅ All complete
+<work> | 🚨 Stopped
 ```
 
 Write the body naturally for the situation. Include only what the user should

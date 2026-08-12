@@ -1,6 +1,6 @@
 ---
 name: handling-user-requests
-description: Use only when the user selects Codex Small Loop in Codex Desktop, explicitly invokes $codex-small-loop:handling-user-requests, or directly says "Use Codex Small Loop to ..." or "Codex Small Loopを用いて...". Shows the initial setup guide and resolves the execution profile before loading Controller.
+description: Use only when the user selects Codex Small Loop in Codex Desktop, explicitly invokes $codex-small-loop:handling-user-requests, or directly says "Use Codex Small Loop to ...". Shows the initial setup guide and resolves the execution profile before loading Controller.
 ---
 
 # Handling User Requests
@@ -15,10 +15,10 @@ Continue only when the active request:
 
 - was started by selecting Codex Small Loop in Codex Desktop;
 - explicitly invokes `$codex-small-loop:handling-user-requests`; or
-- directly instructs Codex to use Codex Small Loop, for example, "Use Whole Job
-  Loop to ..." or "Codex Small Loopを用いて...".
+- directly instructs Codex to use Codex Small Loop, for example, "Use Codex
+  Small Loop to ...".
 
-A mention, discussion, inspection, explanation, or question about Whole Job
+A mention, discussion, inspection, explanation, or question about Codex Small
 Loop is ordinary request handling rather than activation.
 
 ## First Turn: Show Welcome And Ask For The Profile

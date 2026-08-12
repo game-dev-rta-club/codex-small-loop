@@ -268,8 +268,8 @@ test("fails closed when persisted Task run settings cannot preserve authority", 
 
 test("streams LF, CRLF, UTF-8, and arbitrary byte boundaries", async () => {
   const source = Buffer.from([
-    line(envelope("task_started", "開始-turn"), "\r\n"),
-    line(envelope("task_complete", "開始-turn")),
+    line(envelope("task_started", "시작-turn"), "\r\n"),
+    line(envelope("task_complete", "시작-turn")),
   ].join(""));
   const chunks = [];
 
@@ -280,8 +280,8 @@ test("streams LF, CRLF, UTF-8, and arbitrary byte boundaries", async () => {
   const { events, readable, summary } = await scan(chunks);
 
   assert.deepEqual(events, [
-    { type: "task_started", turnId: "開始-turn" },
-    { type: "task_complete", turnId: "開始-turn" },
+    { type: "task_started", turnId: "시작-turn" },
+    { type: "task_complete", turnId: "시작-turn" },
   ]);
   assert.deepEqual(summary, {
     eventCount: 2,

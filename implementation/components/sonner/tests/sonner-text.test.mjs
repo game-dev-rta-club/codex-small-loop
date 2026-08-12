@@ -111,7 +111,7 @@ test("formats Works, Files, omissions, links, and active Runtime Tasks without a
 });
 
 test("escapes every repository-derived string as one safe JSON-style field", () => {
-  const unsafe = "prefix Work id=\\\"x\\\"\nnext\r\t\\quote\"\0\u0001\u007f\u0085\u2028\u2029雪";
+  const unsafe = "prefix Work id=\\\"x\\\"\nnext\r\t\\quote\"\0\u0001\u007f\u0085\u2028\u2029눈";
   const text = formatSonnerText(projection({
     workGraph: {
       status: "valid",
@@ -144,7 +144,7 @@ test("escapes every repository-derived string as one safe JSON-style field", () 
   }));
   assert.equal(text.split("\n").length, 10, "embedded separators never create records");
   assert.doesNotMatch(text, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]/);
-  assert.match(text, /\\nnext\\r\\t\\\\quote\\"\\u0000\\u0001\\u007f\\u0085\\u2028\\u2029雪/);
+  assert.match(text, /\\nnext\\r\\t\\\\quote\\"\\u0000\\u0001\\u007f\\u0085\\u2028\\u2029눈/);
   assert.equal(text.endsWith("\n"), true);
 });
 
@@ -277,7 +277,7 @@ test("routes every free-form field through one reversible quoted primitive", () 
 });
 
 test("preserves ordinary Unicode while making only invisible shaping controls visible", () => {
-  const ordinary = "日本語 CJK 雪 😀 עברית e\u0301";
+  const ordinary = "한국어 Hangul 눈 😀 עברית e\u0301";
   const text = formatSonnerText(projection({
     workGraph: {
       status: "valid",
@@ -285,15 +285,15 @@ test("preserves ordinary Unicode while making only invisible shaping controls vi
         id: ordinary,
         type: "Overview",
         summary: "👩‍💻 ❤️",
-        nodePath: "普通/😀",
+        nodePath: "보통/😀",
         inputs: [],
         outputs: [],
       }],
     },
   }));
-  assert.match(text, /id="日本語 CJK 雪 😀 עברית é"/);
+  assert.match(text, /id="한국어 Hangul 눈 😀 עברית é"/);
   assert.match(text, /summary="👩\\u200d💻 ❤\\ufe0f"/);
-  assert.match(text, /node="普通\/😀"/);
+  assert.match(text, /node="보통\/😀"/);
   assert.doesNotMatch(text, /\\u65e5|\\ud83d\\ude00|e\\u0301/);
 });
 
