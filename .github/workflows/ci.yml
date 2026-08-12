@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS (Node 24)
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Check JavaScript syntax
+        shell: bash
+        run: git ls-files -z '*.mjs' | xargs -0 -n1 node --check
+      - name: Run complete repository suite
+        run: node --test "implementation/components/*/tests/*.test.mjs"
+      - name: Ensure tests leave the checkout clean
+        shell: bash
+        run: test -z "$(git status --porcelain)"
+
+  windows:
+    name: Windows (Node 24)
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Check JavaScript syntax
+        shell: bash
+        run: git ls-files -z '*.mjs' | xargs -0 -n1 node --check
+      - name: Run Windows and portable repository suite
+        shell: bash
+        run: |
+          node --test \
+            "implementation/components/runtime/tests/*.test.mjs" \
+            "implementation/components/board/tests/activity-data.test.mjs" \
+            "implementation/components/board/tests/activity-history.test.mjs" \
+            "implementation/components/board/tests/activity-signal-reader-portable.test.mjs" \
+            "implementation/components/board/tests/activity-thread-titles.test.mjs" \
+            "implementation/components/board/tests/board-host.test.mjs" \
+            "implementation/components/board/tests/board-server.test.mjs" \
+            "implementation/components/board/tests/ui-contract.test.mjs" \
+            "implementation/components/contract-tests/tests/plugin-distribution.test.mjs" \
+            "implementation/components/contract-tests/tests/task-communication-contracts.test.mjs" \
+            "implementation/components/sonner/tests/runtime.test.mjs" \
+            "implementation/components/sonner/tests/sonner-lifecycle.test.mjs" \
+            "implementation/components/sonner/tests/sonner-portable-io.test.mjs" \
+            "implementation/components/sonner/tests/sonner-runtime-reader.test.mjs" \
+            "implementation/components/sonner/tests/sonner-task-history-reader.test.mjs" \
+            "implementation/components/sonner/tests/sonner-text.test.mjs" \
+            "implementation/components/sonner/tests/sonner.test.mjs" \
+            "implementation/components/sonner/tests/work-graph.test.mjs"
+      - name: Ensure tests leave the checkout clean
+        shell: bash
+        run: test -z "$(git status --porcelain)"

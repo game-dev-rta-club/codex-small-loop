@@ -25,8 +25,10 @@ node --test "implementation/components/*/tests/*.test.mjs"
 ```
 
 Run the focused tests for the component you change while developing, then run
-the complete command above before opening a pull request. Follow the adjacent
-`BUILD.md` when changing a packaged native helper.
+the complete command above on macOS before opening a pull request. The complete
+suite verifies the packaged macOS native helpers; Windows CI runs the shared
+runtime plus the real Win32 and portable Activity/Sonner paths. Follow the
+adjacent `BUILD.md` when changing a packaged native helper.
 
 ## Pull requests
 

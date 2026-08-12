@@ -1,5 +1,7 @@
 # Codex Small Loop
 
+[![CI](https://github.com/game-dev-rta-club/codex-small-loop/actions/workflows/ci.yml/badge.svg)](https://github.com/game-dev-rta-club/codex-small-loop/actions/workflows/ci.yml)
+
 **The simplest loop-engineering environment for Codex.**
 
 ![A small Agent carries a blueprint through a work-and-review loop and turns it into a finished building.](assets/hero.jpg)
