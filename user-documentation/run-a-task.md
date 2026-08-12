@@ -94,7 +94,7 @@ Controller monitors it, answers routine questions, safely recovers the existing
 task graph when needed, and independently verifies the returned result.
 
 You do not need to open or manage the internal tasks. Codex keeps working inside
-the authority you have already provided. When Slack is connected, Whole Job
+the authority you have already provided. When Slack is connected, Codex Small
 Loop sends a reminder for verified completion, an unrecoverable stop, or
 another item that absolutely must not be missed, while keeping the full
 discussion in this conversation.
