@@ -18,8 +18,7 @@ Use either explicit entry path:
 
 - In Codex Desktop, choose **Codex Small Loop** from the composer’s **+** menu,
   then enter the outcome.
-- In natural language, begin with wording such as **Use Codex Small Loop to ...**
-  or **Codex Small Loopを用いて...**.
+- In natural language, begin with wording such as **Use Codex Small Loop to ...**.
 
 Mentioning Codex Small Loop while discussing or inspecting it does not start the
 workflow. The request must direct Codex to use it for the work.
@@ -43,7 +42,7 @@ recommendations always appear in the same guide.
 
 When the request specifies neither model nor speed, Codex proposes the default:
 
-> Terra Medium・標準で始めてよいですか？
+> Start with Terra Medium at 1x speed?
 
 If the request supplied exactly one setting, Codex preserves it and asks only
 for the missing setting. If it supplied both, Codex accepts them without asking

@@ -213,12 +213,12 @@ test("renders system instructions separately from agent messages", () => {
   assert.equal(
     renderSystemInstructions({
       systemName: "Task System",
-      text: "このtaskはopenです。",
+      text: "This task is open.",
     }),
     `=== Codex Small Loop · Task System (System) ===
 
 === System Instructions ===
-このtaskはopenです。`,
+This task is open.`,
   );
 });
 

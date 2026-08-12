@@ -1963,7 +1963,6 @@ test("public task flow replaces the first-task-only page", async () => {
 
   assert.match(install, /Desktop.*\+|(?:\+|plus).*menu/is);
   assert.match(install, /Use Codex Small Loop to/i);
-  assert.match(install, /Codex Small Loopを用いて/);
   assert.doesNotMatch(
     install,
     /begin with an ordinary request|Start With An Ordinary Request/i,

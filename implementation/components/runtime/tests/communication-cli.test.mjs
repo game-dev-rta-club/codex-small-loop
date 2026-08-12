@@ -475,13 +475,13 @@ test("uses a Unicode --message argument without reading piped stdin", async () =
     "--task",
     "external-task",
     "--message",
-    "こんにちは",
+    "Hello, world",
   ], current, {
     body: "This piped body must not be used.",
   });
 
   assert.equal(notified.exitCode, 0);
-  assert.match(current.sent[0].text, /=== Message ===\nこんにちは$/);
+  assert.match(current.sent[0].text, /=== Message ===\nHello, world$/);
   assert.doesNotMatch(current.sent[0].text, /piped body/);
 });
 

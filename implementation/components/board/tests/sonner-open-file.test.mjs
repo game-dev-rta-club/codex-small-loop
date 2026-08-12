@@ -47,9 +47,9 @@ test("Windows Open fails with a bounded typed result before touching the Mach-O 
 
 test("native opener binds normal files and Work directories as retained references", async (t) => {
   const item = await fixture(t);
-  await writeFile(path.join(item.root, "日本語.md"), "unicode\n");
+  await writeFile(path.join(item.root, "한국어.md"), "unicode\n");
   await link(path.join(item.root, "README.md"), path.join(item.root, "alias.md"));
-  for (const name of ["README.md", "overview", "overview/WORK_NODE.xml", "日本語.md", "alias.md"]) {
+  for (const name of ["README.md", "overview", "overview/WORK_NODE.xml", "한국어.md", "alias.md"]) {
     await openSonnerFileReference(item.project, name, options(item.helper, async () => {}));
   }
   assert.throws(() => encodeSonnerOpenRequest(item.project, "../outside"), (error) => error.code === "SONNER_FILE_INVALID");

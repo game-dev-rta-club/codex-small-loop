@@ -287,10 +287,10 @@ function tree(files, graph) {
   const workDirectories = [...worksByDirectory.keys()].sort(compareText);
   const underWork = (directory) => workDirectories.some((work) => directory === work || directory.startsWith(`${work}/`));
   const omissionSummary = graph.status === "valid"
-    ? "Work Nodeではないため省略"
+    ? "Not in Work Graph"
     : graph.status === "missing"
-      ? "Work Graphがないため省略"
-      : "Work Graphが無効なため省略";
+      ? "Work Graph missing"
+      : "Work Graph invalid";
 
   function directoryNode(directory, root = false) {
     const expanded = root || (graph.status === "valid" && (ancestors.has(directory) || underWork(directory)));

@@ -104,13 +104,13 @@ test("valid graph expands Work routes and explains opaque directories", async (t
   const projected = first.files.root;
   assert.equal(find(projected, "README.md").summary, "Project summary.");
   assert.equal(find(projected, "misc/note.md"), null, "file beneath opaque directory is not projected");
-  assert.deepEqual(find(projected, "misc"), { path: "misc", name: "misc", type: "directory", summary: "Work Nodeではないため省略" });
+  assert.deepEqual(find(projected, "misc"), { path: "misc", name: "misc", type: "directory", summary: "Not in Work Graph" });
   assert.ok(Array.isArray(find(projected, "spec").children), "Work ancestor remains visible");
   assert.equal(find(projected, "spec/work").summary, undefined, "directory summaries are not projected");
   assert.equal(find(projected, "spec/work").work, undefined, "Work metadata stays internal");
   assert.equal(find(projected, "spec/work/detail.md").summary, "Detailed contract.");
   assert.equal(find(projected, "spec/unrelated").children, undefined);
-  assert.equal(find(projected, "spec/unrelated").summary, "Work Nodeではないため省略");
+  assert.equal(find(projected, "spec/unrelated").summary, "Not in Work Graph");
   assert.equal(find(projected, "linked-directory").type, "symlink");
   assert.equal(find(projected, "linked-directory").children, undefined, "symlink target is never followed");
   assert.equal(find(projected, "ignored"), null);
@@ -135,7 +135,7 @@ test("missing and invalid graphs expose distinct stable opaque-directory summari
         path: directory.path,
         name: directory.name,
         type: "directory",
-        summary: graph === "invalid" ? "Work Graphが無効なため省略" : "Work Graphがないため省略",
+        summary: graph === "invalid" ? "Work Graph invalid" : "Work Graph missing",
       });
     });
   }
@@ -152,7 +152,7 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   assert.equal(firstText.stderr, "");
   assert.equal(firstText.stdout, secondText.stdout);
   assert.match(firstText.stdout, /^Sonner v8\nWork Graph: missing\nFiles:\n/);
-  assert.match(firstText.stdout, /Omitted Directory path="docs" reason="Work Graphがないため省略"/);
+  assert.match(firstText.stdout, /Omitted Directory path="docs" reason="Work Graph missing"/);
   assert.match(firstText.stdout, /File path="README\.md" summary="CLI project \\u202eTXT \\u200d \\ufe0f"/);
   assert.equal(firstText.stdout.includes("\u202e"), false);
   assert.equal(firstText.stdout.includes("\u200d"), false);

@@ -18,7 +18,7 @@ clarification to verified delivery.
 Register this repository as a plugin marketplace, then install the plugin:
 
 ```sh
-codex plugin marketplace add nikollson/codex-small-loop
+codex plugin marketplace add game-dev-rta-club/codex-small-loop
 codex plugin add codex-small-loop@codex-small-loop
 ```
 

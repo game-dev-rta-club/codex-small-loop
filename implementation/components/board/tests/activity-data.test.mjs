@@ -445,23 +445,23 @@ test("selected Activity continuation reads only append bytes and promotes Output
   assert.deepEqual(unchanged, { status: "unchanged", revision: 1, appendedBytes: 0 });
 
   const start = JSON.stringify({ type: "event_msg", timestamp: "2026-08-01T00:01:00.000Z", payload: { type: "task_started", turn_id: "next", started_at: "2026-08-01T00:01:00.000Z" } });
-  const message = JSON.stringify({ type: "event_msg", timestamp: "2026-08-01T00:01:01.000Z", payload: { type: "agent_message", message: "追記 output" } });
+  const message = JSON.stringify({ type: "event_msg", timestamp: "2026-08-01T00:01:01.000Z", payload: { type: "agent_message", message: "추가 output" } });
   const messageBytes = Buffer.from(message);
-  const split = messageBytes.indexOf(Buffer.from("追")) + 1;
+  const split = messageBytes.indexOf(Buffer.from("추")) + 1;
   await appendFile(file, `${start}\n`);
   await appendFile(file, messageBytes.subarray(0, split));
   const partial = await updateActivityLiveSession(live, { revision: 1 });
   assert.equal(partial.status, "changed");
   assert.equal(partial.revision, 2);
   assert.equal(partial.appendedBytes, Buffer.byteLength(`${start}\n`) + split);
-  assert.equal(JSON.stringify(partial.detail).includes("追記 output"), false);
+  assert.equal(JSON.stringify(partial.detail).includes("추가 output"), false);
 
   const complete = JSON.stringify({ type: "event_msg", timestamp: "2026-08-01T00:01:02.000Z", payload: { type: "task_complete", turn_id: "next", completed_at: "2026-08-01T00:01:02.000Z" } });
   await appendFile(file, Buffer.concat([messageBytes.subarray(split), Buffer.from(`\n${complete}\n`)]));
   const updated = await updateActivityLiveSession(live, { revision: 2 });
   assert.equal(updated.status, "changed");
   const visible = updated.detail.agents[0].records.filter((record) => record.kind === "output");
-  assert.deepEqual(visible.map((record) => record.text), ["追記 output"]);
+  assert.deepEqual(visible.map((record) => record.text), ["추가 output"]);
   assert.equal(updated.detail.agents[0].lifecycleState, "complete");
 
   await assert.rejects(updateActivityLiveSession(live, { revision: 2 }), (error) =>
