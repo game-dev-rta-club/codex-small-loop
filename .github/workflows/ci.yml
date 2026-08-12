@@ -51,7 +51,7 @@ jobs:
       - name: Run Windows and portable repository suite
         shell: bash
         run: |
-          node --test \
+          node --test --test-concurrency=1 \
             "implementation/components/runtime/tests/*.test.mjs" \
             "implementation/components/board/tests/activity-data.test.mjs" \
             "implementation/components/board/tests/activity-history.test.mjs" \
