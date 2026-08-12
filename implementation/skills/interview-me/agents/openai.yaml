@@ -1,0 +1,6 @@
+interface:
+  display_name: "codex-small-loop:interview-me"
+  short_description: "Clarify ambiguous Codex Small Loop requests"
+  default_prompt: "Use $codex-small-loop:interview-me to clarify this active Codex Small Loop request before planning."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,6 @@
+interface:
+  display_name: "codex-small-loop:handling-user-requests"
+  short_description: "Start Codex Small Loop with its welcome guide"
+  default_prompt: "Use $codex-small-loop:handling-user-requests to run this request with Codex Small Loop."
+policy:
+  allow_implicit_invocation: true

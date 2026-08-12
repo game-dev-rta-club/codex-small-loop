@@ -1,0 +1,75 @@
+{
+  "recordedAt": "2026-08-08T14:26:45+09:00",
+  "benchmark": {
+    "name": "Artificial Analysis Intelligence Index",
+    "version": "v4.1.1",
+    "sourceUrl": "https://artificialanalysis.ai/models/gpt-5-6-terra-medium"
+  },
+  "defaultProfile": {
+    "modelId": "terra-medium",
+    "speedId": "normal",
+    "summary": "the standard profile"
+  },
+  "models": [
+    {
+      "id": "luna-max",
+      "label": "Luna Max",
+      "recommendedPlan": "Plus",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "summary": "Keeping costs low",
+      "aaScore": 52,
+      "aaCostUsd": 172,
+      "aaTimeSeconds": 108
+    },
+    {
+      "id": "terra-medium",
+      "label": "Terra Medium",
+      "recommendedPlan": "Plus",
+      "model": "gpt-5.6-terra",
+      "reasoningEffort": "medium",
+      "summary": "Finishing quickly",
+      "aaScore": 47,
+      "aaCostUsd": 192,
+      "aaTimeSeconds": 37
+    },
+    {
+      "id": "sol-low",
+      "label": "Sol Low",
+      "recommendedPlan": "Pro 5x",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "low",
+      "summary": "Balancing cost, speed, and accuracy",
+      "aaScore": 51,
+      "aaCostUsd": 344,
+      "aaTimeSeconds": 46
+    },
+    {
+      "id": "sol-medium",
+      "label": "Sol Medium",
+      "recommendedPlan": "Pro 20x",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "summary": "Prioritizing accuracy",
+      "aaScore": 56,
+      "aaCostUsd": 580,
+      "aaTimeSeconds": 79
+    }
+  ],
+  "speeds": [
+    {
+      "id": "normal",
+      "label": "1x",
+      "serviceTier": null,
+      "speedMultiplier": 1,
+      "tokenMultiplier": 1
+    },
+    {
+      "id": "fast",
+      "label": "1.5x",
+      "serviceTier": "priority",
+      "speedMultiplier": 1.5,
+      "tokenMultiplier": 2.5
+    }
+  ]
+}

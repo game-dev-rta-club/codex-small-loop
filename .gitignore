@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env
+.env.*
+*.pem
+
+# macOS metadata.
+.DS_Store
+
+# Development agents run outside this product repository.
+.agents/*
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json
+.gh-skill-linker.json
+.gh-skill-linker-*.tmp
+
+# Local Obsidian vault state.
+.obsidian/
+/.codex-small-loop/

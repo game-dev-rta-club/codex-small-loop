@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Codex Small Loop</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div id="shell" class="shell" data-view="activity">
+      <nav class="activity-bar" aria-label="Board views">
+        <div class="activity-brand" aria-hidden="true">W</div>
+        <button id="activity-view-button" class="activity-button" type="button" aria-label="Activity" aria-pressed="true" aria-controls="activity-view" title="Activity" data-label="Activity">
+          <svg class="task-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5 15.5 10M15.5 14 8.5 18.5"/><circle cx="6" cy="5" r="2.25"/><circle cx="18" cy="12" r="2.25"/><circle cx="6" cy="19" r="2.25"/></svg><span class="sr-only">Activity</span>
+        </button>
+        <button id="sonner-view-button" class="activity-button" type="button" aria-label="Sonner" aria-pressed="false" aria-controls="sonner-view" title="Sonner" data-label="Sonner">
+          <span class="sonner-glyph sonner-glyph-small" aria-hidden="true"><span></span></span><span class="sr-only">Sonner</span>
+        </button>
+      </nav>
+      <aside id="activity-sidebar" class="sidebar">
+        <div class="brand"><span class="brand-mark">W</span><span>Codex Small Loop</span></div>
+        <p class="eyebrow">ACTIVITIES</p>
+        <nav id="activities" aria-label="Primary Activities"></nav>
+      </aside>
+      <main>
+        <section id="activity-view" class="view activity-view" aria-labelledby="title">
+          <header>
+            <div><p class="eyebrow">ACTIVITY</p><h1 id="title">Loading…</h1></div>
+            <button id="refresh" class="quiet" type="button">Refresh</button>
+          </header>
+          <p id="status" role="status" aria-live="polite"></p>
+          <section class="panel timeline-panel" aria-labelledby="timeline-title">
+            <div class="section-head"><h2 id="timeline-title">Timeline</h2><div id="metrics" class="metrics"></div></div>
+            <div id="timeline" class="timeline-scroll" role="region" aria-labelledby="timeline-title" tabindex="-1"></div>
+          </section>
+          <section class="panel detail-panel">
+            <div class="tabs" role="tablist" aria-label="Activity details">
+              <button id="agents-tab" role="tab" aria-selected="true" aria-controls="agents-panel">Agents</button>
+              <button id="signals-tab" role="tab" aria-selected="false" aria-controls="signals-panel" tabindex="-1">Reviews</button>
+            </div>
+            <div id="agents-panel" class="tab-panel split" role="tabpanel" aria-labelledby="agents-tab">
+              <nav id="agents" class="items" aria-label="Agents"></nav><div id="agent-detail" class="record-detail"></div>
+            </div>
+            <div id="signals-panel" class="tab-panel split" role="tabpanel" aria-labelledby="signals-tab" hidden>
+              <nav id="signals" class="items" aria-label="Reviews"></nav><div id="signal-detail" class="record-detail"></div>
+            </div>
+          </section>
+        </section>
+        <section id="sonner-view" class="view sonner-view" aria-label="Sonner" hidden>
+          <header class="sonner-header">
+            <div class="sonner-heading">
+              <span class="sonner-glyph sonner-glyph-large" aria-hidden="true"><span></span></span>
+              <div><p class="eyebrow">PROJECT OVERVIEW</p><h1 id="sonner-title">Sonner</h1></div>
+            </div>
+          </header>
+          <p id="sonner-status" role="status" aria-live="polite">Select Sonner to load the project index.</p>
+          <section class="panel sonner-panel" aria-label="Sonner project overview">
+            <div class="sonner-panel-head">
+              <div class="tabs sonner-tabs" role="tablist" aria-label="Sonner details">
+                <button id="work-graph-tab" role="tab" aria-selected="true" aria-controls="work-graph-panel">Work Graph</button>
+                <button id="files-tab" role="tab" aria-selected="false" aria-controls="files-panel" tabindex="-1">Files</button>
+                <button id="runtime-tab" role="tab" aria-selected="false" aria-controls="runtime-panel" tabindex="-1">Runtime</button>
+              </div>
+              <div class="sonner-panel-actions">
+                <time id="sonner-loaded-at" class="sonner-loaded-at" aria-live="polite"></time>
+                <button id="sonner-refresh" class="quiet" type="button">Refresh</button>
+              </div>
+            </div>
+            <div id="work-graph-panel" class="sonner-tab-panel" role="tabpanel" aria-labelledby="work-graph-tab">
+              <div class="work-graph-toolbar" role="group" aria-label="Work Graph zoom">
+                <button id="work-graph-zoom-out" class="work-graph-zoom-button" type="button" aria-label="Zoom out" disabled>−</button>
+                <button id="work-graph-zoom-reset" class="work-graph-zoom-reset" type="button" aria-label="Reset Work Graph zoom to 100%" disabled>100%</button>
+                <button id="work-graph-zoom-in" class="work-graph-zoom-button" type="button" aria-label="Zoom in" disabled>+</button>
+              </div>
+              <div id="work-graph-layout" class="work-graph-layout" role="region" aria-label="Sonner Work Graph">
+                <p class="empty">Sonner Work Graph has not been loaded.</p>
+              </div>
+              <section id="work-detail" class="work-detail" aria-label="Selected Work details" aria-live="polite" hidden></section>
+            </div>
+            <div id="files-panel" class="sonner-tab-panel" role="tabpanel" aria-labelledby="files-tab" hidden>
+              <div id="files-tree" class="files-tree" role="tree" aria-label="Sonner Files tree">
+                <p class="empty">Sonner Files have not been loaded.</p>
+              </div>
+            </div>
+            <div id="runtime-panel" class="sonner-tab-panel" role="tabpanel" aria-labelledby="runtime-tab" hidden>
+              <section class="runtime-view" aria-label="Current Runtime health">
+                <div id="runtime-overall" class="runtime-overall"><p class="empty">Sonner Runtime has not been loaded.</p></div>
+                <div id="runtime-task-list" class="runtime-task-list" role="region" tabindex="-1" aria-label="Active Tasks"></div>
+              </section>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script src="/vendor/elk.bundled.js"></script>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

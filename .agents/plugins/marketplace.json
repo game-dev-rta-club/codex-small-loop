@@ -1,0 +1,20 @@
+{
+  "name": "codex-small-loop",
+  "interface": {
+    "displayName": "Codex Small Loop"
+  },
+  "plugins": [
+    {
+      "name": "codex-small-loop",
+      "source": {
+        "source": "local",
+        "path": "./implementation"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

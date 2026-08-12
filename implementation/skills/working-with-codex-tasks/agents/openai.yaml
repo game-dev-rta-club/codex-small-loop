@@ -1,0 +1,6 @@
+interface:
+  display_name: "codex-small-loop:working-with-codex-tasks"
+  short_description: "Create, message, and recover Codex tasks"
+  default_prompt: "Use $codex-small-loop:working-with-codex-tasks to operate this Codex task relationship."
+policy:
+  allow_implicit_invocation: false

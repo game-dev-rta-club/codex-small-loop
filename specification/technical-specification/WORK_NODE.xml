@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<work-node id="technical-specification" type="TechnicalSpecification">
+  <summary>Defines the plugin package and stable local runtime capabilities for project state, task coordination, conversations, review records, lifecycle, recovery, Desktop transport, and integrations.</summary>
+  <inputs>
+    <input ref="interaction-specification" />
+    <input ref="system-specification" />
+  </inputs>
+</work-node>

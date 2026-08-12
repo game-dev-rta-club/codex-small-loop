@@ -1,0 +1,34 @@
+{
+  "name": "codex-small-loop",
+  "version": "0.1.0+codex.20260812044253",
+  "description": "A Codex-native loop-engineering environment for delegating outcomes and continuing until completion is proven.",
+  "author": {
+    "name": "Nikollson",
+    "url": "https://github.com/nikollson"
+  },
+  "homepage": "https://github.com/nikollson/codex-small-loop",
+  "repository": "https://github.com/nikollson/codex-small-loop",
+  "keywords": [
+    "codex",
+    "orchestration",
+    "loop-engineering"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Small Loop",
+    "shortDescription": "Give Codex the whole job.",
+    "longDescription": "A minimal Codex-native environment that keeps work moving toward a proven outcome.",
+    "developerName": "Nikollson",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use Codex Small Loop to complete this request."
+    ],
+    "brandColor": "#5B5BD6",
+    "composerIcon": "./assets/codex-small-loop.svg",
+    "logo": "./assets/codex-small-loop.svg"
+  }
+}

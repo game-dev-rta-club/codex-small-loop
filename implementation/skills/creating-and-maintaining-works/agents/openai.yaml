@@ -1,0 +1,6 @@
+interface:
+  display_name: "codex-small-loop:creating-and-maintaining-works"
+  short_description: "Create and change Works without losing traceability"
+  default_prompt: "Use $codex-small-loop:creating-and-maintaining-works to change project Works while preserving atomic knowledge, links, and downstream consistency."
+policy:
+  allow_implicit_invocation: false

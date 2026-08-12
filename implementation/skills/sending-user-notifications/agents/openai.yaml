@@ -1,0 +1,6 @@
+interface:
+  display_name: "codex-small-loop:sending-user-notifications"
+  short_description: "Route Codex Small Loop progress and authority notices"
+  default_prompt: "Use $codex-small-loop:sending-user-notifications to route this Codex Small Loop notification."
+policy:
+  allow_implicit_invocation: false

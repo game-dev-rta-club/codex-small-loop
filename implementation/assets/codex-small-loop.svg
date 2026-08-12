@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Codex Small Loop</title>
+  <desc id="desc">Three connected arrows forming a continuous loop.</desc>
+  <rect width="512" height="512" rx="112" fill="#EEEEFF"/>
+  <path d="M151 155c28-25 64-39 105-39 62 0 116 35 143 87" fill="none" stroke="#5B5BD6" stroke-width="42" stroke-linecap="round"/>
+  <path d="m395 143 12 75-75-12" fill="none" stroke="#5B5BD6" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M403 288c-13 62-65 108-130 113-38 3-74-8-103-30" fill="none" stroke="#3D3DA8" stroke-width="42" stroke-linecap="round"/>
+  <path d="m220 406-72-24 24-72" fill="none" stroke="#3D3DA8" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M112 304c-16-57 3-119 49-157" fill="none" stroke="#7C7CE8" stroke-width="42" stroke-linecap="round"/>
+  <path d="m105 174 59-48 48 59" fill="none" stroke="#7C7CE8" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
