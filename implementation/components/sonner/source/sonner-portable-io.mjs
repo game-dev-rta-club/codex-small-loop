@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 
 import { createTaskEventReducer, scanCodexTaskEvents } from "../../runtime/source/codex-jsonl.mjs";
 import { locateTaskHistories, resolveCodexSessionRoots } from "../../runtime/source/codex-session-locator.mjs";
+import { isExcludedSonnerProjectPath } from "./sonner-path-policy.mjs";
 
 const execFileAsync = promisify(execFile);
 const MAX_GIT_BYTES = 32 * 1024 * 1024;
@@ -118,7 +119,52 @@ function parseGitPaths(output, maximum = MAX_GIT_BYTES) {
   if (paths.length > MAX_PATHS || paths.some((entry) => !validProjectPath(entry))) {
     throw portableError("Sonner Git paths are invalid or bounded.");
   }
-  return [...new Set(paths)].sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+  return [...new Set(paths)]
+    .filter((entry) => !isExcludedSonnerProjectPath(entry))
+    .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+}
+
+async function readPortableDirectory(session, projectPath) {
+  await assertRoot(session);
+  const directory = projectPath.length === 0
+    ? session.project.root
+    : path.join(session.project.root, ...projectPath.split("/"));
+  let retained = [];
+  let before;
+  if (projectPath.length > 0) {
+    if (!validProjectPath(projectPath)) throw portableError("Invalid Sonner project path.");
+    retained = await inspectAncestors(session.project.root, `${projectPath}/_`);
+    before = await lstat(directory, { bigint: true });
+    if (!before.isDirectory() || before.isSymbolicLink()) throw portableError("Sonner directory is unsafe.");
+  }
+  const entries = await readdir(directory, { withFileTypes: true });
+  if (projectPath.length > 0) {
+    const after = await lstat(directory, { bigint: true });
+    if (!after.isDirectory() || after.isSymbolicLink() || !sameIdentity(before, after)
+        || !(await revalidateAncestors(retained))) throw portableError("Sonner directory changed while reading.");
+  }
+  await assertRoot(session);
+  return entries.sort((left, right) => Buffer.compare(Buffer.from(left.name), Buffer.from(right.name)));
+}
+
+async function discoverPortableWorkPaths(session) {
+  const directories = [""];
+  const works = [];
+  let discovered = 0;
+  while (directories.length > 0) {
+    session.throwIfAborted();
+    const directory = directories.shift();
+    const entries = await readPortableDirectory(session, directory);
+    discovered += entries.length;
+    if (discovered > MAX_PATHS) throw portableError("Sonner project path count is bounded.");
+    for (const entry of entries) {
+      const projectPath = directory.length > 0 ? `${directory}/${entry.name}` : entry.name;
+      if (!validProjectPath(projectPath) || isExcludedSonnerProjectPath(projectPath)) continue;
+      if (entry.isDirectory()) directories.push(projectPath);
+      else if (entry.isFile() && entry.name === "WORK_NODE.xml") works.push(projectPath);
+    }
+  }
+  return works.sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
 }
 
 async function admittedPaths(session, environment = process.env) {
@@ -161,7 +207,9 @@ export async function readPortableSonnerProject({ project, session, includeFiles
   maxWorks = 1024, maxWorkBytes = 256 * 1024, maxOutputBytes = 16 * 1024 * 1024,
   environment = process.env } = {}) {
   if (!session || session.project !== project || session.closed || session.platform !== "win32") throw portableError();
-  const paths = await admittedPaths(session, environment);
+  const paths = includeFiles
+    ? await admittedPaths(session, environment)
+    : await discoverPortableWorkPaths(session);
   const entries = [];
   const works = [];
   let outputBytes = 0;

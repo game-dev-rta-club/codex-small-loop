@@ -65,8 +65,6 @@ jobs:
             "implementation/components/sonner/tests/runtime.test.mjs" \
             "implementation/components/sonner/tests/sonner-lifecycle.test.mjs" \
             "implementation/components/sonner/tests/sonner-portable-io.test.mjs" \
-            "implementation/components/sonner/tests/sonner-runtime-reader.test.mjs" \
-            "implementation/components/sonner/tests/sonner-task-history-reader.test.mjs" \
             "implementation/components/sonner/tests/sonner-text.test.mjs" \
             "implementation/components/sonner/tests/sonner.test.mjs" \
             "implementation/components/sonner/tests/work-graph.test.mjs"

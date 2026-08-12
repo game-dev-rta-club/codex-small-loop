@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import { readPortableSonnerProject } from "./sonner-portable-io.mjs";
+import { isExcludedSonnerProjectPath } from "./sonner-path-policy.mjs";
 
 export const SONNER_READER_PROTOCOL_VERSION = 2;
 export const SONNER_READER_TIMEOUT_MS = 5_000;
@@ -29,11 +30,6 @@ const X86_64 = 0x01000007;
 const FAT_MAGIC = 0xcafebabe;
 const FAT_MAGIC_64 = 0xcafebabf;
 const DARWIN_O_NOFOLLOW_ANY = 0x20000000;
-const EXCLUDED_DIRECTORY_NAMES = new Set([
-  ".git", ".codex-small-loop", ".cache", ".next", ".parcel-cache",
-  ".pytest_cache", ".turbo", "__pycache__", "build", "cache",
-  "coverage", "dist", "node_modules", "out", "target",
-]);
 const componentRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const PACKAGED_SONNER_PROJECT_READER = path.join(componentRoot, "native", "sonner-project-reader");
 const execFileAsync = promisify(execFile);
@@ -56,10 +52,6 @@ export function isSonnerOperationAbort(error) {
 
 function compareText(left, right) {
   return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
-}
-
-function isExcluded(projectPath) {
-  return projectPath.split("/").some((part) => EXCLUDED_DIRECTORY_NAMES.has(part));
 }
 
 export function isValidSonnerProjectPath(value) {
@@ -155,7 +147,7 @@ export function parseSonnerGitOutput(output, { maxOutputBytes = SONNER_GIT_MAX_O
     decoded.push({ raw, value });
   }
   decoded.sort((left, right) => Buffer.compare(left.raw, right.raw));
-  return decoded.map((entry) => entry.value).filter((value) => !isExcluded(value));
+  return decoded.map((entry) => entry.value).filter((value) => !isExcludedSonnerProjectPath(value));
 }
 
 function gitEnvironment(environment = process.env) {
