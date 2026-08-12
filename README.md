@@ -112,3 +112,7 @@ and tool permissions before allowing changes to important repositories.
 - [Project overview](overview/overview.md)
 - [Work Graph concept](specification/system-specification/work-graph/concept.md)
 - [Implementation and testing](implementation/testing.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+
+Codex Small Loop is available under the [MIT License](LICENSE).
