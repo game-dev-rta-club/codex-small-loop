@@ -2,6 +2,8 @@
 
 **The simplest loop-engineering environment for Codex.**
 
+![A small Agent carries a blueprint through a work-and-review loop and turns it into a finished building.](assets/hero.jpg)
+
 Codex Small Loop turns one software request into a long-running, reviewed,
 multi-agent implementation inside Codex Desktop. Codex plans the work, divides
 it between focused agents, checks the result from four perspectives, applies
