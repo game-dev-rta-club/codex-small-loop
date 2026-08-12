@@ -1711,6 +1711,7 @@ test("current project Works form an Overview-rooted graph", async () => {
   );
   assert.deepEqual(implementationEntries.sort(), [
     ".codex-plugin",
+    "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "WORK_NODE.xml",
     "assets",
@@ -1720,6 +1721,7 @@ test("current project Works form an Overview-rooted graph", async () => {
     "testing.md",
     "third_party",
   ]);
+  assert.equal(await read("implementation/LICENSE"), await read("LICENSE"));
 
   const repositoryStructure = await read(
     "specification/technical-specification/package/repository-structure.md",
@@ -2380,6 +2382,7 @@ test("Sonner packages its signed universal descriptor-anchored project reader", 
   const manifest = JSON.parse(await read("implementation/.codex-plugin/plugin.json"));
   const marketplace = JSON.parse(await read(".agents/plugins/marketplace.json"));
   assert.match(manifest.version, /^0\.1\.0\+codex\.\d{14}$/);
+  assert.equal(manifest.license, "MIT");
   const versionOccurrences = [];
   for (const relative of await listRepositoryFiles()) {
     const matches = (await readFile(path.join(repositoryRoot, relative)))

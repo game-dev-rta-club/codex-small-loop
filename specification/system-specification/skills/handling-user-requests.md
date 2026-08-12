@@ -8,9 +8,9 @@ summary: >-
 # Handling User Requests
 
 `codex-small-loop:handling-user-requests` activates only when the user selects
-Codex Small Loop, explicitly invokes the Skill, or directly asks to use Whole Job
-Loop for the current request. Discussion or inspection of Codex Small Loop does
-not activate the workflow.
+Codex Small Loop, explicitly invokes the Skill, or directly asks to use it for
+the current request. Discussion or inspection of Codex Small Loop does not
+activate the workflow.
 
 The Skill owns the latency-sensitive initial setup boundary. Before project,
 external-context, or requested-deliverable investigation, it reads the

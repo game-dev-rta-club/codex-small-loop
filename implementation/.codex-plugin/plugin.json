@@ -1,6 +1,6 @@
 {
   "name": "codex-small-loop",
-  "version": "0.1.0+codex.20260812044253",
+  "version": "0.1.0+codex.20260812055640",
   "description": "A Codex-native loop-engineering environment for delegating outcomes and continuing until completion is proven.",
   "author": {
     "name": "Game Dev RTA Club",
@@ -8,6 +8,7 @@
   },
   "homepage": "https://github.com/game-dev-rta-club/codex-small-loop",
   "repository": "https://github.com/game-dev-rta-club/codex-small-loop",
+  "license": "MIT",
   "keywords": [
     "codex",
     "orchestration",

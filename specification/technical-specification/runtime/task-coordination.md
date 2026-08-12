@@ -91,7 +91,7 @@ the caller to resume that Child; a deferred fork without one directs the caller
 to inspect runtime status. Failures before accepted or durable task state return
 `run: "failed"` and exit status `1`.
 
-Names are explicit and unique among one Parent's direct Children. Whole Job
+Names are explicit and unique among one Parent's direct Children. Codex Small
 Loop does not infer the caller's Task ID or invent an agent name.
 
 For `create`, Codex Small Loop reads the direct Parent's effective model,
@@ -106,8 +106,8 @@ service tier. This read does not call `thread/resume` or acquire a second writer
 for an App-owned source Task. Missing, malformed, cwd-mismatched, or
 unrepresentable authority evidence fails closed before Child creation.
 Model and reasoning effort form one pair: both must be omitted or both must be
-provided. Service tier is independent and may be overridden on its own. Whole
-Job Loop passes the fully resolved three-field profile explicitly to Codex task
+provided. Service tier is independent and may be overridden on its own. Codex
+Small Loop passes the fully resolved three-field profile explicitly to Codex task
 creation or fork and to both Child turns. The Codex response must confirm the
 expected profile before the Child ID is accepted.
 
