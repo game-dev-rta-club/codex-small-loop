@@ -26,9 +26,36 @@ test("working-with-codex-tasks is the explicit primitive Task Skill", async () =
   assert.match(frontmatter, /conversing/i);
   assert.match(frontmatter, /stopping/i);
   assert.match(frontmatter, /resuming/i);
+  assert.match(frontmatter, /reading/i);
+  assert.match(frontmatter, /waiting/i);
+  assert.match(frontmatter, /scheduling/i);
+  assert.match(frontmatter, /monitoring/i);
   assert.match(frontmatter, /recovering/i);
   assert.match(metadata, /codex-small-loop:working-with-codex-tasks/);
   assert.match(metadata, /allow_implicit_invocation:\s*false/);
+});
+
+test("Task Skill routes Codex Small Loop schedules through one CAS command", async () => {
+  const skill = await read("implementation/skills/working-with-codex-tasks/SKILL.md");
+
+  assert.match(skill, /schedule\.mjs apply[\s\S]*--if-match absent/is);
+  assert.match(skill, /opaque etag[\s\S]*schedule\.mjs read/is);
+  assert.match(skill, /schedule\.mjs delete[\s\S]*--if-match <returned-etag>/is);
+  assert.match(skill, /After apply, read back[\s\S]*After delete[\s\S]*present: false/is);
+  assert.match(skill, /Do not use Codex App `automation_update`/i);
+  assert.match(skill, /do not edit automation TOML/i);
+});
+
+test("Task Skill observes direct delivery through exact Codex Small Loop turns", async () => {
+  const skill = await read("implementation/skills/working-with-codex-tasks/SKILL.md");
+
+  assert.match(skill, /task\.mjs read[\s\S]*--task[\s\S]*--turn/i);
+  assert.match(skill, /task\.mjs wait[\s\S]*--task[\s\S]*--turn/i);
+  assert.match(skill, /timedOut:\s*"?true"?[\s\S]*not a[\s\S]*failure/i);
+  assert.match(skill, /delivery:\s*"started"|"steered"/i);
+  assert.match(skill, /delivery:\s*"queued"[\s\S]*never invent a Turn ID/i);
+  assert.match(skill, /Do not use Codex App `read_thread` or `wait_threads`/i);
+  assert.match(skill, /do not use those App tools as fallback/i);
 });
 
 test("Task mechanics cover create, fork, profile inheritance, and lifecycle", async () => {

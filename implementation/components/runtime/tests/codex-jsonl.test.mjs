@@ -316,6 +316,48 @@ test("ignores blank and unrelated records and strips conversation fields", async
   assert.equal(summary.lineCount, 4);
 });
 
+test("exposes only the exact completion answer when explicitly requested", async () => {
+  const events = [];
+  await scanCodexTaskEvents(
+    Readable.from([
+      line(envelope("task_started", "turn-a", {
+        last_agent_message: "must not escape from start",
+      })),
+      line(envelope("task_complete", "turn-a", {
+        last_agent_message: "READY_FOR_EXECUTION",
+        tool_arguments: { private: true },
+      })),
+    ]),
+    (event) => events.push(event),
+    { includeFinalAnswer: true },
+  );
+
+  assert.deepEqual(events, [
+    { type: "task_started", turnId: "turn-a" },
+    {
+      type: "task_complete",
+      turnId: "turn-a",
+      finalAnswer: "READY_FOR_EXECUTION",
+    },
+  ]);
+  assert.deepEqual(
+    reduceTaskEvents(events, {
+      mode: "exact",
+      turnId: "turn-a",
+      includeFinalAnswer: true,
+    }),
+    {
+      mode: "exact",
+      turnId: "turn-a",
+      turnState: "ended",
+      finalAnswer: "READY_FOR_EXECUTION",
+      diagnostics: [],
+    },
+  );
+  assert.equal(JSON.stringify(events).includes("private"), false);
+  assert.equal(JSON.stringify(events).includes("must not escape"), false);
+});
+
 test("parses a valid final line and ignores only a malformed incomplete tail", async () => {
   const valid = await scan([line(envelope("task_started", "turn-a"), "")]);
   assert.deepEqual(valid.events, [{ type: "task_started", turnId: "turn-a" }]);

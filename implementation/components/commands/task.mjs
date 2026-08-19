@@ -11,6 +11,11 @@ import {
   startRecoverySupervisor,
 } from "../runtime/source/recovery-supervisor.mjs";
 import { runLifecycleOperation } from "../runtime/source/task-lifecycle.mjs";
+import {
+  MAX_TASK_WAIT_TIMEOUT_MS,
+  readExactTaskTurn,
+  waitForExactTaskTurn,
+} from "../runtime/source/task-turn-observation.mjs";
 
 const MAX_MESSAGE_LENGTH = 512;
 const MAX_ASSIGNMENT_BYTES = 64 * 1_024;
@@ -50,6 +55,12 @@ Fork a new managed Task with inherited conversation context:
 
 Stop or resume a managed Task tree:
   task stop|resume --task <task-id> [--project-root <directory>]
+
+Read one exact Task turn without waiting:
+  task read --task <task-id> --turn <turn-id>
+
+Wait for one exact Task turn to end or abort:
+  task wait --task <task-id> --turn <turn-id> [--timeout-ms <0-${MAX_TASK_WAIT_TIMEOUT_MS}>]
 
 Pipe or here-document the Child assignment to create and fork without a PTY.
 Use --service-tier default to explicitly select the normal Codex tier.
@@ -314,6 +325,85 @@ function parseCommandArgs(argv, cwd, {
   };
 }
 
+function parseObservationArgs(argv, command) {
+  let taskId;
+  let turnId;
+  let timeoutMs;
+  const seen = new Set();
+  const allowedOptions = new Set(["--task", "--turn"]);
+  if (command === "wait") allowedOptions.add("--timeout-ms");
+
+  for (let index = 1; index < argv.length; index += 1) {
+    const option = argv[index];
+    if (!allowedOptions.has(option)) {
+      throw cliError(
+        "TASK_CLI_USAGE",
+        `Unsupported task ${command} argument: ${bounded(option, 128)}`,
+        command,
+      );
+    }
+    if (seen.has(option)) {
+      throw cliError(
+        "TASK_CLI_USAGE",
+        `Task ${command} argument is repeated: ${option}`,
+        command,
+      );
+    }
+    seen.add(option);
+    const value = argv[index + 1];
+    if (value === undefined || value.startsWith("--")) {
+      throw cliError(
+        "TASK_CLI_USAGE",
+        `Task ${command} argument requires a value: ${option}`,
+        command,
+      );
+    }
+    index += 1;
+    if (option === "--task") taskId = value;
+    else if (option === "--turn") turnId = value;
+    else {
+      if (!/^(?:0|[1-9]\d*)$/.test(value)) {
+        throw cliError(
+          "TASK_WAIT_TIMEOUT_INVALID",
+          `--timeout-ms must be an integer from 0 to ${MAX_TASK_WAIT_TIMEOUT_MS}`,
+          command,
+        );
+      }
+      timeoutMs = Number(value);
+      if (
+        !Number.isSafeInteger(timeoutMs)
+        || timeoutMs > MAX_TASK_WAIT_TIMEOUT_MS
+      ) {
+        throw cliError(
+          "TASK_WAIT_TIMEOUT_INVALID",
+          `--timeout-ms must be an integer from 0 to ${MAX_TASK_WAIT_TIMEOUT_MS}`,
+          command,
+        );
+      }
+    }
+  }
+
+  if (!validTaskId(taskId)) {
+    throw cliError(
+      taskId === undefined ? "TASK_ID_REQUIRED" : "TASK_ID_INVALID",
+      `task ${command} requires --task <task-id>`,
+      command,
+    );
+  }
+  if (!validTaskId(turnId)) {
+    throw cliError(
+      turnId === undefined ? "TURN_ID_REQUIRED" : "TURN_ID_INVALID",
+      `task ${command} requires --turn <turn-id>`,
+      command,
+    );
+  }
+  return {
+    taskId,
+    turnId,
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  };
+}
+
 function parseArgs(argv, cwd) {
   if (!Array.isArray(argv) || argv.some((arg) => typeof arg !== "string")) {
     throw new TypeError("argv must be an array of strings");
@@ -323,6 +413,12 @@ function parseArgs(argv, cwd) {
     return {
       command,
       input: parseLaunchArgs(argv, cwd, command),
+    };
+  }
+  if (command === "read" || command === "wait") {
+    return {
+      command,
+      input: parseObservationArgs(argv, command),
     };
   }
   const lifecycleCommand = LIFECYCLE_COMMANDS.get(command);
@@ -437,6 +533,8 @@ export async function runTaskCli(argv, options = {}) {
   const launch = options.launch ?? launchTask;
   const fork = options.fork ?? forkTask;
   const lifecycle = options.lifecycle ?? runLifecycleOperation;
+  const readTurn = options.readTurn ?? readExactTaskTurn;
+  const waitTurn = options.waitTurn ?? waitForExactTaskTurn;
   const startSupervisor = options.startSupervisor
     ?? startRecoverySupervisor;
   let operation = "task";
@@ -463,7 +561,11 @@ export async function runTaskCli(argv, options = {}) {
       ? await launch(parsed.input)
       : parsed.command === "fork"
         ? await fork(parsed.input)
-        : await lifecycle(parsed.input);
+        : parsed.command === "read"
+          ? await readTurn(parsed.input)
+          : parsed.command === "wait"
+            ? await waitTurn(parsed.input)
+            : await lifecycle(parsed.input);
     if (parsed.command === "create") {
       result = { ...result, operation: "create" };
     }

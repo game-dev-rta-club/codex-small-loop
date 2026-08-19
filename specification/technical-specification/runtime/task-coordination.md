@@ -13,8 +13,11 @@ record launch ancestry separately from communication state.
 ## Implementation Surface
 
 - [`task.mjs`](/implementation/components/commands/task.mjs)
-  provides the public `create` and `fork` commands. `launch` is a deprecated
-  compatibility alias for `create` and is not emitted by installed guidance.
+  provides the public `create`, `fork`, exact-Turn `read`, and exact-Turn `wait`
+  commands. `launch` is a deprecated compatibility alias for `create` and is
+  not emitted by installed guidance.
+- [`task-turn-observation.mjs`](/implementation/components/runtime/source/task-turn-observation.mjs)
+  implements bounded exact-Turn snapshots and waiting without App task tools.
 - [`task-launch.mjs`](/implementation/components/runtime/source/task-launch.mjs)
   coordinates preflight, durable pending state, Codex calls, and promotion.
 - [`task-messaging.mjs`](/implementation/components/runtime/source/task-messaging.mjs)
@@ -93,6 +96,23 @@ to inspect runtime status. Failures before accepted or durable task state return
 
 Names are explicit and unique among one Parent's direct Children. Codex Small
 Loop does not infer the caller's Task ID or invent an agent name.
+
+Exact-Turn observation has a separate non-mutating CLI contract:
+
+```text
+node <plugin-root>/components/commands/task.mjs read \
+  --task <task-id> --turn <turn-id>
+
+node <plugin-root>/components/commands/task.mjs wait \
+  --task <task-id> --turn <turn-id> [--timeout-ms <0-300000>]
+```
+
+`read` performs one immediate snapshot. `wait` defaults to `120000`
+milliseconds and observes until the exact Turn ends, aborts, or reaches its
+deadline. Deadline expiry returns exit status `0`, `run: "ok"`,
+`turnState: "in_progress"`, and `timedOut: true`. The command reads no
+assignment from standard input, starts no project runtime, and performs no
+Task lifecycle transition.
 
 For `create`, Codex Small Loop reads the direct Parent's effective model,
 reasoning effort, and service tier before creation. For `fork`, it reads the

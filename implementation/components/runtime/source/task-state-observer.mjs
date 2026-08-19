@@ -123,7 +123,12 @@ function defaultOpenHistory(historyFile) {
   return createReadStream(historyFile);
 }
 
-function snapshotFromLocation(request, location, result = null) {
+function snapshotFromLocation(
+  request,
+  location,
+  result = null,
+  includeFinalAnswer = false,
+) {
   const common = {
     taskId: request.taskId,
     location: location.location,
@@ -135,6 +140,9 @@ function snapshotFromLocation(request, location, result = null) {
       ...common,
       turnId: request.turnId,
       turnState: result?.turnState ?? "unknown",
+      ...(includeFinalAnswer
+        ? { finalAnswer: result?.finalAnswer ?? null }
+        : {}),
       diagnostics: result?.diagnostics ?? [...location.diagnostics],
     };
   }
@@ -177,6 +185,16 @@ async function runBounded(jobs, concurrency, run) {
 
 export async function observeTasks(requests, options = {}) {
   const normalizedRequests = validateRequests(requests);
+  if (
+    options.includeFinalAnswer !== undefined
+    && typeof options.includeFinalAnswer !== "boolean"
+  ) {
+    throw createError(
+      "TASK_EVENT_INVALID",
+      "includeFinalAnswer must be a boolean",
+    );
+  }
+  const includeFinalAnswer = options.includeFinalAnswer ?? false;
   const concurrency = validateConcurrency(options.concurrency);
   const openHistory = validateOpenHistory(
     options.openHistory ?? defaultOpenHistory,
@@ -198,8 +216,12 @@ export async function observeTasks(requests, options = {}) {
       request,
       reducer: createTaskEventReducer(
         request.mode === "exact"
-          ? { mode: "exact", turnId: request.turnId }
-          : { mode: "latest" },
+          ? {
+            mode: "exact",
+            turnId: request.turnId,
+            includeFinalAnswer,
+          }
+          : { mode: "latest", includeFinalAnswer },
       ),
     });
     groups.set(request.taskId, entries);
@@ -217,6 +239,8 @@ export async function observeTasks(requests, options = {}) {
         snapshots[entry.index] = snapshotFromLocation(
           entry.request,
           location,
+          null,
+          includeFinalAnswer,
         );
       }
       continue;
@@ -235,13 +259,14 @@ export async function observeTasks(requests, options = {}) {
         for (const entry of entries) {
           entry.reducer.accept(event);
         }
-      });
+      }, { includeFinalAnswer });
 
       for (const entry of entries) {
         snapshots[entry.index] = snapshotFromLocation(
           entry.request,
           location,
           entry.reducer.result(),
+          includeFinalAnswer,
         );
       }
     } catch (error) {
@@ -253,8 +278,10 @@ export async function observeTasks(requests, options = {}) {
           {
             turnId: null,
             turnState: "unknown",
+            ...(includeFinalAnswer ? { finalAnswer: null } : {}),
             diagnostics: [failure],
           },
+          includeFinalAnswer,
         );
       }
     }

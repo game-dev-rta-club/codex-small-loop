@@ -93,6 +93,7 @@ test("renders a one-way notification without a reply instruction", () => {
   assert.equal(
     renderNotificationMessage({
       scheduleId: null,
+      targetTaskId: "task-controller",
       text: "The E2E run completed.",
     }),
     `=== Codex Small Loop · Notification ===
@@ -110,6 +111,7 @@ test("renders all supported actions through one Next Actions contract", () => {
       {
         type: "delete_schedule",
         scheduleId: "codex-small-loop-message-notification",
+        targetTaskId: "task-controller",
       },
       {
         type: "reply_to_conversation",
@@ -122,7 +124,8 @@ test("renders all supported actions through one Next Actions contract", () => {
     ]),
     `=== Next Actions ===
 1. Delete this delivery schedule before continuing.
-   Use Codex Small Loop \`message delete-schedule --schedule codex-small-loop-message-notification\`.
+   First run Codex Small Loop \`schedule read --schedule codex-small-loop-message-notification --task task-controller\`.
+   Then run \`schedule delete --schedule codex-small-loop-message-notification --task task-controller --if-match <returned-etag>\`.
 
 2. Reply to this Conversation after completing the requested work.
    Conversation ID: conversation-1
@@ -149,11 +152,12 @@ test("renders scheduled messages with schedule deletion in the same action list"
   assert.equal(conversation.match(/^=== Next Actions ===$/gm)?.length, 1);
   assert.match(
     conversation,
-    /message delete-schedule --schedule codex-small-loop-message-conversation[\s\S]*2\. Reply to this Conversation/,
+    /schedule read --schedule codex-small-loop-message-conversation --task task-review[\s\S]*schedule delete --schedule codex-small-loop-message-conversation --task task-review --if-match <returned-etag>[\s\S]*2\. Reply to this Conversation/,
   );
 
   const notification = renderNotificationMessage({
     scheduleId: "codex-small-loop-message-notification",
+    targetTaskId: "task-controller",
     text: "The E2E run completed.",
   });
   assert.equal(notification.match(/^=== Next Actions ===$/gm)?.length, 1);

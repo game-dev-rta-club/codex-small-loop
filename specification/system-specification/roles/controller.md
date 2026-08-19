@@ -52,9 +52,9 @@ lifecycle:
    Controller accepts that Conversation, and no heartbeat is active yet.
 5. It runs a live pre-execution interview by using
    `$codex-small-loop:working-with-codex-tasks` to send one-way Notifications and
-   reading each ordinary local final answer through
-   Codex App `wait_threads` or `read_thread`. These Notification turns create no
-   reply obligation. Primary asks one material question or reports
+   reading each ordinary local final answer through Codex Small Loop exact-Turn
+   `task wait`. These Notification turns create no reply obligation. Primary
+   asks one material question or reports
    `READY_FOR_EXECUTION`; it does not start Execute during this phase.
 6. When execution is ready, Controller creates and reads back one one-minute
    startup heartbeat in `START_PENDING` whose revisioned tuple binds exact Controller,
@@ -102,6 +102,13 @@ does not create a heartbeat during the pre-execution interview, manage raw
 automation files, or use a standalone project cron job. There is no fixed
 elapsed-time limit.
 
+All heartbeat creation, update, inspection, and deletion goes through Whole
+Job Loop `schedule apply/read/delete`, never Codex App `automation_update`.
+Creation requires `if-match=absent`; updates and deletions require the opaque
+etag from an exact read. Controller reads back after apply and confirms absence
+after delete. An etag mismatch retains the last confirmed state and grants no
+dependent authority.
+
 Every scheduled prompt embeds
 `(C,P,S,G,R,STATE,conversation=uncommitted|exact CID)`. Every same-`S` update
 increments `R` and requires read-back. A callback acts only when every tuple
@@ -117,7 +124,7 @@ creation. Interrupted turns resume only from the confirmed tuple. User cadence
 applies afresh to every Milestone.
 
 While `START_PENDING`, not-yet-invoked, in-flight, interrupted/lost result,
-timeout, malformed/missing/unattributable output, authentication/App-read
+timeout, malformed/missing/unattributable output, authentication/observation
 ambiguity, delayed visibility, exit 2/partial, `ok`, any CID, queued/committed
 delivery, failed-with-CID, stale/wrong-target/later attempt, or contradictory or
 multiple evidence cannot delete. Unique commitment permits only same-S

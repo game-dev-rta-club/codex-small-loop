@@ -1,6 +1,6 @@
 ---
 name: working-with-codex-tasks
-description: Use when creating, forking, stopping, resuming, notifying, conversing with, or recovering a Codex Task through Codex Small Loop.
+description: Use when creating, forking, stopping, resuming, notifying, conversing with, reading, waiting for, scheduling, monitoring, or recovering a Codex Task or exact Turn through Codex Small Loop.
 ---
 
 # Working With Codex Tasks
@@ -30,9 +30,12 @@ the meaning of an assignment.
 
 Use:
 
-- `task.mjs` for Task creation, fork, stop, and resume;
+- `task.mjs` for Task creation, fork, stop, resume, exact Turn read, and exact
+  Turn wait;
 - `message.mjs` for one-way Notifications;
-- `conversation.mjs` for exchanges that require a reply; and
+- `conversation.mjs` for exchanges that require a reply;
+- `schedule.mjs` for exact Task-owned heartbeat schedule apply, read, and
+  delete; and
 - `runtime.mjs` only for explicit runtime status and repair.
 
 Other project or workflow commands are outside this Skill.
@@ -158,6 +161,83 @@ For a daemon-managed target, success reports `delivery: "steered"` or
 reports `delivery: "queued"` with a `messageId`. The target's `threadSource`
 chooses transport; callers never substitute a different transport themselves.
 
+## Read Or Wait For An Exact Turn
+
+When a direct `message` or `conversation` result contains `taskId`, `turnId`,
+and `delivery: "started"` or `"steered"`, preserve both IDs. Read that exact
+Turn immediately without waiting:
+
+```text
+node <plugin-root>/components/commands/task.mjs read \
+  --task <task-id> --turn <turn-id>
+```
+
+Wait for the same Turn to end or abort:
+
+```text
+node <plugin-root>/components/commands/task.mjs wait \
+  --task <task-id> --turn <turn-id> [--timeout-ms <milliseconds>]
+```
+
+`read` is always an immediate snapshot. `wait` defaults to a bounded two-minute
+wait and accepts `0` through `300000` milliseconds. A wait timeout returns
+`run: "ok"`, `turnState: "in_progress"`, and `timedOut: true`; it is not a
+delivery or Task failure. Reuse the same IDs for a later read or wait. An ended
+Turn returns its ordinary local `finalAnswer`; an aborted Turn returns no final
+answer.
+
+These commands are the required observation route for a Codex Small Loop Turn.
+Do not use Codex App `read_thread` or `wait_threads` for a direct Turn returned
+by Codex Small Loop, and do not use those App tools as fallback after a Whole Job
+Loop observation error. For `delivery: "queued"`, only `messageId` is proven:
+follow the existing App-owned delivery action and never invent a Turn ID.
+
+## Apply, Read, Or Delete A Schedule
+
+Use the Codex Small Loop schedule command for every schedule created or managed
+by Codex Small Loop. Do not use Codex App `automation_update` for these
+operations and do not edit automation TOML directly.
+
+For a Controller heartbeat, use one stable ID shaped
+`codex-small-loop-monitor-<controller-task-id>-g<generation>` for that schedule
+lifetime and update that same ID. Temporary message schedules are derived by the runtime
+under `codex-small-loop-message-`; callers do not invent them.
+
+Create an exact current-Task schedule only when it is absent:
+
+```text
+node <plugin-root>/components/commands/schedule.mjs apply \
+  --schedule <codex-small-loop-schedule-id> --task <current-task-id> \
+  --if-match absent --interval-minutes <minutes> [--message <prompt>]
+```
+
+Before an update or deletion, read the exact definition and opaque etag:
+
+```text
+node <plugin-root>/components/commands/schedule.mjs read \
+  --schedule <schedule-id> --task <current-task-id>
+```
+
+Update with the returned etag by running `apply` with the new complete prompt
+and cadence. Delete with that same concurrency guard:
+
+```text
+node <plugin-root>/components/commands/schedule.mjs delete \
+  --schedule <schedule-id> --task <current-task-id> \
+  --if-match <returned-etag>
+```
+
+After apply, read back and confirm the complete definition and returned etag.
+After delete, read back and confirm `present: false`. Never retry an etag
+mismatch blindly: read again and let the caller's Role decide whether the new
+definition still authorizes the intended transition. The CLI refuses to
+operate a schedule for a Task other than `CODEX_THREAD_ID` and refuses IDs
+outside the `codex-small-loop-` namespace.
+
+A queued App-owned message contains this same read-then-delete action. Follow
+it before continuing; the runtime acknowledges delivery when the temporary
+schedule disappears.
+
 ## Stop Or Resume A Task
 
 ```text
@@ -203,6 +283,9 @@ failed operation.
   `resume_child_task`, resume that Child; otherwise inspect runtime status.
 - A Conversation or Notification result with `delivery: "queued"` is durable.
   Wait for delivery; do not repeat the transition.
+- A direct Conversation or Notification result with a `turnId` is observed
+  only through exact `task read` or `task wait`. Treat `timedOut: true` as a
+  normal in-progress result and preserve the IDs.
 - A resume result with `run: "partial"`, `phase: "supervisor_start"`, and
   `recommendedAction: "retry_resume"` committed lifecycle state already.
   Repeat that exact resume operation once to start supervision.

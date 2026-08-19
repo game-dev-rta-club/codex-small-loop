@@ -2,13 +2,14 @@ import {
   createHash,
   randomUUID,
 } from "node:crypto";
-import os from "node:os";
 import path from "node:path";
 
 import {
-  createAppMessageSchedule,
-  inspectAppMessageSchedule,
-} from "./app-message-schedule.mjs";
+  appMessageScheduleId,
+  applySchedule,
+  defaultAutomationRoot,
+  readSchedule,
+} from "./schedule.mjs";
 import { AtomicJsonStore } from "./atomic-json-store.mjs";
 import {
   planRecoveryCandidates,
@@ -90,10 +91,8 @@ export async function leaseHeartbeatAppMessages(ledger, options) {
 export async function reconcileAppMessageSchedules(ledger, options) {
   const leased = await leaseHeartbeatAppMessages(ledger, options);
   const automationRoot = options.automationRoot;
-  const inspectSchedule = options.inspectAppMessageSchedule
-    ?? inspectAppMessageSchedule;
-  const createSchedule = options.createAppMessageSchedule
-    ?? createAppMessageSchedule;
+  const inspectSchedule = options.readSchedule ?? readSchedule;
+  const createSchedule = options.applySchedule ?? applySchedule;
   const scheduledMessages = leased.state.appMessages.filter(
     ({ status }) => status === "scheduled",
   );
@@ -101,7 +100,8 @@ export async function reconcileAppMessageSchedules(ledger, options) {
     scheduledMessages.map(async (message) => {
       try {
         const inspection = await inspectSchedule({
-          messageId: message.id,
+          scheduleId: appMessageScheduleId(message.id),
+          targetTaskId: message.targetTaskId,
           automationRoot,
         });
         return {
@@ -117,10 +117,12 @@ export async function reconcileAppMessageSchedules(ledger, options) {
     async (message) => {
     try {
       await createSchedule({
-        messageId: message.id,
+        scheduleId: appMessageScheduleId(message.id),
         targetTaskId: message.targetTaskId,
-        text: message.text,
-        nowMs: Date.parse(options.now),
+        prompt: message.text,
+        intervalMinutes: 1,
+        ifMatch: "absent",
+        nowMs: Math.max(0, Date.parse(options.now) - 60_000),
         automationRoot,
       });
       return { id: message.id, status: "scheduled" };
@@ -1537,10 +1539,7 @@ function defaultHeartbeatAppServer(project, options) {
 }
 
 function defaultAppMessageAutomationRoot(options) {
-  const codexHome = options.env?.CODEX_HOME
-    ?? process.env.CODEX_HOME
-    ?? path.join(os.homedir(), ".codex");
-  return path.join(codexHome, "automations");
+  return defaultAutomationRoot(options.env ?? process.env);
 }
 
 export async function runHeartbeat(input, options = {}) {
@@ -1581,10 +1580,8 @@ export async function runHeartbeat(input, options = {}) {
             limit: options.appMessageLimit,
             automationRoot: options.automationRoot
               ?? defaultAppMessageAutomationRoot(options),
-            createAppMessageSchedule:
-              options.createAppMessageSchedule,
-            inspectAppMessageSchedule:
-              options.inspectAppMessageSchedule,
+            applySchedule: options.applySchedule,
+            readSchedule: options.readSchedule,
             transactTaskLedger: options.transactTaskLedger,
           },
         )

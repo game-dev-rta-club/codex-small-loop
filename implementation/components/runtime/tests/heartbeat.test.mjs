@@ -639,7 +639,7 @@ test("materializes and reconciles an App message schedule", async () => {
     leaseOwner: "supervisor",
     automationRoot: "/codex/automations",
     transactTaskLedger: transaction,
-    async createAppMessageSchedule(input) {
+    async applySchedule(input) {
       created.push(input);
       schedulePresent = true;
       return {
@@ -648,8 +648,9 @@ test("materializes and reconciles an App message schedule", async () => {
         created: true,
       };
     },
-    async inspectAppMessageSchedule({ messageId, automationRoot }) {
-      assert.equal(messageId, "message-1");
+    async readSchedule({ scheduleId, targetTaskId, automationRoot }) {
+      assert.match(scheduleId, /^codex-small-loop-message-[a-f0-9]{32}$/);
+      assert.equal(targetTaskId, "app-parent");
       assert.equal(automationRoot, "/codex/automations");
       return {
         automationId: "codex-small-loop-message-id",
@@ -668,10 +669,12 @@ test("materializes and reconciles an App message schedule", async () => {
   assert.deepEqual(scheduled.pendingMessageIds, ["message-1"]);
   assert.equal(scheduled.state.appMessages[0].status, "scheduled");
   assert.deepEqual(created, [{
-    messageId: "message-1",
+    scheduleId: "codex-small-loop-message-9deb880b43bdf6f465a0afb130aed71b",
     targetTaskId: "app-parent",
-    text: "done",
-    nowMs: Date.parse(options.now),
+    prompt: "done",
+    intervalMinutes: 1,
+    ifMatch: "absent",
+    nowMs: Date.parse(options.now) - 60_000,
     automationRoot: "/codex/automations",
   }]);
 
@@ -717,10 +720,10 @@ test("releases an App message when schedule creation fails", async () => {
     leaseOwner: "supervisor",
     automationRoot: "/codex/automations",
     transactTaskLedger: transaction,
-    async createAppMessageSchedule() {
+    async applySchedule() {
       throw new Error("schedule unavailable");
     },
-    async inspectAppMessageSchedule() {
+    async readSchedule() {
       throw new Error("no scheduled messages expected");
     },
   });
@@ -779,14 +782,14 @@ test("accepts a concurrent schedule acknowledgement as an idempotent result", as
     leaseOwner: "supervisor",
     automationRoot: "/codex/automations",
     transactTaskLedger: transaction,
-    async inspectAppMessageSchedule() {
+    async readSchedule() {
       return {
         automationId: "codex-small-loop-message-id",
         file: "/codex/automations/message/automation.toml",
         present: false,
       };
     },
-    async createAppMessageSchedule() {
+    async applySchedule() {
       throw new Error("no ready messages expected");
     },
   });

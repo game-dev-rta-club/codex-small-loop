@@ -152,8 +152,9 @@ reply is the launch protocol boundary; the following interview creates no
 reply obligation. This is the **live preparation** phase for every Milestone:
 no Controller heartbeat exists. Before forking, confirm that no schedule from
 the preceding Milestone remains. A Primary fork, bootstrap, authentication, or
-App-read failure stays heartbeat-free; resume or retry the same known Primary
-or committed fork when safe, and never fork a duplicate or invent polling.
+exact-observation failure stays heartbeat-free; resume or retry the same known
+Primary or committed fork when safe, and never fork a duplicate or invent
+polling.
 
 ## 4. Run The Live Pre-Execution Interview
 
@@ -164,9 +165,11 @@ answer as a one-way Notification.
 Ask Primary to inspect the current outcome and project state, then return either
 one material question or `READY_FOR_EXECUTION` as its ordinary local final
 answer. It must return that answer as its ordinary local result rather than
-sending another managed message. After each Notification, read the new Primary result immediately with
-the Codex App `wait_threads` or `read_thread` capability. Use the returned
-cursor or exact turn identity so a prior answer is never handled twice.
+sending another managed message. After each Notification, preserve its returned
+Task and Turn IDs and use Codex Small Loop
+`task wait --task <task-id> --turn <turn-id>` to read that exact Primary result.
+A bounded timeout is a normal in-progress result; reuse the same IDs rather
+than handling a prior answer or discovering the latest Turn.
 
 Answer a Primary question by sending the next Notification. Continue until the
 Primary explicitly reports that execution is ready. Controller decides routine
@@ -176,17 +179,27 @@ implementation Children, or modify the project during this pre-execution
 interview.
 
 This live loop runs without a heartbeat, managed Conversation, reply obligation,
-or scheduled callback. If App read access is unavailable, keep execution
-unstarted instead of replacing live observation with repeated delivery
-schedules.
+or scheduled callback. If exact Codex Small Loop observation fails, keep
+execution unstarted instead of falling back to Codex App reads or replacing
+live observation with repeated delivery schedules.
 
 Every scheduled prompt carries the closed revisioned tuple
 `(C,P,S,G,R,STATE,conversation)`: Controller Task `C`, Primary Task `P`, exact
 schedule identity `S`, Milestone generation `G`, revision `R`, stable state
 `STATE`, and `conversation=uncommitted` or one exact Conversation ID. The
-literal `uncommitted` is not a wildcard. Every same-`S` `automation_update`
-increments `R`; Controller reads back and confirms the complete tuple before
-using its new authority. A callback first compares its complete embedded tuple
+literal `uncommitted` is not a wildcard. Use
+`$codex-small-loop:working-with-codex-tasks` and its `schedule apply/read/delete`
+commands for every heartbeat operation; never use Codex App
+`automation_update` or edit automation TOML. Creation uses `--if-match absent`.
+Choose `S` once as
+`codex-small-loop-monitor-<controller-task-id>-g<generation>` and retain it for
+every state and cadence in that Milestone.
+Every same-`S` update first reads exact `S`, uses its returned etag with
+`schedule apply`, increments `R`, then reads back and confirms the complete
+definition and tuple before using its new authority. Deletion likewise reads
+exact `S`, deletes with that etag, and reads again to confirm absence. An etag
+mismatch retains the last confirmed state and authorizes no dependent action.
+A callback first compares its complete embedded tuple
 with the current schedule tuple. Missing or different `S/C/P/G/R/STATE`, a
 different Conversation binding, an unknown state, or an older delivered
 revision is an unconditional no-op. This includes a queued prompt from the same
@@ -242,11 +255,11 @@ confirmed absent. Any action not named in the current row is forbidden.
 ## 5. Start Execution And Enter Scheduled Supervision
 
 After `READY_FOR_EXECUTION`, create exactly one one-minute startup thread heartbeat
-(the Controller thread heartbeat) with `automation_update` as
+(the Controller thread heartbeat) with `schedule apply --if-match absent` as
 `(C,P,S,G,R,START_PENDING,conversation=uncommitted)`. Read back and confirm the
 full tuple before invoking Conversation start. If creation or read-back fails,
-remain `LIVE`, keep execution unstarted, and do not substitute raw automation
-TOML, a project cron job, or another scheduler.
+remain `LIVE`, keep execution unstarted, and do not substitute Codex App
+schedule tools, raw automation TOML, a project cron job, or another scheduler.
 
 A `START_PENDING` callback may validate its tuple and boundedly inspect
 structured start/runtime evidence only. Zero matching Conversations alone is
@@ -363,7 +376,7 @@ nonterminal transition:
 3. accept exact execution Conversation N, stop exact Primary N, and confirm the
    committed lifecycle state under `ADVANCE_STOP`;
 4. update the same `S` to `R+1`, `ADVANCE_DELETE`, confirm it, then delete the
-   exact outgoing heartbeat N through `automation_update` and
+   exact outgoing heartbeat N through etag-guarded `schedule delete` and
    confirm that schedule identity is absent;
 5. only then reassess the outline and Work context, boundedly ensure the Board
    if its page is unavailable, and fork/bootstrap Primary N+1;
@@ -417,7 +430,7 @@ At verified completion or an unrecoverable stop:
 
 1. update/read back the same exact `STEADY` schedule as `R+1`,
    `TERMINAL_DELETE`, retaining exact `C/P/S/G/CID`;
-2. delete that exact heartbeat through `automation_update` and confirm `S` is
+2. delete that exact heartbeat through etag-guarded `schedule delete` and confirm `S` is
    absent;
 3. only then stop the current Milestone's Primary branch with ordinary
    Controller authority;

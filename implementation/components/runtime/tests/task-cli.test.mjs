@@ -30,7 +30,7 @@ function capture() {
   };
 }
 
-test("task help presents create, fork, stop, and resume", async () => {
+test("task help presents lifecycle and exact turn observation commands", async () => {
   const stdout = capture();
   const exitCode = await runTaskCli(["--help"], { stdout });
 
@@ -38,8 +38,98 @@ test("task help presents create, fork, stop, and resume", async () => {
   assert.match(stdout.text(), /task create/);
   assert.match(stdout.text(), /task fork/);
   assert.match(stdout.text(), /task stop\|resume/);
+  assert.match(stdout.text(), /task read.*--turn/s);
+  assert.match(stdout.text(), /task wait.*--timeout-ms/s);
   assert.match(stdout.text(), /--service-tier default.*normal Codex tier/i);
   assert.doesNotMatch(stdout.text(), /task launch/);
+});
+
+test("reads one exact Task turn without invoking lifecycle operations", async () => {
+  const stdout = capture();
+  const calls = [];
+  const exitCode = await runTaskCli([
+    "read",
+    "--task",
+    "task-a",
+    "--turn",
+    "turn-a",
+  ], {
+    stdout,
+    async readTurn(input) {
+      calls.push(input);
+      return {
+        run: "ok",
+        operation: "read",
+        taskId: input.taskId,
+        turnId: input.turnId,
+        location: "active",
+        turnState: "ended",
+        finalAnswer: "READY_FOR_EXECUTION",
+      };
+    },
+    async lifecycle() {
+      assert.fail("read must not invoke lifecycle");
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(calls, [{ taskId: "task-a", turnId: "turn-a" }]);
+  assert.equal(stdout.json().finalAnswer, "READY_FOR_EXECUTION");
+});
+
+test("passes a bounded timeout to exact Task wait", async () => {
+  const stdout = capture();
+  const calls = [];
+  const exitCode = await runTaskCli([
+    "wait",
+    "--task",
+    "task-a",
+    "--turn",
+    "turn-a",
+    "--timeout-ms",
+    "0",
+  ], {
+    stdout,
+    async waitTurn(input) {
+      calls.push(input);
+      return {
+        run: "ok",
+        operation: "wait",
+        taskId: input.taskId,
+        turnId: input.turnId,
+        location: "active",
+        turnState: "in_progress",
+        finalAnswer: null,
+        timedOut: true,
+      };
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(calls, [{
+    taskId: "task-a",
+    turnId: "turn-a",
+    timeoutMs: 0,
+  }]);
+  assert.equal(stdout.json().timedOut, true);
+});
+
+test("rejects unsafe or malformed Task wait timeouts before observing", async () => {
+  for (const timeout of ["-1", "300001", "1.5", "infinite"]) {
+    const stdout = capture();
+    const exitCode = await runTaskCli([
+      "wait",
+      "--task",
+      "task-a",
+      "--turn",
+      "turn-a",
+      "--timeout-ms",
+      timeout,
+    ], { stdout });
+
+    assert.equal(exitCode, 1);
+    assert.equal(stdout.json().code, "TASK_WAIT_TIMEOUT_INVALID");
+  }
 });
 
 test("runs create with an explicit name, parent, role, and cwd default", async () => {

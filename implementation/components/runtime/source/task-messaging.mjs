@@ -159,6 +159,7 @@ export function renderConversationMessage(options) {
     actions.push({
       type: "delete_schedule",
       scheduleId,
+      targetTaskId: responderTaskId,
     });
   }
   actions.push(options.operation === "reply"
@@ -185,9 +186,10 @@ ${renderNextActions(actions)}`;
 }
 
 export function renderNotificationMessage(options) {
-  requireExactOptions(options, ["scheduleId", "text"]);
+  requireExactOptions(options, ["scheduleId", "targetTaskId", "text"]);
   const text = requireAgentBody(options.text, "text");
   const scheduleId = requireNullableTaskId(options.scheduleId, "scheduleId");
+  const targetTaskId = requireTaskId(options.targetTaskId, "targetTaskId");
   const rendered = `=== Codex Small Loop · Notification ===
 
 No reply or acknowledgement is required.
@@ -201,6 +203,7 @@ ${text}`;
 ${renderNextActions([{
   type: "delete_schedule",
   scheduleId,
+  targetTaskId,
 }])}`;
 }
 
@@ -214,10 +217,15 @@ export function renderNextActions(actions) {
       throw new TypeError("next action must be an object");
     }
     if (action.type === "delete_schedule") {
-      requireExactOptions(action, ["scheduleId", "type"]);
+      requireExactOptions(action, ["scheduleId", "targetTaskId", "type"]);
       const scheduleId = requireTaskId(action.scheduleId, "scheduleId");
+      const targetTaskId = requireTaskId(
+        action.targetTaskId,
+        "targetTaskId",
+      );
       return `${index + 1}. Delete this delivery schedule before continuing.
-   Use Codex Small Loop \`message delete-schedule --schedule ${scheduleId}\`.`;
+   First run Codex Small Loop \`schedule read --schedule ${scheduleId} --task ${targetTaskId}\`.
+   Then run \`schedule delete --schedule ${scheduleId} --task ${targetTaskId} --if-match <returned-etag>\`.`;
     }
     if (action.type === "reply_to_conversation") {
       requireExactOptions(action, ["conversationId", "type"]);
