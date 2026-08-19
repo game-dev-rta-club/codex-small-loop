@@ -31,4 +31,6 @@ Let's choose the Agent model.
 | **1x** | 1x | 1x |
 | **1.5x** | 1.5x faster | 2.5x |
 
+*(Optional: You may specify a separate model for implementation and review work. If omitted, those Tasks use the Primary model.)*
+
 **May I start with the standard Terra Medium model? Unless you explicitly select 1.5x, execution remains at 1x.**

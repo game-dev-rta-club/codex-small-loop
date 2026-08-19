@@ -19,6 +19,15 @@ Children use the role required by their assignment. An explicitly
 selected role is loaded through the explicit
 [Role command](/specification/technical-specification/runtime/role-loading.md).
 
+Controller runs Primary on the selected Primary profile and includes a resolved
+Worker profile in the Milestone assignment. Worker uses the optional separate
+model and reasoning effort when supplied, otherwise the Primary pair, and
+shares Primary's selected speed. Primary explicitly applies all three Worker
+execution fields whenever it forks Execute, Review, or Interviewer. Reused
+Tasks retain their recorded profile across later Conversations and correction
+passes. Primary never chooses a missing profile independently; a missing or
+mismatched profile fails closed to Controller.
+
 ## Milestone Responsibility
 
 The primary job role owns the active conversation as its Milestone trajectory. It
@@ -126,7 +135,8 @@ For every Milestone, Primary:
    and verification approach even when they span many files; different problem
    contexts are handled sequentially, while change volume and file count alone
    do not require a split;
-3. queues one fresh Execute fork with the first problem context, records the
+3. queues one fresh Execute fork with the first problem context and exact Worker
+   profile, records the
    returned Task ID directly, and retains it only for the current Milestone.
    Primary never searches, explores, or rediscovers a Task ID. After
    accepting each result, it reevaluates and sends every remaining problem
@@ -147,7 +157,8 @@ For every Milestone, Primary:
    expands when needed;
 6. on the first pass, reuses a Review Task by responsibility only when its exact
    ID is already remembered; otherwise it queues a fresh candidate-read-only
-   Review fork and records the returned ID. It never searches for a Review Task.
+   Review fork with the exact Worker profile and records the returned ID. It
+   never searches for a Review Task.
    On each later
    Review pass, it starts a new Conversation with each same Review Task using
    Role reload. Every pass supplies one shared snapshot pair and exact diff,

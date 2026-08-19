@@ -93,6 +93,23 @@ materially insufficient for the assigned outcome, ask Controller for the
 missing premise instead of reconstructing the graph below the Controller
 boundary.
 
+## Controller-Supplied Execution Profiles
+
+Controller runs Primary on the resolved Primary profile and supplies one
+resolved Worker profile in the Milestone launch assignment. The Worker profile
+contains an exact model and reasoning effort and uses the same 1x or 1.5x speed
+as Primary. When the user did not select a separate Worker model, its model and
+reasoning effort equal Primary's.
+
+Primary owns Milestone judgment, integration, Signal severity decisions, and
+acceptance on its own profile. Apply the supplied Worker model, reasoning
+effort, and service tier explicitly whenever forking a new Execute, Review, or
+Interviewer Task. Do not rely on source-profile inheritance at those creation
+boundaries. Later Conversations and correction passes reuse those exact Tasks,
+so they retain their recorded Worker profile. A profile mismatch or missing
+Worker profile is a fail-closed orchestration error to report to Controller; it
+is not permission to choose a model independently.
+
 ## Project Change Loop
 
 Every Milestone uses this loop:

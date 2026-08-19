@@ -46,10 +46,13 @@ lifecycle:
 4. With zero heartbeat schedules for the Milestone, it forks a fresh Primary
    directly from its complete conversation for the
    current Milestone with a bootstrap-only
-   launch assignment and explicitly applies the managed-Agent model, reasoning
-   effort, and speed selected during initial setup. The Controller Task retains
-   its own Codex App settings. Primary sends the one required launch reply,
-   Controller accepts that Conversation, and no heartbeat is active yet.
+   launch assignment and explicitly applies the Primary model, reasoning
+   effort, and speed selected during initial setup. The assignment also carries
+   the resolved Worker model and reasoning effort with the same speed; Worker
+   defaults to the Primary pair and applies to Execute, Review, and Interviewer.
+   The Controller Task retains its own Codex App settings. Primary sends the one
+   required launch reply, Controller accepts that Conversation, and no heartbeat
+   is active yet.
 5. It runs a live pre-execution interview by using
    `$codex-small-loop:working-with-codex-tasks` to send one-way Notifications and
    reading each ordinary local final answer through Codex Small Loop exact-Turn
