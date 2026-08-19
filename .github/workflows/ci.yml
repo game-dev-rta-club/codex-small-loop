@@ -49,6 +49,7 @@ jobs:
         shell: bash
         run: git ls-files -z '*.mjs' | xargs -0 -n1 node --check
       - name: Run Windows and portable repository suite
+        shell: bash
         run: node implementation/testing/test-runner.mjs win32
       - name: Ensure tests leave the checkout clean
         shell: bash
