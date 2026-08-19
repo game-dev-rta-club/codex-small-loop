@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,7 @@ import test from "node:test";
 import {
   classifyTestFile,
   discoverTestFiles,
+  runTestSuite,
   selectTestFiles,
 } from "../../test-runner.mjs";
 
@@ -72,4 +74,23 @@ test("rejects running an OS suite on a different host", async (t) => {
     () => selectTestFiles(discovered, "win32", "darwin"),
     (error) => error.code === "TEST_SUITE_PLATFORM_MISMATCH",
   );
+});
+
+test("serializes Windows test files to avoid shared PowerShell module races", async (t) => {
+  const { root } = await fixture(t);
+  const calls = [];
+  const exitCode = await runTestSuite("win32", {
+    platform: "win32",
+    root,
+    spawnProcess: (...args) => {
+      calls.push(args);
+      const child = new EventEmitter();
+      queueMicrotask(() => child.emit("exit", 0, null));
+      return child;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0][1].slice(0, 2), ["--test", "--test-concurrency=1"]);
 });

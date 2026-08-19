@@ -91,9 +91,12 @@ export async function runTestSuite(suite, {
     throw runnerError("TEST_SUITE_EMPTY", `The ${suite} test suite is empty.`);
   }
   if (listOnly) return selected;
+  const testArguments = ["--test"];
+  if (suite === "win32") testArguments.push("--test-concurrency=1");
+  testArguments.push(...selected.map(({ filename }) => filename));
   const child = spawnProcess(
     process.execPath,
-    ["--test", ...selected.map(({ filename }) => filename)],
+    testArguments,
     { shell: false, stdio: "inherit", windowsHide: true },
   );
   return new Promise((resolve, reject) => {
