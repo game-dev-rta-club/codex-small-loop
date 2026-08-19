@@ -90,13 +90,14 @@ App-message delivery may create a temporary schedule automatically.
 Task's first Codex Small Loop turn, it shows one complete inline Welcome guide in
 the user's language before investigating the project or requested deliverable.
 The guide contains the complete model and speed comparison and always includes
-the optional Slack and Obsidian recommendations. When neither setting was supplied, a
-plain-text line proposes Terra Medium with Normal speed and asks for explicit
-agreement. When one setting was supplied, the Skill asks only for the missing
-one; when both were supplied, it records them without asking again. On the next
-user-authored turn, it loads Controller only after the profile is resolved and
-then begins project investigation and Interview. It uses conversation history
-rather than a persistent first-run setting.
+the optional Slack and Obsidian recommendations. When no model was supplied, a
+plain-text line proposes Terra Medium and asks for explicit agreement. Speed
+defaults to 1x without a separate follow-up and changes to 1.5x only when the
+user explicitly selects it. When a model was supplied, the Skill records it
+with the explicit or default speed without asking again. On the next
+user-authored turn, it loads Controller after the profile is resolved and then
+begins project investigation and Interview. It uses conversation history rather
+than a persistent first-run setting.
 
 Initialization does not add a preflight step to ordinary request handling, and
 work that never needs a managed operation does not initialize the runtime.

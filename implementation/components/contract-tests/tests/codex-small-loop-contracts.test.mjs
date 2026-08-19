@@ -716,8 +716,9 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.doesNotMatch(guide, /About\s+(?:\d|1\.5x|2\.5x)/i);
   assert.match(
     guide,
-    /May I start with the standard Terra Medium and 1x settings\?/i,
+    /May I start with the standard Terra Medium model\?/i,
   );
+  assert.match(guide, /Unless you explicitly select 1\.5x, execution remains at 1x/i);
 
   assert.match(role, /selected model and\s+reasoning effort exactly/i);
   assert.match(role, /default.*1x speed.*priority.*1\.5x speed/is);
@@ -733,11 +734,12 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.match(skill, /welcome\s+(?:guide|Markdown)/i);
   assert.match(skill, /every.*Root Task|each.*Root Task/is);
   assert.match(skill, /Terra Medium/i);
-  assert.match(skill, /\b1x speed\b/i);
   assert.match(skill, /latest\s+user-authored\s+message/i);
-  assert.match(skill, /neither model nor speed/is);
-  assert.match(skill, /only for the missing setting/i);
-  assert.match(skill, /both are known.*without reconfirmation/is);
+  assert.match(skill, /Speed defaults immediately to 1x/i);
+  assert.match(skill, /Do not ask a speed-only follow-up/i);
+  assert.match(skill, /Use 1\.5x only when the\s+user explicitly selects it/i);
+  assert.match(skill, /reply containing only `Sol Medium` resolves to Sol Medium and\s+1x/is);
+  assert.match(skill, /ask only for the model/i);
   assert.match(
     skill,
     /contents\/welcome\/execution-profiles\.json/,

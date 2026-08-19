@@ -36,19 +36,21 @@ project context or asking for details.
 
 On this Root Task's first Codex Small Loop turn, Codex always shows one compact
 Markdown guide in the language you are using. It includes the bundled hero
-image, all four date-stamped model comparisons, Normal speed, and 1.5-times
+image, all four date-stamped model comparisons, 1x speed, and 1.5-times
 faster speed, which uses 2.5 times as many tokens. Slack and Obsidian
 recommendations always appear in the same guide.
 
-When the request specifies neither model nor speed, Codex proposes the default:
+When the request does not specify a model, Codex proposes the default and
+explains the speed behavior:
 
-> Start with Terra Medium at 1x speed?
+> Start with Terra Medium? Unless you explicitly select 1.5x, execution remains at 1x.
 
-If the request supplied exactly one setting, Codex preserves it and asks only
-for the missing setting. If it supplied both, Codex accepts them without asking
+Speed defaults to 1x and does not cause a separate follow-up question. Codex
+uses 1.5x only when you explicitly select it. If the request supplied a model,
+Codex accepts it together with the explicit or default speed without asking
 again. An answer that supplies or changes a setting is already agreement to
-that value. Once both settings are known, Codex fixes them for the complete
-Root Task.
+that value. Once the model and speed are resolved, Codex fixes them for the
+complete Root Task.
 
 ## Step 3. Answer The Interview
 
