@@ -33,8 +33,9 @@ record launch ancestry separately from communication state.
   detached Codex Small Loop processes either reuse the recorded verified host or
   cold-start one through the same platform resolver.
 - [`codex-app-server-host-platform.mjs`](/implementation/components/runtime/source/codex-app-server-host-platform.mjs)
-  retains the Unix-socket host on macOS and supplies the authenticated dynamic
-  loopback host, protected capability token, and process inspection on Windows.
+  selects the current host adapter. The Darwin adapter retains the Unix-socket
+  host; the Win32 adapter owns the authenticated dynamic loopback host,
+  protected capability token, and Windows process inspection.
 - [`codex-app-server-websocket.mjs`](/implementation/components/runtime/source/codex-app-server-websocket.mjs)
   validates typed endpoints and performs one bounded WebSocket upgrade for
   both platforms.

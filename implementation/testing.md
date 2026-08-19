@@ -136,7 +136,19 @@ when no Windows machine is available.
 
 ## Completion commands
 
-Run focused tests while developing, then all repository tests before completion.
+Tests under `tests/shared/`, and legacy tests directly under `tests/`, form the
+host-independent suite. Tests under `tests/darwin/` and `tests/win32/` belong
+only to that host. The platform suites always include the shared suite and
+refuse to run on a different operating system:
+
+```sh
+node implementation/testing/test-runner.mjs shared
+node implementation/testing/test-runner.mjs darwin
+node implementation/testing/test-runner.mjs win32
+```
+
+Pass `--list` to inspect the selected files without running them. Run focused
+tests while developing, then the current platform suite before completion.
 Keep real Codex Small Loop E2E and browser checks outside the mechanical suite so
 ordinary iteration remains fast and deterministic.
 

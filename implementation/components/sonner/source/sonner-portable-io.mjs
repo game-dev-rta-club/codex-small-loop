@@ -7,15 +7,21 @@ import { promisify } from "node:util";
 
 import { createTaskEventReducer, scanCodexTaskEvents } from "../../runtime/source/codex-jsonl.mjs";
 import { locateTaskHistories, resolveCodexSessionRoots } from "../../runtime/source/codex-session-locator.mjs";
-import { isExcludedSonnerProjectPath } from "./sonner-path-policy.mjs";
+import { classifyPortablePathMetadata } from "../../runtime/source/portable-path-type.mjs";
 
 const execFileAsync = promisify(execFile);
 const MAX_GIT_BYTES = 32 * 1024 * 1024;
 const MAX_PATHS = 10_000;
 const MAX_FILE_BYTES = 64 * 1024;
+const MAX_WORK_DISCOVERY_ENTRIES = 100_000;
 const MAX_HISTORY_BYTES = 256 * 1024 * 1024;
 const MAX_HISTORY_TAIL_BYTES = 2 * 1024 * 1024;
 const MAX_HISTORY_DISCOVERY_ENTRIES = 100_000;
+const EXCLUDED_PROJECT_DIRECTORY_NAMES = new Set([
+  ".git", ".codex-small-loop", ".cache", ".next", ".parcel-cache",
+  ".pytest_cache", ".turbo", "__pycache__", "build", "cache",
+  "coverage", "dist", "node_modules", "out", "target",
+]);
 
 function portableError(message = "Portable Sonner reader unavailable.") {
   const error = new Error(message);
@@ -73,17 +79,42 @@ async function revalidateAncestors(retained) {
   return true;
 }
 
-async function readPortableFile(session, projectPath, maximum, { allowSymlink = false } = {}) {
+async function inspectPortableSonnerPath(session, projectPath, {
+  lstatPath = lstat,
+} = {}) {
   if (!validProjectPath(projectPath)) throw portableError("Invalid Sonner project path.");
   await assertRoot(session);
   const ancestors = await inspectAncestors(session.project.root, projectPath);
   const filename = path.join(session.project.root, ...projectPath.split("/"));
-  const pathname = await lstat(filename, { bigint: true });
-  if (pathname.isSymbolicLink()) {
-    if (!allowSymlink || !(await revalidateAncestors(ancestors))) throw portableError("Sonner path is unsafe.");
-    return { type: "symlink", raw: Buffer.alloc(0) };
+  const pathname = await lstatPath(filename, { bigint: true });
+  if (!(await revalidateAncestors(ancestors))) {
+    throw portableError("Sonner path ancestor changed.");
   }
-  if (!pathname.isFile() || pathname.size > BigInt(maximum)) throw portableError("Sonner file is unavailable or oversized.");
+  await assertRoot(session);
+  return {
+    type: classifyPortablePathMetadata(pathname),
+    filename,
+    pathname,
+    ancestors,
+  };
+}
+
+function isExcludedProjectPath(projectPath) {
+  return projectPath.split("/").some((part) => (
+    EXCLUDED_PROJECT_DIRECTORY_NAMES.has(part)
+  ));
+}
+
+export async function detectPortableSonnerPath(session, projectPath, options = {}) {
+  return (await inspectPortableSonnerPath(session, projectPath, options)).type;
+}
+
+async function readInspectedPortableSonnerRegularFile(session, inspected, maximum) {
+  if (inspected.type !== "regular-file"
+      || inspected.pathname.size > BigInt(maximum)) {
+    throw portableError("Sonner file is unavailable or oversized.");
+  }
+  const { ancestors, filename, pathname } = inspected;
   let handle;
   try {
     handle = await open(filename, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
@@ -108,6 +139,17 @@ async function readPortableFile(session, projectPath, maximum, { allowSymlink = 
   }
 }
 
+export async function readPortableSonnerRegularFile(session, projectPath, maximum) {
+  if (!Number.isInteger(maximum) || maximum < 0 || maximum > MAX_GIT_BYTES) {
+    throw portableError("Invalid Sonner regular file bound.");
+  }
+  return (await readInspectedPortableSonnerRegularFile(
+    session,
+    await inspectPortableSonnerPath(session, projectPath),
+    maximum,
+  )).raw;
+}
+
 function parseGitPaths(output, maximum = MAX_GIT_BYTES) {
   if (!Buffer.isBuffer(output) || output.length > maximum || (output.length > 0 && output.at(-1) !== 0)) {
     throw portableError("Sonner Git output is invalid.");
@@ -120,51 +162,8 @@ function parseGitPaths(output, maximum = MAX_GIT_BYTES) {
     throw portableError("Sonner Git paths are invalid or bounded.");
   }
   return [...new Set(paths)]
-    .filter((entry) => !isExcludedSonnerProjectPath(entry))
-    .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
-}
-
-async function readPortableDirectory(session, projectPath) {
-  await assertRoot(session);
-  const directory = projectPath.length === 0
-    ? session.project.root
-    : path.join(session.project.root, ...projectPath.split("/"));
-  let retained = [];
-  let before;
-  if (projectPath.length > 0) {
-    if (!validProjectPath(projectPath)) throw portableError("Invalid Sonner project path.");
-    retained = await inspectAncestors(session.project.root, `${projectPath}/_`);
-    before = await lstat(directory, { bigint: true });
-    if (!before.isDirectory() || before.isSymbolicLink()) throw portableError("Sonner directory is unsafe.");
-  }
-  const entries = await readdir(directory, { withFileTypes: true });
-  if (projectPath.length > 0) {
-    const after = await lstat(directory, { bigint: true });
-    if (!after.isDirectory() || after.isSymbolicLink() || !sameIdentity(before, after)
-        || !(await revalidateAncestors(retained))) throw portableError("Sonner directory changed while reading.");
-  }
-  await assertRoot(session);
-  return entries.sort((left, right) => Buffer.compare(Buffer.from(left.name), Buffer.from(right.name)));
-}
-
-async function discoverPortableWorkPaths(session) {
-  const directories = [""];
-  const works = [];
-  let discovered = 0;
-  while (directories.length > 0) {
-    session.throwIfAborted();
-    const directory = directories.shift();
-    const entries = await readPortableDirectory(session, directory);
-    discovered += entries.length;
-    if (discovered > MAX_PATHS) throw portableError("Sonner project path count is bounded.");
-    for (const entry of entries) {
-      const projectPath = directory.length > 0 ? `${directory}/${entry.name}` : entry.name;
-      if (!validProjectPath(projectPath) || isExcludedSonnerProjectPath(projectPath)) continue;
-      if (entry.isDirectory()) directories.push(projectPath);
-      else if (entry.isFile() && entry.name === "WORK_NODE.xml") works.push(projectPath);
-    }
-  }
-  return works.sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+    .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)))
+    .filter((projectPath) => !isExcludedProjectPath(projectPath));
 }
 
 async function admittedPaths(session, environment = process.env) {
@@ -203,45 +202,146 @@ async function admittedPaths(session, environment = process.env) {
   return parseGitPaths(stdout);
 }
 
+async function readPortableDirectory(session, projectDirectory) {
+  await assertRoot(session);
+  const directory = projectDirectory === "."
+    ? session.project.root
+    : path.join(session.project.root, ...projectDirectory.split("/"));
+  const before = await lstat(directory, { bigint: true });
+  if (!before.isDirectory() || before.isSymbolicLink()) {
+    throw portableError("Sonner Work directory is unsafe.");
+  }
+  const entries = await readdir(directory, { withFileTypes: true });
+  const after = await lstat(directory, { bigint: true });
+  if (!after.isDirectory() || after.isSymbolicLink() || !sameFile(before, after)) {
+    throw portableError("Sonner Work directory changed during discovery.");
+  }
+  await assertRoot(session);
+  return entries.sort((left, right) => Buffer.compare(
+    Buffer.from(left.name, "utf8"),
+    Buffer.from(right.name, "utf8"),
+  ));
+}
+
+async function discoverPortableWorks(session, {
+  maxWorks,
+  maxWorkBytes,
+  maxOutputBytes,
+}) {
+  const directories = ["."];
+  let directoryIndex = 0;
+  const works = [];
+  let discoveredEntries = 0;
+  let outputBytes = 0;
+  let workUnsafe = false;
+  while (directoryIndex < directories.length) {
+    session.throwIfAborted();
+    const directory = directories[directoryIndex];
+    directoryIndex += 1;
+    let entries;
+    try {
+      entries = await readPortableDirectory(session, directory);
+    } catch {
+      if (directory === ".") throw portableError("Sonner Work discovery failed.");
+      workUnsafe = true;
+      continue;
+    }
+    discoveredEntries += entries.length;
+    if (discoveredEntries > MAX_WORK_DISCOVERY_ENTRIES) {
+      workUnsafe = true;
+      break;
+    }
+    for (const entry of entries) {
+      const projectPath = directory === "."
+        ? entry.name
+        : `${directory}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (!EXCLUDED_PROJECT_DIRECTORY_NAMES.has(entry.name)) {
+          directories.push(projectPath);
+        }
+        continue;
+      }
+      if (entry.name !== "WORK_NODE.xml") continue;
+      if (works.length >= maxWorks) {
+        workUnsafe = true;
+        continue;
+      }
+      try {
+        const raw = await readPortableSonnerRegularFile(
+          session,
+          projectPath,
+          maxWorkBytes,
+        );
+        outputBytes += raw.length;
+        if (outputBytes > maxOutputBytes) {
+          throw portableError("Sonner Work output is bounded.");
+        }
+        works.push({
+          relativePath: projectPath,
+          xml: new TextDecoder("utf-8", { fatal: true }).decode(raw),
+        });
+      } catch {
+        workUnsafe = true;
+      }
+    }
+  }
+  works.sort((left, right) => Buffer.compare(
+    Buffer.from(left.relativePath, "utf8"),
+    Buffer.from(right.relativePath, "utf8"),
+  ));
+  return { works, workUnsafe, outputBytes };
+}
+
+async function readPortableIndexEntry(session, projectPath, maximum) {
+  let inspected = await inspectPortableSonnerPath(session, projectPath);
+  if (inspected.type === "symlink") {
+    return { path: projectPath, type: "symlink", raw: Buffer.alloc(0) };
+  }
+  if (inspected.type !== "regular-file") return null;
+  if (maximum === 0 || inspected.pathname.size > BigInt(maximum)) {
+    return { path: projectPath, type: "file", raw: Buffer.alloc(0) };
+  }
+  try {
+    const record = await readInspectedPortableSonnerRegularFile(
+      session,
+      inspected,
+      maximum,
+    );
+    return { path: projectPath, type: "file", raw: record.raw };
+  } catch {
+    inspected = await inspectPortableSonnerPath(session, projectPath);
+    if (inspected.type === "symlink") {
+      return { path: projectPath, type: "symlink", raw: Buffer.alloc(0) };
+    }
+    return inspected.type === "regular-file"
+      ? { path: projectPath, type: "file", raw: Buffer.alloc(0) }
+      : null;
+  }
+}
+
 export async function readPortableSonnerProject({ project, session, includeFiles = true,
   maxWorks = 1024, maxWorkBytes = 256 * 1024, maxOutputBytes = 16 * 1024 * 1024,
   environment = process.env } = {}) {
   if (!session || session.project !== project || session.closed || session.platform !== "win32") throw portableError();
-  const paths = includeFiles
-    ? await admittedPaths(session, environment)
-    : await discoverPortableWorkPaths(session);
+  const discovered = await discoverPortableWorks(session, {
+    maxWorks,
+    maxWorkBytes,
+    maxOutputBytes,
+  });
+  const paths = includeFiles ? await admittedPaths(session, environment) : [];
   const entries = [];
-  const works = [];
-  let outputBytes = 0;
-  let workUnsafe = false;
+  const { works, workUnsafe } = discovered;
+  let { outputBytes } = discovered;
   for (const projectPath of paths) {
     session.throwIfAborted();
-    if (projectPath.endsWith("/WORK_NODE.xml") || projectPath === "WORK_NODE.xml") {
-      if (works.length >= maxWorks) { workUnsafe = true; continue; }
-      try {
-        const record = await readPortableFile(session, projectPath, maxWorkBytes);
-        if (record.type !== "file") { workUnsafe = true; continue; }
-        outputBytes += record.raw.length;
-        if (outputBytes > maxOutputBytes) throw portableError("Sonner output is bounded.");
-        works.push({ relativePath: projectPath, xml: new TextDecoder("utf-8", { fatal: true }).decode(record.raw) });
-      } catch { workUnsafe = true; }
-    }
-    if (!includeFiles) continue;
     try {
       const maximum = /\.md$/i.test(projectPath) ? MAX_FILE_BYTES : 0;
-      const record = maximum > 0
-        ? await readPortableFile(session, projectPath, maximum, { allowSymlink: true })
-        : await readPortableFile(session, projectPath, 0, { allowSymlink: true });
+      const record = await readPortableIndexEntry(session, projectPath, maximum);
+      if (record === null) continue;
       outputBytes += record.raw.length;
       if (outputBytes > maxOutputBytes) throw portableError("Sonner output is bounded.");
-      entries.push({ path: projectPath, type: record.type, raw: record.raw });
-    } catch (error) {
-      try {
-        const status = await lstat(path.join(project.root, ...projectPath.split("/")), { bigint: true });
-        if (status.isFile()) entries.push({ path: projectPath, type: "file", raw: Buffer.alloc(0) });
-        else if (status.isSymbolicLink()) entries.push({ path: projectPath, type: "symlink", raw: Buffer.alloc(0) });
-      } catch { /* A vanished or unsafe admitted path is omitted. */ }
-    }
+      entries.push(record);
+    } catch { /* A vanished or unsafe admitted path is omitted. */ }
   }
   await assertRoot(session);
   return { entries, works, workUnsafe };
@@ -254,8 +354,8 @@ export async function readPortableRuntimeRecord({ session, mode } = {}) {
   const maximum = mode === "ledger" ? 32 * 1024 * 1024 : mode === "diagnostic" ? 64 * 1024 : 0;
   if (!projectPath) throw portableError();
   try {
-    const record = await readPortableFile(session, projectPath, maximum);
-    return record.type === "file" ? { status: "present", bytes: record.raw } : { status: "unsafe" };
+    const bytes = await readPortableSonnerRegularFile(session, projectPath, maximum);
+    return { status: "present", bytes };
   } catch (error) {
     const filename = path.join(session.project.root, ...projectPath.split("/"));
     try { await lstat(filename); } catch (cause) { if (cause?.code === "ENOENT") return { status: "missing" }; }

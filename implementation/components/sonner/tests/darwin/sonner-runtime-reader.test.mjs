@@ -5,10 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveProject } from "../../runtime/source/project.mjs";
-import { openSonnerProjectReadSession } from "../source/sonner-project-reader.mjs";
-import { readSonnerRuntimeRecord } from "../source/sonner-runtime-reader.mjs";
-import { SONNER_RUNTIME_DIAGNOSTIC_MAX_BYTES } from "../source/sonner-runtime-reader.mjs";
+import { resolveProject } from "../../../runtime/source/project.mjs";
+import { openSonnerProjectReadSession } from "../../source/sonner-project-reader.mjs";
+import { readSonnerRuntimeRecord } from "../../source/sonner-runtime-reader.mjs";
+import { SONNER_RUNTIME_DIAGNOSTIC_MAX_BYTES } from "../../source/sonner-runtime-reader.mjs";
 
 async function fixture(t, sessionOptions = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "sonner-runtime-reader-"));

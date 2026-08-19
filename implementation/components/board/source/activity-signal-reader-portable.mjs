@@ -2,6 +2,8 @@ import { constants } from "node:fs";
 import { lstat, open, readdir } from "node:fs/promises";
 import path from "node:path";
 
+import { classifyPortablePathMetadata } from "../../runtime/source/portable-path-type.mjs";
+
 const MAX_AUTHORIZED_PRIMARY_IDS = 256;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{40,64}$/;
 const SIGNAL_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
@@ -43,6 +45,11 @@ function sameFile(left, right) {
     && left.ctimeNs === right.ctimeNs;
 }
 
+export function isPortableActivitySignalMetadata(metadata) {
+  return classifyPortablePathMetadata(metadata) === "regular-file"
+    && metadata.nlink === 1n;
+}
+
 async function transition(callback, name) {
   if (callback) await callback(name);
 }
@@ -82,7 +89,7 @@ async function inspectSignalFile({ file, primaryTaskId, snapshot, name, director
   try {
     await transition(onTransition, "before-file-open");
     const pathname = await lstat(file, { bigint: true });
-    if (!pathname.isFile() || pathname.isSymbolicLink() || pathname.nlink !== 1n) {
+    if (!isPortableActivitySignalMetadata(pathname)) {
       return { omission: omission("ACTIVITY_SIGNAL_NON_REGULAR", primaryTaskId) };
     }
     if (pathname.size > BigInt(maxSignalBytes)) {

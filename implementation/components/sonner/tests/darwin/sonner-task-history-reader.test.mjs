@@ -9,7 +9,7 @@ import {
   encodeSonnerHistoryRequest,
   observeSonnerTasks,
   SONNER_HISTORY_MAX_TASKS,
-} from "../source/sonner-task-history-reader.mjs";
+} from "../../source/sonner-task-history-reader.mjs";
 
 function operation() {
   const controller = new AbortController();

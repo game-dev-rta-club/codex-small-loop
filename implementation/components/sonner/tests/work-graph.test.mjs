@@ -128,3 +128,17 @@ test("reports missing graphs and accepts marker-only future Works", async (t) =>
   await writeWork(root, "future-release", { type: "Distribution", summary: "Will package the result.", inputs: ["overview"] });
   assert.deepEqual((await loadWorkGraph(root)).map(({ id }) => id), ["overview", "future-release"]);
 });
+
+test("loads Work Graph metadata without Git admission", async (t) => {
+  const root = await fixture(t);
+  await writeWork(root, "overview", {
+    type: "Overview",
+    summary: "Defines the outcome.",
+  });
+
+  const works = await loadWorkGraph(root, {
+    readerOptions: { environment: { PATH: "" } },
+  });
+
+  assert.deepEqual(works.map(({ id }) => id), ["overview"]);
+});

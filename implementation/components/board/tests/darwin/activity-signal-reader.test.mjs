@@ -31,11 +31,11 @@ import {
   isValidActivitySnapshotName,
   PACKAGED_ACTIVITY_SIGNAL_READER,
   readActivitySignals,
-} from "../source/activity-signal-reader.mjs";
-import { resolveProject } from "../../runtime/source/project.mjs";
+} from "../../source/activity-signal-reader.mjs";
+import { resolveProject } from "../../../runtime/source/project.mjs";
 
 const exec = promisify(execFile);
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const source = path.join(root, "native", "activity-signal-reader.c");
 const PRIMARY = "22222222-2222-4222-8222-222222222222";
 const UNAUTHORIZED = "99999999-9999-4999-8999-999999999999";
@@ -737,8 +737,8 @@ test("rejected and late control callbacks fail closed without terminal writes", 
 
 test("500 early-exit helpers cannot escape as uncaught EPIPE or unhandled rejection", async (t) => {
   const tree = await makeTree(t);
-  const moduleUrl = new URL("../source/activity-signal-reader.mjs", import.meta.url).href;
-  const projectUrl = new URL("../../runtime/source/project.mjs", import.meta.url).href;
+  const moduleUrl = new URL("../../source/activity-signal-reader.mjs", import.meta.url).href;
+  const projectUrl = new URL("../../../runtime/source/project.mjs", import.meta.url).href;
   const program = `
     import { readActivitySignals } from ${JSON.stringify(moduleUrl)};
     import { resolveProject } from ${JSON.stringify(projectUrl)};

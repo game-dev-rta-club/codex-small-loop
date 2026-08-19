@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import http from "node:http";
-import { mkdir, mkdtemp, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -159,7 +159,7 @@ test("Sonner file open requires same-origin JSON and the canonical project", asy
   assert.equal(opened.length, 1);
 });
 
-test("Sonner opens indexed regular files and Work directories and rejects symlink replacement", async (t) => {
+test("Sonner opens indexed files and Work directories and propagates opener revalidation failures", async (t) => {
   const projectRoot = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-board-open-file-"));
   t.after(() => rm(projectRoot, { recursive: true, force: true }));
   await execFileAsync("git", ["-C", projectRoot, "init", "-q"]);
@@ -182,8 +182,6 @@ test("Sonner opens indexed regular files and Work directories and rejects symlin
   await assert.rejects(openSonnerFile(project, "missing.md", { nativeOpener }),
     (error) => error.code === "SONNER_FILE_NOT_INDEXED");
 
-  await rm(path.join(projectRoot, "README.md"));
-  await symlink("/etc/hosts", path.join(projectRoot, "README.md"));
   const indexedProjection = { version: 8, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory",
     children: [{ path: "README.md", name: "README.md", type: "file", summary: "Open me." }] } }, runtime: { status: "missing" } };
   await assert.rejects(openSonnerFile(project, "README.md", {

@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-
-import { inspectUniversalMachO } from "../../board/source/activity-signal-reader.mjs";
+import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(
-  new URL("../../../../", import.meta.url).pathname,
+  fileURLToPath(new URL("../../../../", import.meta.url)),
 );
 
 async function read(relativePath) {
-  return readFile(path.join(repositoryRoot, relativePath), "utf8");
+  return (await readFile(path.join(repositoryRoot, relativePath), "utf8"))
+    .replaceAll("\r\n", "\n")
+    .replaceAll("\r", "\n");
 }
 
 async function exists(relativePath) {
@@ -1730,6 +1730,7 @@ test("current project Works form an Overview-rooted graph", async () => {
     "components",
     "contents",
     "skills",
+    "testing",
     "testing.md",
     "third_party",
   ]);
@@ -2340,9 +2341,6 @@ test("Activity packages its executable universal macOS Signal reader", async () 
     "implementation/components/board/native/BUILD.md",
   ]) assert.equal(await exists(packaged), true, packaged);
   assert.equal((await stat(helper)).isFile(), true);
-  await access(helper, constants.X_OK);
-  assert.deepEqual(await inspectUniversalMachO(helper), { arm64: true, x86_64: true });
-  assert.equal(spawnSync("/usr/bin/codesign", ["--verify", "--strict", helper]).status, 0);
   const source = await read("implementation/components/board/native/activity-signal-reader.c");
   const wrapper = await read("implementation/components/board/source/activity-signal-reader.mjs");
   const portable = await read("implementation/components/board/source/activity-signal-reader-portable.mjs");
@@ -2363,7 +2361,7 @@ test("Activity packages its executable universal macOS Signal reader", async () 
   assert.match(provenance, new RegExp(digest));
 });
 
-test("Board packages its signed identity-bound Sonner file opener", async () => {
+test("Board packages its identity-bound Sonner file opener", async () => {
   const helper = path.join(repositoryRoot, "implementation/components/board/native/sonner-open-file");
   for (const packaged of [
     "implementation/components/board/native/sonner-open-file",
@@ -2371,9 +2369,6 @@ test("Board packages its signed identity-bound Sonner file opener", async () => 
     "implementation/components/board/source/sonner-open-file.mjs",
     "implementation/components/board/native/BUILD.md",
   ]) assert.equal(await exists(packaged), true, packaged);
-  await access(helper, constants.X_OK);
-  assert.deepEqual(await inspectUniversalMachO(helper), { arm64: true, x86_64: true });
-  assert.equal(spawnSync("/usr/bin/codesign", ["--verify", "--strict", helper]).status, 0);
   const source = await read("implementation/components/board/native/sonner-open-file.c");
   const wrapper = await read("implementation/components/board/source/sonner-open-file.mjs");
   const provenance = await read("implementation/components/board/native/BUILD.md");
@@ -2389,7 +2384,7 @@ test("Board packages its signed identity-bound Sonner file opener", async () => 
   assert.match(provenance, new RegExp(digest));
 });
 
-test("Sonner packages its signed universal descriptor-anchored project reader", async () => {
+test("Sonner packages its descriptor-anchored project reader", async () => {
   const helper = path.join(repositoryRoot, "implementation/components/sonner/native/sonner-project-reader");
   const manifest = JSON.parse(await read("implementation/.codex-plugin/plugin.json"));
   const marketplace = JSON.parse(await read(".agents/plugins/marketplace.json"));
@@ -2428,9 +2423,6 @@ test("Sonner packages its signed universal descriptor-anchored project reader", 
     "implementation/components/board/public/vendor/elk.bundled.js",
   ]) assert.equal(await exists(packaged), true, packaged);
   assert.equal((await stat(helper)).isFile(), true);
-  await access(helper, constants.X_OK);
-  assert.deepEqual(await inspectUniversalMachO(helper), { arm64: true, x86_64: true });
-  assert.equal(spawnSync("/usr/bin/codesign", ["--verify", "--strict", helper]).status, 0);
   const source = await read("implementation/components/sonner/native/sonner-project-reader.c");
   const wrapper = await read("implementation/components/sonner/source/sonner-project-reader.mjs");
   const portable = await read("implementation/components/sonner/source/sonner-portable-io.mjs");
@@ -2471,7 +2463,7 @@ test("Sonner packages its signed universal descriptor-anchored project reader", 
   assert.match(provenance, new RegExp(digest));
 });
 
-test("Sonner packages signed descriptor-anchored Runtime and history readers", async () => {
+test("Sonner packages descriptor-anchored Runtime and history readers", async () => {
   const provenance = await read("implementation/components/sonner/native/BUILD.md");
   for (const packaged of [
     "implementation/components/sonner/native/sonner-safe-io.c",
@@ -2489,9 +2481,6 @@ test("Sonner packages signed descriptor-anchored Runtime and history readers", a
     "implementation/components/sonner/native/sonner-task-history-reader",
   ]) {
     const helper = path.join(repositoryRoot, relative);
-    await access(helper, constants.X_OK);
-    assert.deepEqual(await inspectUniversalMachO(helper), { arm64: true, x86_64: true });
-    assert.equal(spawnSync("/usr/bin/codesign", ["--verify", "--strict", helper]).status, 0);
     const digest = createHash("sha256").update(await readFile(helper)).digest("hex");
     assert.match(provenance, new RegExp(digest));
   }

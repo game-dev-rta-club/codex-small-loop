@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: git ls-files -z '*.mjs' | xargs -0 -n1 node --check
       - name: Run complete repository suite
-        run: node --test "implementation/components/*/tests/*.test.mjs"
+        run: node implementation/testing/test-runner.mjs darwin
       - name: Ensure tests leave the checkout clean
         shell: bash
         run: test -z "$(git status --porcelain)"
@@ -49,25 +49,7 @@ jobs:
         shell: bash
         run: git ls-files -z '*.mjs' | xargs -0 -n1 node --check
       - name: Run Windows and portable repository suite
-        shell: bash
-        run: |
-          node --test --test-concurrency=1 \
-            "implementation/components/runtime/tests/*.test.mjs" \
-            "implementation/components/board/tests/activity-data.test.mjs" \
-            "implementation/components/board/tests/activity-history.test.mjs" \
-            "implementation/components/board/tests/activity-signal-reader-portable.test.mjs" \
-            "implementation/components/board/tests/activity-thread-titles.test.mjs" \
-            "implementation/components/board/tests/board-host.test.mjs" \
-            "implementation/components/board/tests/board-server.test.mjs" \
-            "implementation/components/board/tests/ui-contract.test.mjs" \
-            "implementation/components/contract-tests/tests/plugin-distribution.test.mjs" \
-            "implementation/components/contract-tests/tests/task-communication-contracts.test.mjs" \
-            "implementation/components/sonner/tests/runtime.test.mjs" \
-            "implementation/components/sonner/tests/sonner-lifecycle.test.mjs" \
-            "implementation/components/sonner/tests/sonner-portable-io.test.mjs" \
-            "implementation/components/sonner/tests/sonner-text.test.mjs" \
-            "implementation/components/sonner/tests/sonner.test.mjs" \
-            "implementation/components/sonner/tests/work-graph.test.mjs"
+        run: node implementation/testing/test-runner.mjs win32
       - name: Ensure tests leave the checkout clean
         shell: bash
         run: test -z "$(git status --porcelain)"

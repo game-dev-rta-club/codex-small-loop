@@ -188,12 +188,17 @@ Turn boundary; it never
 initializes or mutates Runtime.
 
 On Windows, the same builder selects a portable reader before helper validation.
-It runs Git with an argument array and no shell, bounds admitted paths and bytes,
-rejects symbolic links and reparse-point traversal, and revalidates Root,
-ancestor, and file identities around each read. Fixed ledger and diagnostic
-records use the same stable-read rule. Task observation bounds discovery and
-reads at most a final 2 MiB JSONL window before applying the existing reducer.
-No Windows path validates, executes, or depends on a Mach-O helper.
+It discovers Work markers with a bounded recursive traversal that excludes
+generated and local-state directories without invoking Git. Files admission
+separately runs Git with an argument array and no shell and bounds admitted
+paths and bytes. Both paths reject symbolic links and reparse-point traversal
+and revalidate Root, ancestor, and file identities around each read. Portable
+path detection classifies regular files, symbolic links, and other nodes before
+the separate bounded regular-file reader can open content. Fixed
+ledger and diagnostic records use the same stable-read rule. Task observation
+bounds discovery and reads at most a final 2 MiB JSONL window before applying
+the existing reducer. No Windows path validates, executes, or depends on a
+Mach-O helper.
 
 The verified Project session is the complete Sonner operation owner. Its
 absolute deadline starts before Root acquisition and is never refreshed by a

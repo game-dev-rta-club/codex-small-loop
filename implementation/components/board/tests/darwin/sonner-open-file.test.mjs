@@ -6,8 +6,8 @@ import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 
-import { resolveProject } from "../../runtime/source/project.mjs";
-import { encodeSonnerOpenRequest, openSonnerFileReference } from "../source/sonner-open-file.mjs";
+import { resolveProject } from "../../../runtime/source/project.mjs";
+import { encodeSonnerOpenRequest, openSonnerFileReference } from "../../source/sonner-open-file.mjs";
 
 const execFileAsync = promisify(execFile);
 const source = path.resolve("implementation/components/board/native/sonner-open-file.c");
@@ -32,18 +32,6 @@ async function fixture(t) {
 }
 
 const options = (helper, onTransition) => ({ helperPath: helper, validateArchitecture: false, onTransition });
-
-test("Windows Open fails with a bounded typed result before touching the Mach-O helper", async () => {
-  let spawned = false;
-  await assert.rejects(
-    openSonnerFileReference({ rootIdentity: { dev: 1n, ino: 2n } }, "README.md", {
-      platform: "win32",
-      spawnImpl: () => { spawned = true; throw new Error("must not spawn"); },
-    }),
-    (error) => error.code === "SONNER_FILE_OPEN_UNAVAILABLE",
-  );
-  assert.equal(spawned, false);
-});
 
 test("native opener binds normal files and Work directories as retained references", async (t) => {
   const item = await fixture(t);
