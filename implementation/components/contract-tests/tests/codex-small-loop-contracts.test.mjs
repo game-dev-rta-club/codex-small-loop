@@ -172,6 +172,7 @@ test("handling-user-requests renders setup before loading Controller", async () 
   const frontmatter = skill.split("---", 3)[1];
   const welcomeIndex = skill.indexOf("initialization-guide.md");
   const roleIndex = skill.indexOf("components/commands/role.mjs controller");
+  const welcome = await read("implementation/contents/welcome/initialization-guide.md");
 
   assert.equal(prompts.length, 1);
   assert.doesNotMatch(prompts[0], /components\/commands\/role\.mjs|SKILL\.md/i);
@@ -190,6 +191,34 @@ test("handling-user-requests renders setup before loading Controller", async () 
   assert.match(skill, /later explicit Codex Small Loop activation/i);
   assert.match(skill, /Controller Role command\s+again/i);
   assert.match(skill, /project.*investigation.*Controller|Controller.*project.*investigation/is);
+  assert.match(welcome, /Optional:[^\n]*separate model for implementation and review/i);
+  assert.match(welcome, /If omitted,[^\n]*Primary model/i);
+  assert.match(skill, /ordinary model selection as the Primary model/i);
+  assert.match(skill, /Worker model is optional/i);
+  assert.match(skill, /Execute, Review, and Interviewer/i);
+  assert.match(skill, /Do not add it to the normal question sequence/i);
+  assert.match(skill, /resolve Worker to the Primary model without a follow-up/i);
+});
+
+test("Primary judgment and delegated detail work use resolved separate profiles", async () => {
+  const controller = await read("implementation/components/roles/controller/role.md");
+  const primary = await read("implementation/components/roles/primary/role.md");
+  const activation = await read(
+    "specification/interaction-specification/activation/activation-and-execution-profile.md",
+  );
+
+  assert.match(controller, /selected model and reasoning effort exactly as the Primary\s*profile/is);
+  assert.match(controller, /Worker model.*reasoning effort.*service tier/is);
+  assert.match(controller, /Worker defaults? to the Primary/is);
+  assert.match(activation, /Primary model, reasoning\s*effort, and speed/is);
+  assert.match(activation, /Worker model, reasoning effort, and shared speed/is);
+  assert.match(activation, /Worker pair equals the Primary pair/is);
+  assert.match(controller, /Execute, Review,\s*and Interviewer.*Worker profile/is);
+  assert.match(primary, /Primary owns Milestone judgment/i);
+  assert.match(primary, /Worker model, reasoning\s*effort, and service tier explicitly/is);
+  assert.match(primary, /Execute, Review, or\s*Interviewer Task/is);
+  assert.match(primary, /Do not rely on source-profile inheritance/i);
+  assert.match(primary, /profile mismatch or missing\s*Worker profile is a fail-closed/i);
 });
 
 test("controller mediates every user-facing exchange without implementing", async () => {
@@ -2933,7 +2962,7 @@ test("Work Graph documents expose distributed markers without Task coupling", as
   assert.doesNotMatch(contract, /\bTask\b/);
 });
 
-test("easy grounding routes one Controller model to every milestone agent", async () => {
+test("easy grounding routes Controller context to every milestone agent", async () => {
   const concept = await read(
     "product-concept/easy-grounding.md",
   );

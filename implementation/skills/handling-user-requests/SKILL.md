@@ -51,37 +51,56 @@ Resolve the execution profile in this entry exchange:
 - Speed defaults immediately to 1x whenever the user has not explicitly
   selected a speed. Do not ask a speed-only follow-up. Use 1.5x only when the
   user explicitly selects it.
-- If the model is unknown, propose Terra Medium with the JSON default summary
-  and ask only for the model decision. State that execution remains at 1x
-  unless the user explicitly selects 1.5x.
-- If the model is known, treat the profile as resolved using the explicit speed
-  or the 1x default. Do not reconfirm either value; state the resolved profile
+- Treat the ordinary model selection as the Primary model. If it is unknown,
+  propose Terra Medium with the JSON default summary and ask only for the model
+  decision, meaning the Primary model. State that execution remains at 1x unless the user explicitly
+  selects 1.5x.
+- A Worker model is optional and applies to Execute, Review, and Interviewer.
+  Do not add it to the normal question sequence or ask the user to choose one.
+  Resolve it only when the user voluntarily supplies a separate implementation
+  or review model. If the user explicitly asks to split the models without
+  naming the Worker model, ask only for that missing Worker model. Otherwise,
+  resolve Worker to the Primary model without a follow-up.
+- If the Primary model is known, treat the profiles as resolved using the
+  explicit speed or the 1x default and the explicit Worker model or Primary
+  fallback. Do not reconfirm any resolved value; state the resolved settings
   briefly in the Next Action section.
 
 For example, a reply containing only `Sol Medium` resolves to Sol Medium and
 1x and proceeds to Controller. A reply containing only `1.5x` preserves that
-speed but still asks for the model.
+speed but still asks for the Primary model. A reply such as `Primary: Sol
+Medium; implementation and review: Luna Max` resolves the separate Worker
+model without adding another setup turn. If only the Worker model is supplied,
+retain it while asking for the missing Primary model.
 
-Reflect every resolved setting in the Markdown tables by bolding the selected
-model and speed and removing bold from the previous default. A missing speed is
-already resolved as 1x; only an unknown model remains unselected. Keep the
-internal `serviceTier` value private.
+Reflect the resolved Primary model and speed in the Markdown tables by bolding
+their selected rows and removing bold from the previous defaults. The optional
+Worker model does not create another table or change the table selection; when
+explicitly supplied, state it briefly below the tables. A missing speed is
+already resolved as 1x; only an unknown Primary model or an explicitly
+requested but unnamed Worker model remains unresolved. Keep raw model IDs and
+the internal `serviceTier` value private.
 
 An answer that supplies or changes a requested setting is agreement to that
-value. Keep the resolved model and speed unchanged for the complete request.
+value. Keep the resolved profiles and speed unchanged for the complete request.
 The user-facing Controller Task keeps its Codex App execution settings. Retain
-the selected model ID, reasoning effort, and speed as the resolved managed-Agent
-profile so Controller can pass all three explicitly when it creates Primary.
-Primary and its managed Children then inherit that resolved profile unless a
-Child override is explicitly requested.
+the selected Primary model ID and reasoning effort as the Primary profile.
+Retain the optional Worker model ID and reasoning effort as the Worker profile,
+falling back to the Primary pair when it was omitted. Speed is shared by both.
+Controller passes the Primary model, reasoning effort, and speed explicitly
+when it creates Primary and includes the resolved Worker model, reasoning
+effort, and shared speed in Primary's assignment. Primary explicitly applies
+that Worker profile whenever it creates an Execute, Review, or Interviewer.
 
 ## Next Turn: Resolve The Profile And Load Controller
 
 Do not load Controller in the same turn that first displays the welcome guide.
 On the next user-authored turn, incorporate the user's profile answer. If the
-model is still missing, ask only for the model and remain in this entry
-exchange. Resolve an unspecified speed as 1x. Once the model and speed are
-resolved:
+Primary model is still missing, ask only for that model and remain in this entry
+exchange. If the user explicitly requested separate models but left the Worker
+model missing, ask only for that value. Resolve an unspecified speed as 1x and
+an unspecified Worker model to the Primary model. Once both profiles and speed
+are resolved:
 
 1. Run `node <plugin-root>/components/commands/role.mjs controller`.
 2. Read the command's complete output and apply only `controller` to this

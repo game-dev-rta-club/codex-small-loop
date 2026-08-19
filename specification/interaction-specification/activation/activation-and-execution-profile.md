@@ -28,6 +28,14 @@ neither connector nor project state. Internal runtime names such as
 `serviceTier` remain hidden. The complete guide and question appear together in
 the final response without HTML or a visualization file.
 
+The ordinary model choice is the Primary profile. Below the tables, the guide
+briefly notes that a separate implementation-and-review model is available as
+an optional cost-control setting. It does not add another table or question to
+the normal path. A voluntarily supplied Worker model applies to Execute,
+Review, and Interviewer; otherwise Worker uses the Primary model. If the user
+asks to split profiles without naming the Worker model, only that missing value
+is clarified. The selected speed remains shared by both profiles.
+
 The Root uses conversation history rather than persistent preference state. If
 the user specified a model, the Root resolves the profile immediately with the
 explicit speed or the 1x default and does not reconfirm it. If the model is
@@ -43,9 +51,12 @@ value and is not reconfirmed. On that next user-authored turn, the entry Skill
 loads the Controller Role after the model is resolved and the explicit or
 default speed is fixed; project
 investigation and Interview begin there. The Controller keeps the Codex App
-settings of its user-facing Task. It applies the agreed model, reasoning effort,
-and speed explicitly when creating Primary; Primary and its managed Children
-then inherit that profile unless the user approves a Child-specific override.
+settings of its user-facing Task. It applies the agreed Primary model, reasoning
+effort, and speed explicitly when creating Primary and supplies the resolved
+Worker model, reasoning effort, and shared speed in the launch assignment.
+Primary explicitly applies the Worker profile to each new Execute, Review, and
+Interviewer. The Worker pair equals the Primary pair when the optional setting
+was omitted.
 
 Optional setup recommendations do not block the request. Missing bundled
 plugin content is an installation problem; Slack provides external reminders,

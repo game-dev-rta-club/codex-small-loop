@@ -129,20 +129,26 @@ context-preserving `primary` fork directly from Controller for this Milestone.
 Never reuse a Primary from an earlier Milestone. Each Primary is one independent
 Activity in the Board and owns only its Milestone.
 
-Use the managed-Agent execution profile resolved during initial setup. Keep the
-Controller Task's own Codex App settings unchanged. Pass the selected model and
-reasoning effort exactly; pass `default` for 1x speed and `priority` for
-1.5x speed. These explicit values make Primary the durable source of the
-resolved execution profile for its managed Children.
+Use the Primary and Worker execution profiles resolved during initial setup.
+Keep the Controller Task's own Codex App settings unchanged. When forking
+Primary, pass the selected model and reasoning effort exactly as the Primary
+profile; pass
+`default` for 1x speed and `priority` for 1.5x speed. In the launch assignment,
+also supply the exact resolved Worker model and reasoning effort and the same
+resolved service tier. Worker defaults to the Primary pair when no separate model was selected.
+These explicit launch values make Primary's resolved execution profile durable.
+Primary owns judgment and integration on its Primary profile; Execute, Review,
+and Interviewer perform delegated detail work on the Worker profile.
 
 Supply the approved outcome, rough Milestone outline, current Milestone scope,
-later boundaries, authority boundary, acceptance evidence, and relevant Work
-context. Make this launch assignment a bootstrap only:
+later boundaries, authority boundary, acceptance evidence, relevant Work
+context, and resolved Worker profile. Treat the Worker profile as orchestration
+metadata rather than a project requirement. Make this launch assignment a bootstrap only:
 Primary grounds itself, does not start Execute or mutate the project, and sends
 the one managed launch reply when it is ready for the live pre-execution
 interview. The fork source defaults to Controller, so Primary inherits the
 complete conversation history while the explicit launch options apply the
-resolved managed-Agent profile. Give Primary an explicit agent name. End the
+resolved Primary profile. Give Primary an explicit agent name. End the
 current turn when the command returns the required `end_turn`;
 do not poll after the fork. When the bootstrap reply arrives,
 inspect it and accept that launch Conversation.
