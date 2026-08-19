@@ -68,7 +68,11 @@ function assertTurnId(turnId, details = {}) {
   }
 }
 
-function normalizeRecord(record, lineNumber) {
+function normalizeRecord(
+  record,
+  lineNumber,
+  { includeFinalAnswer = false } = {},
+) {
   if (
     record === null
     || typeof record !== "object"
@@ -89,13 +93,31 @@ function normalizeRecord(record, lineNumber) {
   }
 
   assertTurnId(payload.turn_id, { lineNumber });
-  return {
+  const event = {
     type: payload.type,
     turnId: payload.turn_id,
   };
+  if (includeFinalAnswer && payload.type === "task_complete") {
+    if (
+      payload.last_agent_message !== undefined
+      && payload.last_agent_message !== null
+      && typeof payload.last_agent_message !== "string"
+    ) {
+      throw createError(
+        "TASK_EVENT_INVALID",
+        `Codex task completion has an invalid final answer at line ${lineNumber}`,
+        { lineNumber },
+      );
+    }
+    event.finalAnswer = payload.last_agent_message ?? null;
+  }
+  return event;
 }
 
-function parseLine(line, lineNumber, { incompleteTail = false } = {}) {
+function parseLine(line, lineNumber, {
+  incompleteTail = false,
+  includeFinalAnswer = false,
+} = {}) {
   if (!line.trim()) {
     return {
       event: null,
@@ -122,7 +144,7 @@ function parseLine(line, lineNumber, { incompleteTail = false } = {}) {
   }
 
   return {
-    event: normalizeRecord(record, lineNumber),
+    event: normalizeRecord(record, lineNumber, { includeFinalAnswer }),
     ignoredIncompleteTail: false,
   };
 }
@@ -516,9 +538,22 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
   }
 }
 
-export async function scanCodexTaskEvents(readable, reducer) {
+export async function scanCodexTaskEvents(readable, reducer, options = {}) {
   assertReadable(readable);
   assertReducer(reducer);
+  if (
+    options === null
+    || typeof options !== "object"
+    || Array.isArray(options)
+    || Object.keys(options).some((key) => key !== "includeFinalAnswer")
+    || (
+      options.includeFinalAnswer !== undefined
+      && typeof options.includeFinalAnswer !== "boolean"
+    )
+  ) {
+    throw new TypeError("options may contain only boolean includeFinalAnswer");
+  }
+  const includeFinalAnswer = options.includeFinalAnswer ?? false;
 
   const decoder = new StringDecoder("utf8");
   let fragment = "";
@@ -533,7 +568,7 @@ export async function scanCodexTaskEvents(readable, reducer) {
       : rawLine;
     assertLineLength(line, lineCount);
 
-    const parsed = parseLine(line, lineCount);
+    const parsed = parseLine(line, lineCount, { includeFinalAnswer });
     if (parsed.event) {
       await reducer(parsed.event);
       eventCount += 1;
@@ -573,7 +608,10 @@ export async function scanCodexTaskEvents(readable, reducer) {
         ? fragment.slice(0, -1)
         : fragment;
       assertLineLength(finalLine, lineCount);
-      const parsed = parseLine(finalLine, lineCount, { incompleteTail: true });
+      const parsed = parseLine(finalLine, lineCount, {
+        incompleteTail: true,
+        includeFinalAnswer,
+      });
       ignoredIncompleteTail = parsed.ignoredIncompleteTail;
 
       if (parsed.event) {
@@ -608,6 +646,21 @@ function validateNormalizedEvent(event) {
   }
 
   assertTurnId(event.turnId);
+  if (
+    Object.hasOwn(event, "finalAnswer")
+    && (
+      event.type !== "task_complete"
+      || (
+        event.finalAnswer !== null
+        && typeof event.finalAnswer !== "string"
+      )
+    )
+  ) {
+    throw createError(
+      "TASK_EVENT_INVALID",
+      "Task event reducer received an invalid final answer",
+    );
+  }
 }
 
 function contradictory(turnId) {
@@ -629,10 +682,20 @@ function validateReducerOptions(options) {
   if (mode === "exact") {
     assertTurnId(options?.turnId);
   }
+  if (
+    options?.includeFinalAnswer !== undefined
+    && typeof options.includeFinalAnswer !== "boolean"
+  ) {
+    throw createError(
+      "TASK_EVENT_INVALID",
+      "includeFinalAnswer must be a boolean",
+    );
+  }
 
   return {
     mode,
     turnId: mode === "exact" ? options.turnId : null,
+    includeFinalAnswer: options?.includeFinalAnswer ?? false,
   };
 }
 
@@ -644,9 +707,11 @@ export function createTaskEventReducer(options = {}) {
     ? "not_started"
     : null;
   let currentDiagnostic = null;
+  let finalAnswer = null;
 
   function markContradictory(turnId) {
     turnState = "unknown";
+    finalAnswer = null;
     currentDiagnostic ??= contradictory(turnId);
   }
 
@@ -656,6 +721,7 @@ export function createTaskEventReducer(options = {}) {
         selectedTurnId = event.turnId;
         turnState = "in_progress";
         currentDiagnostic = null;
+        finalAnswer = null;
         return;
       }
 
@@ -675,6 +741,9 @@ export function createTaskEventReducer(options = {}) {
     turnState = event.type === "task_complete"
       ? "ended"
       : "aborted";
+    finalAnswer = event.type === "task_complete"
+      ? event.finalAnswer ?? null
+      : null;
   }
 
   function acceptExact(event) {
@@ -700,6 +769,9 @@ export function createTaskEventReducer(options = {}) {
     turnState = event.type === "task_complete"
       ? "ended"
       : "aborted";
+    finalAnswer = event.type === "task_complete"
+      ? event.finalAnswer ?? null
+      : null;
   }
 
   return {
@@ -718,6 +790,9 @@ export function createTaskEventReducer(options = {}) {
           mode: "exact",
           turnId: exactTurnId,
           turnState: "unknown",
+          ...(normalizedOptions.includeFinalAnswer
+            ? { finalAnswer: null }
+            : {}),
           diagnostics: [
             diagnostic(
               "TASK_TURN_NOT_FOUND",
@@ -731,6 +806,7 @@ export function createTaskEventReducer(options = {}) {
         mode: normalizedOptions.mode,
         turnId: selectedTurnId,
         turnState,
+        ...(normalizedOptions.includeFinalAnswer ? { finalAnswer } : {}),
         diagnostics: currentDiagnostic ? [currentDiagnostic] : [],
       };
     },

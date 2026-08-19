@@ -13,8 +13,11 @@ record launch ancestry separately from communication state.
 ## Implementation Surface
 
 - [`task.mjs`](/implementation/components/commands/task.mjs)
-  provides the public `create` and `fork` commands. `launch` is a deprecated
-  compatibility alias for `create` and is not emitted by installed guidance.
+  provides the public `create`, `fork`, exact-Turn `read`, and exact-Turn `wait`
+  commands. `launch` is a deprecated compatibility alias for `create` and is
+  not emitted by installed guidance.
+- [`task-turn-observation.mjs`](/implementation/components/runtime/source/task-turn-observation.mjs)
+  implements bounded exact-Turn snapshots and waiting without App task tools.
 - [`task-launch.mjs`](/implementation/components/runtime/source/task-launch.mjs)
   coordinates preflight, durable pending state, Codex calls, and promotion.
 - [`task-messaging.mjs`](/implementation/components/runtime/source/task-messaging.mjs)
@@ -30,8 +33,9 @@ record launch ancestry separately from communication state.
   detached Codex Small Loop processes either reuse the recorded verified host or
   cold-start one through the same platform resolver.
 - [`codex-app-server-host-platform.mjs`](/implementation/components/runtime/source/codex-app-server-host-platform.mjs)
-  retains the Unix-socket host on macOS and supplies the authenticated dynamic
-  loopback host, protected capability token, and process inspection on Windows.
+  selects the current host adapter. The Darwin adapter retains the Unix-socket
+  host; the Win32 adapter owns the authenticated dynamic loopback host,
+  protected capability token, and Windows process inspection.
 - [`codex-app-server-websocket.mjs`](/implementation/components/runtime/source/codex-app-server-websocket.mjs)
   validates typed endpoints and performs one bounded WebSocket upgrade for
   both platforms.
@@ -94,6 +98,23 @@ to inspect runtime status. Failures before accepted or durable task state return
 Names are explicit and unique among one Parent's direct Children. Codex Small
 Loop does not infer the caller's Task ID or invent an agent name.
 
+Exact-Turn observation has a separate non-mutating CLI contract:
+
+```text
+node <plugin-root>/components/commands/task.mjs read \
+  --task <task-id> --turn <turn-id>
+
+node <plugin-root>/components/commands/task.mjs wait \
+  --task <task-id> --turn <turn-id> [--timeout-ms <0-300000>]
+```
+
+`read` performs one immediate snapshot. `wait` defaults to `120000`
+milliseconds and observes until the exact Turn ends, aborts, or reaches its
+deadline. Deadline expiry returns exit status `0`, `run: "ok"`,
+`turnState: "in_progress"`, and `timedOut: true`. The command reads no
+assignment from standard input, starts no project runtime, and performs no
+Task lifecycle transition.
+
 For `create`, Codex Small Loop reads the direct Parent's effective model,
 reasoning effort, and service tier before creation. For `fork`, it reads the
 fork source's effective profile. Omitted fields inherit those applicable source
@@ -118,12 +139,20 @@ Before Codex may create a Child, launch and fork:
 1. resolve the canonical project;
 2. ensure the project runtime and ledger are available;
 3. find the Parent in Codex session storage;
-4. prove that the Parent is active, not archived, and belongs to the same
-   canonical project; and
-5. reject a managed Parent whose incoming relationship is stopped or accepted;
+4. prove that the Parent is active and not archived;
+5. require a managed Parent to belong to the same canonical project; an
+   unmanaged Root Controller may bootstrap a canonical project strictly below
+   its own cwd, but not a sibling or ancestor project; and
+6. reject a managed Parent whose incoming relationship is stopped or accepted;
    and
-6. for an explicit fork source, independently prove that it exists, is active,
+7. for an explicit fork source, independently prove that it exists, is active,
    is not archived, and belongs to the same canonical project.
+
+The nested-project exception applies only to the external Controller boundary.
+The created Primary uses the nested canonical root, and every managed
+descendant must then match that root exactly. This supports a focused project
+such as `repository/mokup/abyss-cycle-v1` without allowing an existing managed
+Task to drift between projects.
 
 An unregistered Parent is valid and becomes a derived `controller` Root Task
 after its first Child relationship is promoted. Managed descendants retain

@@ -56,8 +56,8 @@ During the live loop, each Controller Notification asks Primary to test or
 refine its understanding. Inspect the relevant project evidence and return
 either one material question or `READY_FOR_EXECUTION` as the ordinary local
 final answer for the Primary Task. Do not send a managed reply or Notification
-for that answer: a Notification creates no reply
-obligation, and Controller reads the local result directly through Codex App.
+for that answer: a Notification creates no reply obligation, and Controller
+reads the exact local Turn through Codex Small Loop.
 Do not start Execute, create implementation Children, or modify the project
 during this pre-execution interview.
 

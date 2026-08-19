@@ -63,14 +63,15 @@ maintained graph.
 
 Each Work Node is represented by a meaningful project directory. Its
 `WORK_NODE.xml` declares a stable `id`, a recognizable `type`, a summary, and
-its direct `inputs`. The containing directory's basename exactly matches the
-Work ID, so the output is recognizable from the directory tree alone. Parent
-directories may classify related Works. The directory uses the most meaningful
-production path and may coincide with an existing `components/`, `tests/`,
-`assets/`, or other production directory. Agents inspect the selected directory
-rather than maintaining a duplicate README index. Every `input` records one
-direct upstream Work on which the current Work depends. Downstream impact is
-derived from those connections.
+its direct `inputs`. The Work ID is independent of the containing directory's
+basename: the path describes physical organization while the ID provides a
+stable semantic identity for graph edges. Parent directories may classify
+related Works. The directory uses the most meaningful production path and may
+coincide with an existing `components/`, `tests/`, `assets/`, or other
+production directory. Agents inspect the marker and selected directory rather
+than maintaining a duplicate README index. Every `input` records one direct
+upstream Work on which the current Work depends. Downstream impact is derived
+from those connections.
 
 ## Reference
 

@@ -1,7 +1,7 @@
 ---
 summary: >-
-  Define the installed primitive Skill for creating, messaging, controlling,
-  and recovering Codex Tasks without owning a development workflow.
+  Define the installed primitive Skill for creating, messaging, observing,
+  controlling, and recovering Codex Tasks without owning a development workflow.
 ---
 
 # Working With Codex Tasks
@@ -9,7 +9,8 @@ summary: >-
 The installed
 [`codex-small-loop:working-with-codex-tasks` Skill](/implementation/skills/working-with-codex-tasks/SKILL.md)
 owns Agent-facing mechanics for Task creation, fork, Notification,
-Conversation, stop, resume, runtime diagnosis, and safe recovery.
+Conversation, exact-Turn observation, Task-owned schedules, stop, resume,
+runtime diagnosis, and safe recovery.
 
 Job Roles own all semantic decisions: when and why to perform an operation,
 which Task and Role should participate, whether Role reload is needed, what the
@@ -28,6 +29,11 @@ The assignment uses non-interactive standard input through a pipe or
 here-document so EOF is deterministic. The Skill runs Task creation and fork
 without a PTY; the command rejects interactive TTY input before creating a
 Task.
+
+An unmanaged Controller may bootstrap a project strictly below its own cwd by
+passing that nested canonical root explicitly. The created Primary and every
+managed descendant remain bound to the nested root; managed Tasks cannot move
+between roots.
 
 Creation and fork load the requested Role before the assignment. They return a
 durable Task ID that the caller records directly. A required `end_turn` is
@@ -58,6 +64,34 @@ The target's `threadSource` selects transport. Daemon-managed delivery returns
 a started or steered turn. App-owned delivery returns a durable queued message
 and an exact temporary-schedule cleanup action. Agents follow generated actions
 and do not construct protocol markers or substitute transports.
+
+## Task-Owned Schedules
+
+Codex Small Loop exposes one schedule command with `apply`, `read`, and `delete`.
+Create uses `if-match=absent`; update and deletion require the opaque etag from
+an exact preceding read. Apply is followed by exact read-back, and deletion is
+followed by confirmation of absence. The command permits only the current
+`CODEX_THREAD_ID` to operate its exact `codex-small-loop-` schedule.
+
+This is the canonical boundary for Controller heartbeat schedules and
+temporary App-message delivery schedules. Agents do not use Codex App
+`automation_update`, edit automation TOML, enumerate unrelated schedules, or
+blindly retry an etag mismatch.
+
+## Exact Turn Observation
+
+A direct delivery result proves one `taskId` and `turnId`. `task read` returns
+an immediate snapshot for that exact pair. `task wait` waits for that same Turn
+to end or abort with a bounded timeout. Timeout is a successful in-progress
+observation, not a Task failure. An ended Turn exposes the ordinary local final
+answer stored on its exact completion event.
+
+Codex Small Loop exact-Turn commands are the canonical observation route for
+Codex Small Loop direct delivery. Agents do not substitute Codex App
+`read_thread` or `wait_threads`, rediscover the latest Turn, or use App reads as
+fallback after an observation error. A queued App-owned delivery has only a
+proven message ID and follows its existing delivery action without inventing a
+Turn ID.
 
 ## Lifecycle And Recovery
 

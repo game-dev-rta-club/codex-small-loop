@@ -21,7 +21,8 @@ Every scheduled prompt embeds the closed tuple
 `(C,P,S,G,R,STATE,conversation)`. `C/P/S/G` are exact Controller, Primary,
 schedule, and Milestone generation; `R` is a monotonic schedule revision;
 `STATE` is one token below; and Conversation is literal `uncommitted` or one
-exact ID. Every same-`S` `automation_update` increments `R` and requires a
+exact ID. Every same-`S` `schedule apply` update consumes the opaque etag from
+an exact `schedule read`, increments `R`, and requires a full-definition and
 full-tuple read-back before the new authority is used. Old revision, missing or
 different identity/generation/state/binding, unknown state, or deleted schedule
 is an unconditional no-op, including a prompt delivered before an update. No
@@ -81,8 +82,10 @@ start. Board/bootstrap/live-interview failures stay bounded and heartbeat-free.
 Authentication/App-read ambiguity grants no authority. A failed same-S update
 or read-back retains the last confirmed tuple and cadence. Interrupted turns
 resume only that tuple. User cadence applies independently per Milestone; no
-states or schedules run in parallel. This uses existing `automation_update`,
-not runtime automation code, raw TOML, or project cron. There is no timeout.
+states or schedules run in parallel. This uses Codex Small Loop
+`schedule apply/read/delete`, not Codex App `automation_update`, raw TOML, or
+project cron. Create uses `if-match=absent`; update and delete consume a read
+etag, and deletion is confirmed by a final absent read. There is no timeout.
 
 Controller uses `task resume` for a safe recovery that preserves the existing
 Conversation graph. It does not replace tasks merely to escape a stopped state.
@@ -113,6 +116,13 @@ state and Turn identity. Location, file identity, and turn-boundary checks make
 stale observations fail closed. The runtime observes only Tasks involved in
 active Conversations, pending launches, lifecycle delivery, or exact assignment
 reconciliation.
+
+Ordinary observation remains metadata-only. The public exact-Turn `task read`
+and `task wait` path explicitly opts into the selected `task_complete` event's
+`last_agent_message` and exposes it as `finalAnswer`. No user messages, tool
+arguments, unrelated assistant messages, or answers from another Turn enter
+the reduced event. `read` does not wait. `wait` repeatedly observes the same
+Task and Turn IDs and treats a bounded timeout as a normal in-progress result.
 
 ## Heartbeat Pipeline
 
@@ -149,6 +159,7 @@ command to start it again.
 
 - [Task lifecycle](/implementation/components/runtime/source/task-lifecycle.mjs)
 - [Task state observer](/implementation/components/runtime/source/task-state-observer.mjs)
+- [Exact Turn observation](/implementation/components/runtime/source/task-turn-observation.mjs)
 - [Session locator](/implementation/components/runtime/source/codex-session-locator.mjs)
 - [JSONL parser](/implementation/components/runtime/source/codex-jsonl.mjs)
 - [Heartbeat internal entry point](/implementation/components/runtime/internal/heartbeat.mjs)
@@ -158,6 +169,7 @@ command to start it again.
 - [Supervisor diagnostics](/implementation/components/runtime/source/recovery-supervisor-diagnostic.mjs)
 - [Lifecycle tests](/implementation/components/runtime/tests/task-lifecycle.test.mjs)
 - [Observation tests](/implementation/components/runtime/tests/task-state-observer.test.mjs)
+- [Exact Turn observation tests](/implementation/components/runtime/tests/task-turn-observation.test.mjs)
 - [Heartbeat tests](/implementation/components/runtime/tests/heartbeat.test.mjs)
 - [Recovery tests](/implementation/components/runtime/tests/abnormal-recovery.test.mjs)
 - [Supervisor tests](/implementation/components/runtime/tests/recovery-supervisor.test.mjs)
@@ -746,8 +758,8 @@ schedule under the Codex automation directory. The schedule:
 - uses `RRULE:FREQ=MINUTELY;INTERVAL=1`;
 - stores `created_at` and `updated_at` one minute in the past so the next minute
   is selected immediately;
-- preserves the queued message and appends the exact Codex App
-  `automation_update` deletion call; and
+- preserves the queued message and appends the exact Codex Small Loop
+  `schedule read` then etag-guarded `schedule delete` calls; and
 - remains `scheduled` in the ledger while its TOML file exists.
 
 When a later pass finds the schedule missing, it records the message as
@@ -778,7 +790,7 @@ conversation text, raw JSONL, or the full ledger.
 
 - [Heartbeat internal entry point](/implementation/components/runtime/internal/heartbeat.mjs)
 - [Heartbeat implementation](/implementation/components/runtime/source/heartbeat.mjs)
-- [App message schedule implementation](/implementation/components/runtime/source/app-message-schedule.mjs)
+- [Schedule implementation](/implementation/components/runtime/source/schedule.mjs)
 - [Recovery Supervisor](/specification/technical-specification/runtime/lifecycle-and-recovery.md)
 - [Abnormal Recovery](/specification/technical-specification/runtime/lifecycle-and-recovery.md)
 

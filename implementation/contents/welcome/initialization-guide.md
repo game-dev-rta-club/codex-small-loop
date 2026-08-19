@@ -31,4 +31,4 @@ Let's choose the Agent model.
 | **1x** | 1x | 1x |
 | **1.5x** | 1.5x faster | 2.5x |
 
-**May I start with the standard Terra Medium and 1x settings?**
+**May I start with the standard Terra Medium model? Unless you explicitly select 1.5x, execution remains at 1x.**

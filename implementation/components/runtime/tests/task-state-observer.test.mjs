@@ -20,12 +20,13 @@ import {
   sameTurnBoundary,
 } from "../source/task-state-observer.mjs";
 
-function event(type, turnId) {
+function event(type, turnId, extra = {}) {
   return {
     type: "event_msg",
     payload: {
       type,
       turn_id: turnId,
+      ...extra,
     },
   };
 }
@@ -244,6 +245,28 @@ test("observes an exact assignment turn after a newer turn exists", async () => 
     );
     assert.equal(missingTurn.turnId, "absent-turn");
     expectDiagnostic(missingTurn, "TASK_TURN_NOT_FOUND");
+  });
+});
+
+test("reads an exact final answer only through the opt-in observation path", async () => {
+  await withCodexHome(async ({ active, roots }) => {
+    const taskId = "answer-task";
+    await writeHistory(active, taskId, [
+      event("task_started", "answer-turn"),
+      event("task_complete", "answer-turn", {
+        last_agent_message: "One material answer.",
+      }),
+    ]);
+
+    const ordinary = await observeExactTurn(taskId, "answer-turn", { roots });
+    const withAnswer = await observeExactTurn(taskId, "answer-turn", {
+      roots,
+      includeFinalAnswer: true,
+    });
+
+    assert.equal(Object.hasOwn(ordinary, "finalAnswer"), false);
+    assert.equal(withAnswer.turnState, "ended");
+    assert.equal(withAnswer.finalAnswer, "One material answer.");
   });
 });
 

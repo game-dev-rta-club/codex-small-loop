@@ -21,10 +21,13 @@ the canonical English, replaces the image placeholder with the bundled hero
 image's absolute path, and emits the complete Markdown directly in the final
 response.
 
-That same final response asks only for a missing model or speed. On the next
-user-authored turn, the Skill incorporates the answer and keeps asking only for
-any still-missing setting. Once the profile is resolved, it retains the exact
-model, reasoning effort, and speed as the managed-Agent profile, runs
+Speed resolves to 1x whenever the user did not explicitly choose one; 1.5x is
+used only by explicit selection. The final response therefore never asks a
+speed-only follow-up. It asks only for a missing model and states that speed
+remains 1x unless 1.5x is selected. On the next user-authored turn, the Skill
+incorporates the answer and keeps asking only when the model is still missing.
+Once the profile is resolved, it retains the exact model, reasoning effort, and
+speed as the managed-Agent profile, runs
 `components/commands/role.mjs controller`, and reads the complete output. The
 user-facing Controller keeps its Codex App settings and applies the selected
 profile explicitly when it creates Primary. The Controller Role owns intent

@@ -7,8 +7,8 @@ summary: >-
 # Conversations And Notifications
 
 `conversation.mjs` is the Agent-facing route for managed exchanges that require
-a reply. `message.mjs` owns one-way Notification to any readable Task and the
-mechanical cleanup of temporary App-message schedules. Task launch ancestry and
+a reply. `message.mjs` owns one-way Notification to any readable Task;
+`schedule.mjs` owns exact temporary-schedule inspection and cleanup. Task launch ancestry and
 project membership do not constrain Notification targets.
 If an exchange asks for a reply, work, or a decision, use a Conversation. If it
 carries information only, use a Notification.
@@ -42,9 +42,9 @@ renders the existing program-owned schedule cleanup action:
 
 ```text
 === Next Actions ===
-1. Delete this delivery schedule with the Codex App `automation_update` tool.
-   Mode: delete
-   ID: <codex-small-loop-message-schedule-id>
+1. Delete this delivery schedule before continuing.
+   First run `schedule read --schedule <schedule-id> --task <target-task-id>`.
+   Then run `schedule delete --schedule <schedule-id> --task <target-task-id> --if-match <returned-etag>`.
 ```
 
 For direct delivery, success contains the accepted `turnId`, `delivery`, and
@@ -207,16 +207,18 @@ and files use mode `0600`. On Windows, each schedule directory replaces
 inherited access with the same verified current-user, SYSTEM, and
 Administrators ACL as the project runtime, and its files inherit that policy.
 Creation is atomic and idempotent. Delivery is at-least-once
-until the receiver deletes the exact temporary schedule with
-`automation_update` by following the generated `Next Actions`; the runtime
+until the receiver reads and deletes the exact temporary schedule with Whole
+Job Loop `schedule read/delete` by following the generated `Next Actions`; the runtime
 acknowledges delivery after the schedule disappears.
 
-Stable schedule failures are:
+Stable schedule failures include:
 
 ```text
-APP_MESSAGE_SCHEDULE_READ_FAILED
-APP_MESSAGE_SCHEDULE_CONFLICT
-APP_MESSAGE_SCHEDULE_WRITE_FAILED
+SCHEDULE_READ_FAILED
+SCHEDULE_CONFLICT
+SCHEDULE_WRITE_FAILED
+SCHEDULE_ETAG_MISMATCH
+SCHEDULE_TARGET_MISMATCH
 ```
 
 ## Fail-Closed Rules
@@ -237,7 +239,8 @@ APP_MESSAGE_SCHEDULE_WRITE_FAILED
 - [Conversation state](/implementation/components/runtime/source/conversation.mjs)
 - [Message routing](/implementation/components/runtime/source/task-messaging.mjs)
 - [Task Ledger](/implementation/components/runtime/source/task-ledger.mjs)
-- [App schedule](/implementation/components/runtime/source/app-message-schedule.mjs)
+- [Schedule command](/implementation/components/commands/schedule.mjs)
+- [Schedule implementation](/implementation/components/runtime/source/schedule.mjs)
 - [Conversation CLI tests](/implementation/components/runtime/tests/conversation-cli.test.mjs)
 - [Shared communication CLI tests](/implementation/components/runtime/tests/communication-cli.test.mjs)
 - [Message routing tests](/implementation/components/runtime/tests/task-messaging.test.mjs)

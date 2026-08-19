@@ -167,7 +167,7 @@ async function run(argv, currentHarness, {
     currentHarness.options.env = { CODEX_THREAD_ID: senderTaskId };
   }
   const stdout = output();
-  const runner = new Set(["notify", "delete-schedule"]).has(argv[0])
+  const runner = argv[0] === "notify"
     ? runMessageCli
     : runConversationCli;
   const exitCode = await runner(argv, {
@@ -353,7 +353,7 @@ test("queues the message and state transition together for App-owned Tasks", asy
   );
   assert.match(
     queuedText,
-    /1\. Delete this delivery schedule[\s\S]*message delete-schedule --schedule codex-small-loop-message-[a-f0-9]{32}[\s\S]*2\. Reply to this Conversation/,
+    /1\. Delete this delivery schedule[\s\S]*schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task review-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task review-task --if-match <returned-etag>[\s\S]*2\. Reply to this Conversation/,
   );
   assert.equal(current.supervisorStarts(), 1);
 });
@@ -432,6 +432,14 @@ test("replies to an App Controller without reading its locked session", async ()
   assert.equal(current.sent.length, 0);
   assert.equal(current.state().conversations[0].state, "replied");
   assert.equal(current.state().appMessages[0].targetTaskId, "controller-task");
+  assert.match(
+    current.state().appMessages[0].text,
+    /schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task --if-match <returned-etag>/,
+  );
+  assert.doesNotMatch(
+    current.state().appMessages[0].text,
+    /schedule (?:read|delete)[^\n]*--task primary-task/,
+  );
 });
 
 test("notifies an unmanaged Codex Small Loop Task without a Conversation", async () => {
@@ -547,7 +555,7 @@ test("queues repeated notifications to an unmanaged App-owned Task", async () =>
   );
   assert.match(
     current.state().appMessages[0].text,
-    /=== Next Actions ===[\s\S]*message delete-schedule --schedule codex-small-loop-message-[a-f0-9]{32}/,
+    /=== Next Actions ===[\s\S]*schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task --if-match <returned-etag>/,
   );
   assert.doesNotMatch(
     current.state().appMessages[0].text,
@@ -559,49 +567,6 @@ test("queues repeated notifications to an unmanaged App-owned Task", async () =>
   );
   assert.equal(current.sent.length, 0);
   assert.equal(current.supervisorStarts(), 2);
-});
-
-test("deletes only the receiving Task's scheduled message and acknowledges it", async () => {
-  const scheduled = {
-    id: "message-1",
-    sourceTaskId: "interviewer-task",
-    targetTaskId: "review-task",
-    text: "Scheduled message.",
-    status: "scheduled",
-    attemptCount: 1,
-    leaseOwner: null,
-    leaseExpiresAt: null,
-    createdAt: "2026-07-30T00:00:00.000Z",
-    updatedAt: "2026-07-30T00:01:00.000Z",
-    terminalAt: null,
-    terminalReason: null,
-    lastError: null,
-  };
-  const current = harness(ledger({ appMessages: [scheduled] }), "user");
-  const removed = [];
-  current.options.removeAppMessageSchedule = async (input) => {
-    removed.push(input);
-    return { scheduleId: input.scheduleId, removed: true };
-  };
-  current.options.automationRoot = "/automations";
-
-  const result = await run([
-    "delete-schedule",
-    "--schedule",
-    "codex-small-loop-message-9deb880b43bdf6f465a0afb130aed71b",
-  ], current, {
-    senderTaskId: "review-task",
-  });
-
-  assert.equal(result.exitCode, 0);
-  assert.equal(result.result.delivery, "deleted");
-  assert.equal(current.state().appMessages[0].status, "delivered");
-  assert.deepEqual(removed, [{
-    automationRoot: "/automations",
-    scheduleId: "codex-small-loop-message-9deb880b43bdf6f465a0afb130aed71b",
-    targetTaskId: "review-task",
-  }]);
-  assert.equal(current.appServerCreates(), 0);
 });
 
 test("fails before delivery when the target already owes a reply", async () => {

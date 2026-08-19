@@ -101,9 +101,6 @@ export function parseWorkNode(xml, relativePath) {
   const root = normalized.match(/^\s*<work-node\b([^>]*)>([\s\S]*?)<\/work-node>\s*$/i);
   if (!root) graphFail(`${displayPath(relativePath)}: expected one <work-node> root element`);
   const id = readAttribute(root[1], "id", relativePath, "work-node");
-  if (path.basename(path.dirname(relativePath)) !== id) {
-    graphFail(`${displayPath(relativePath)}: directory name "${path.basename(path.dirname(relativePath))}" must match Work ID "${id}"`);
-  }
   const type = readAttribute(root[1], "type", relativePath, "work-node");
   const summaryMatch = root[2].match(/<summary>([\s\S]*?)<\/summary>/i);
   if (!summaryMatch || summaryMatch[1].trim() === "") {

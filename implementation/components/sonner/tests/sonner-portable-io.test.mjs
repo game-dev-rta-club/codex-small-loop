@@ -8,8 +8,39 @@ import { promisify } from "node:util";
 
 import { resolveProject } from "../../runtime/source/project.mjs";
 import { buildSonnerProject, loadWorkGraph } from "../source/sonner.mjs";
+import {
+  detectPortableSonnerPath,
+  readPortableSonnerRegularFile,
+} from "../source/sonner-portable-io.mjs";
+import {
+  openSonnerProjectReadSession,
+} from "../source/sonner-project-reader.mjs";
 
 const execFileAsync = promisify(execFile);
+
+test("Win32 portable Sonner separates path detection from regular file reading", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-sonner-path-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(root, "README.md"), "portable\n");
+  const project = await resolveProject(root);
+  const session = await openSonnerProjectReadSession(project, { platform: "win32" });
+  t.after(() => session.close());
+
+  assert.equal(await detectPortableSonnerPath(session, "README.md"), "regular-file");
+  assert.equal(
+    await detectPortableSonnerPath(session, "README.md", {
+      lstatPath: async () => ({
+        isFile: () => false,
+        isSymbolicLink: () => true,
+      }),
+    }),
+    "symlink",
+  );
+  assert.equal(
+    (await readPortableSonnerRegularFile(session, "README.md", 64)).toString("utf8"),
+    "portable\n",
+  );
+});
 
 test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime without Mach-O helpers", async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-sonner-win32-"));
@@ -23,10 +54,11 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
   </inputs>
 </work-node>
 `);
+  await writeFile(path.join(root, ".gitignore"), "overview/WORK_NODE.xml\n");
   await writeFile(path.join(root, "README.md"), "---\nsummary: Portable summary.\n---\n\nBody is never projected.\n");
   await mkdir(path.join(root, "dist"));
   await writeFile(path.join(root, "dist", "generated.md"), "---\nsummary: Generated output.\n---\n");
-  await execFileAsync("git", ["-C", root, "add", "overview/WORK_NODE.xml", "README.md", "dist/generated.md"]);
+  await execFileAsync("git", ["-C", root, "add", ".gitignore", "README.md", "dist/generated.md"]);
   const marker = path.join(root, "fsmonitor-ran");
   const fsmonitor = path.join(root, "fsmonitor.sh");
   await writeFile(fsmonitor, `#!/bin/sh\ntouch '${marker}'\nprintf '{}\\n'\n`, "utf8");

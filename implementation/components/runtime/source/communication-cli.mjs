@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { randomUUID } from "node:crypto";
-import os from "node:os";
 import path from "node:path";
 
 import { AtomicJsonStore } from "./atomic-json-store.mjs";
@@ -12,13 +11,9 @@ import {
   replyToConversation,
   startConversation,
 } from "./conversation.mjs";
-import {
-  appMessageAutomationId,
-  removeAppMessageSchedule,
-} from "./app-message-schedule.mjs";
+import { appMessageScheduleId } from "./schedule.mjs";
 import { resolveProject } from "./project.mjs";
 import {
-  acknowledgeScheduledAppMessage,
   enqueueAppMessage,
   readTaskLedger,
   transactTaskLedger,
@@ -42,7 +37,6 @@ const SCHEDULE_THREAD_SOURCES = new Set(["user", "subagent"]);
 const BODY_OPERATIONS = new Set(["notify", "start", "reply", "continue"]);
 const MESSAGE_OPERATIONS = new Set([
   "notify",
-  "delete-schedule",
 ]);
 const CONVERSATION_OPERATIONS = new Set([
   "start",
@@ -54,9 +48,6 @@ const MESSAGE_HELP = `Codex Small Loop task messaging
 
 Information only (no reply or acknowledgement):
   message notify --task <task-id> [--message <text>] [--project-root <directory>]
-
-Delete this Task's App message delivery schedule:
-  message delete-schedule --schedule <schedule-id> [--project-root <directory>]
 
 Pass the Notification body with --message, or write it to standard input.
 Results are one JSON object: exit 0 for ok, 2 for partial, and 1 for failed.
@@ -94,11 +85,6 @@ function validIdentifier(value) {
     && value.length > 0
     && value.length <= MAX_TASK_ID_LENGTH
     && !/\s/.test(value);
-}
-
-function validScheduleId(value) {
-  return typeof value === "string"
-    && /^codex-small-loop-message-[a-f0-9]{32}$/.test(value);
 }
 
 function validRole(value) {
@@ -173,7 +159,6 @@ function parseArgs(argv, cwd, namespace) {
 
   let taskId;
   let conversationId;
-  let scheduleId;
   let message;
   let reloadRole = false;
   let projectRoot = cwd;
@@ -183,7 +168,6 @@ function parseArgs(argv, cwd, namespace) {
     const allowedOptions = new Set([
       "--task",
       "--conversation",
-      "--schedule",
       "--message",
       "--project-root",
     ]);
@@ -221,7 +205,6 @@ function parseArgs(argv, cwd, namespace) {
     index += 1;
     if (option === "--task") taskId = value;
     else if (option === "--conversation") conversationId = value;
-    else if (option === "--schedule") scheduleId = value;
     else if (option === "--message") message = value;
     else projectRoot = path.resolve(cwd, value);
   }
@@ -230,7 +213,6 @@ function parseArgs(argv, cwd, namespace) {
     if (
       !validIdentifier(taskId)
       || conversationId !== undefined
-      || scheduleId !== undefined
     ) {
       throw messageError(
         operation === "start"
@@ -239,21 +221,9 @@ function parseArgs(argv, cwd, namespace) {
         `${namespace} ${operation} requires --task <task-id>`,
       );
     }
-  } else if (operation === "delete-schedule") {
-    if (
-      !validScheduleId(scheduleId)
-      || taskId !== undefined
-      || conversationId !== undefined
-    ) {
-      throw messageError(
-        "MESSAGE_SCHEDULE_REQUIRED",
-        "message delete-schedule requires --schedule <schedule-id>",
-      );
-    }
   } else if (
     !validIdentifier(conversationId)
     || taskId !== undefined
-    || scheduleId !== undefined
   ) {
     throw messageError(
       "CONVERSATION_ID_REQUIRED",
@@ -279,7 +249,6 @@ function parseArgs(argv, cwd, namespace) {
     projectRoot: path.resolve(projectRoot),
     taskId,
     conversationId,
-    scheduleId,
     message,
     reloadRole,
   };
@@ -287,23 +256,6 @@ function parseArgs(argv, cwd, namespace) {
 
 function isManagedTask(ledger, taskId) {
   return ledger.managedTasks.some((task) => task?.taskId === taskId);
-}
-
-function findAppMessageByScheduleId(ledger, scheduleId) {
-  if (!Array.isArray(ledger?.appMessages)) {
-    throw messageError(
-      "MESSAGE_LEDGER_INVALID",
-      "Task Ledger must contain appMessages",
-    );
-  }
-  return ledger.appMessages.find(
-    ({ id }) => appMessageAutomationId(id) === scheduleId,
-  ) ?? null;
-}
-
-function defaultAutomationRoot(env) {
-  const codexHome = env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
-  return path.join(codexHome, "automations");
 }
 
 function validateMessage(text) {
@@ -458,7 +410,11 @@ function errorResult(error, operation = "message") {
 
 function renderCommunication(parsed, route, text, scheduleId) {
   const message = parsed.operation === "notify"
-    ? renderNotificationMessage({ scheduleId, text })
+    ? renderNotificationMessage({
+      scheduleId,
+      targetTaskId: route.targetTaskId,
+      text,
+    })
     : renderConversationMessage({
       conversationId: route.conversationId,
       initiatorTaskId: route.initiatorTaskId,
@@ -486,8 +442,6 @@ async function runCommunicationCli(namespace, argv, options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const resolve = options.resolveProject ?? resolveProject;
   const transact = options.transactTaskLedger ?? transactTaskLedger;
-  const removeSchedule = options.removeAppMessageSchedule
-    ?? removeAppMessageSchedule;
   const startSupervisor = options.startSupervisor
     ?? startRecoverySupervisor;
   const readLedger = options.readLedger;
@@ -526,79 +480,6 @@ async function runCommunicationCli(namespace, argv, options = {}) {
       ? await readLedger(parsed.projectRoot)
       : await readTaskLedger(store, project);
     const timestamp = now();
-
-    if (parsed.operation === "delete-schedule") {
-      const scheduledMessage = findAppMessageByScheduleId(
-        ledger,
-        parsed.scheduleId,
-      );
-      if (
-        scheduledMessage !== null
-        && scheduledMessage.targetTaskId !== senderTaskId
-      ) {
-        throw messageError(
-          "MESSAGE_SCHEDULE_TARGET_MISMATCH",
-          "The App message schedule belongs to a different Task",
-        );
-      }
-      if (
-        scheduledMessage !== null
-        && !new Set(["scheduled", "delivered"])
-          .has(scheduledMessage.status)
-      ) {
-        throw messageError(
-          "MESSAGE_SCHEDULE_STATUS_CONFLICT",
-          "The App message is not waiting in a delivery schedule",
-        );
-      }
-
-      const removed = await removeSchedule({
-        automationRoot: options.automationRoot
-          ?? defaultAutomationRoot(env),
-        scheduleId: parsed.scheduleId,
-        targetTaskId: senderTaskId,
-      });
-      if (scheduledMessage?.status === "scheduled") {
-        await transact(
-          store,
-          project,
-          (state) => {
-            const current = findAppMessageByScheduleId(
-              state,
-              parsed.scheduleId,
-            );
-            if (current === null || current.status === "delivered") {
-              return { state, result: null };
-            }
-            if (
-              current.targetTaskId !== senderTaskId
-              || current.status !== "scheduled"
-            ) {
-              throw messageError(
-                "MESSAGE_SCHEDULE_STATUS_CONFLICT",
-                "The App message schedule changed while it was being removed",
-              );
-            }
-            return {
-              state: acknowledgeScheduledAppMessage(
-                state,
-                current.id,
-                timestamp,
-              ),
-              result: current.id,
-            };
-          },
-          { now: timestamp },
-        );
-      }
-      writeJson(stdout, {
-        run: "ok",
-        operation: parsed.operation,
-        scheduleId: parsed.scheduleId,
-        delivery: removed.removed ? "deleted" : "already_deleted",
-      });
-      return 0;
-    }
 
     const route = routeFor(parsed, ledger, senderTaskId, createId);
 
@@ -664,7 +545,7 @@ async function runCommunicationCli(namespace, argv, options = {}) {
     const messageId = scheduleDelivery ? createId() : null;
     const scheduleId = messageId === null
       ? null
-      : appMessageAutomationId(messageId);
+      : appMessageScheduleId(messageId);
     const rendered = renderCommunication(parsed, route, text, scheduleId);
     if (Buffer.byteLength(rendered, "utf8") > MAX_MESSAGE_BYTES) {
       throw messageError(
@@ -773,7 +654,7 @@ async function runCommunicationCli(namespace, argv, options = {}) {
       }, { appServer });
     } catch (error) {
       const fallbackMessageId = createId();
-      const fallbackScheduleId = appMessageAutomationId(fallbackMessageId);
+      const fallbackScheduleId = appMessageScheduleId(fallbackMessageId);
       const fallbackText = renderCommunication(
         parsed,
         route,

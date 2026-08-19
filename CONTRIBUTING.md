@@ -21,14 +21,15 @@ native helpers; portable behavior is also tested on Windows.
 ```sh
 git clone https://github.com/game-dev-rta-club/codex-small-loop.git
 cd codex-small-loop
-node --test "implementation/components/*/tests/*.test.mjs"
+node implementation/testing/test-runner.mjs darwin
 ```
 
 Run the focused tests for the component you change while developing, then run
-the complete command above on macOS before opening a pull request. The complete
-suite verifies the packaged macOS native helpers; Windows CI runs the shared
-runtime plus the real Win32 and portable Activity/Sonner paths. Follow the
-adjacent `BUILD.md` when changing a packaged native helper.
+the current platform suite before opening a pull request (`darwin` on macOS or
+`win32` on Windows). The macOS suite verifies the packaged native helpers;
+Windows CI runs the shared runtime plus the real Win32 and portable
+Activity/Sonner paths. Follow the adjacent `BUILD.md` when changing a packaged
+native helper.
 
 ## Pull requests
 

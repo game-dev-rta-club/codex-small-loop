@@ -7,9 +7,9 @@ import test, { after, before } from "node:test";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import { resolveProject } from "../../runtime/source/project.mjs";
-import { loadWorkGraph } from "../source/sonner.mjs";
-import { buildSonner, buildSonnerProject } from "../source/sonner.mjs";
+import { resolveProject } from "../../../runtime/source/project.mjs";
+import { loadWorkGraph } from "../../source/sonner.mjs";
+import { buildSonner, buildSonnerProject } from "../../source/sonner.mjs";
 import {
   encodeSonnerReaderRequest,
   encodeSonnerGitRequest,
@@ -20,10 +20,10 @@ import {
   SONNER_GIT_MAX_OUTPUT_BYTES,
   SONNER_READER_MAX_OUTPUT_BYTES,
   SONNER_READER_MAX_PATHS,
-} from "../source/sonner-project-reader.mjs";
+} from "../../source/sonner-project-reader.mjs";
 
 const exec = promisify(execFile);
-const componentRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const componentRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const nativeSource = path.join(componentRoot, "native", "sonner-project-reader.c");
 const ORIGINAL = "ORIGINAL_PROJECT_SUMMARY";
 const EXTERNAL = "EXTERNAL_SECRET_SHOULD_NOT_CROSS";

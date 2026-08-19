@@ -48,16 +48,24 @@ and its Next Action are ready together in the final response.
 
 Resolve the execution profile in this entry exchange:
 
-- If neither model nor speed is known, propose Terra Medium and 1x speed
-  with the JSON default summary and keep the localized default Next Action.
-- If exactly one setting is known, keep it and ask only for the missing setting.
-- If both are known, treat them as agreed without reconfirmation and state the
-  resolved profile briefly in the Next Action section.
+- Speed defaults immediately to 1x whenever the user has not explicitly
+  selected a speed. Do not ask a speed-only follow-up. Use 1.5x only when the
+  user explicitly selects it.
+- If the model is unknown, propose Terra Medium with the JSON default summary
+  and ask only for the model decision. State that execution remains at 1x
+  unless the user explicitly selects 1.5x.
+- If the model is known, treat the profile as resolved using the explicit speed
+  or the 1x default. Do not reconfirm either value; state the resolved profile
+  briefly in the Next Action section.
 
-Reflect every known setting in the Markdown tables by bolding the selected
-model or speed and removing bold from the previous default. When exactly one
-setting is known, leave the missing setting unselected. Keep the internal
-`serviceTier` value private.
+For example, a reply containing only `Sol Medium` resolves to Sol Medium and
+1x and proceeds to Controller. A reply containing only `1.5x` preserves that
+speed but still asks for the model.
+
+Reflect every resolved setting in the Markdown tables by bolding the selected
+model and speed and removing bold from the previous default. A missing speed is
+already resolved as 1x; only an unknown model remains unselected. Keep the
+internal `serviceTier` value private.
 
 An answer that supplies or changes a requested setting is agreement to that
 value. Keep the resolved model and speed unchanged for the complete request.
@@ -70,9 +78,10 @@ Child override is explicitly requested.
 ## Next Turn: Resolve The Profile And Load Controller
 
 Do not load Controller in the same turn that first displays the welcome guide.
-On the next user-authored turn, incorporate the user's profile answer. If a
-setting is still missing, ask only for that setting and remain in this entry
-exchange. Once both settings are resolved:
+On the next user-authored turn, incorporate the user's profile answer. If the
+model is still missing, ask only for the model and remain in this entry
+exchange. Resolve an unspecified speed as 1x. Once the model and speed are
+resolved:
 
 1. Run `node <plugin-root>/components/commands/role.mjs controller`.
 2. Read the command's complete output and apply only `controller` to this

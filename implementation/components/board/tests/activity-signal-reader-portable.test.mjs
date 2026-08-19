@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { resolveProject } from "../../runtime/source/project.mjs";
-import { readPortableActivitySignals } from "../source/activity-signal-reader-portable.mjs";
+import {
+  isPortableActivitySignalMetadata,
+  readPortableActivitySignals,
+} from "../source/activity-signal-reader-portable.mjs";
 
 const primaryTaskId = "019fedf9-654d-7143-8147-b85caf1ec2c0";
 const snapshot = "a".repeat(40);
@@ -33,15 +36,10 @@ test("Win32 portable Activity Signal reader publishes only authorized stable reg
   assert.equal(result.entries[0].raw, "portable signal\n");
 });
 
-test("Win32 portable Activity Signal reader rejects a symlink without following it", async (t) => {
-  const { project, directory } = await fixture(t);
-  await writeFile(path.join(directory, "outside.md"), "outside\n");
-  await symlink(path.join(directory, "outside.md"), path.join(directory, "linked-review.md"));
-  const result = await readPortableActivitySignals({
-    project,
-    authorizedPrimaryIds: new Set([primaryTaskId]),
-  });
-  assert.equal(result.entries.some(({ name }) => name === "linked-review.md"), false);
-  assert.equal(result.omissions.some(({ code }) => code === "ACTIVITY_SIGNAL_NON_REGULAR"), true);
-  assert.equal(result.partial, true);
+test("Win32 portable Activity detects non-regular metadata without creating an OS link", () => {
+  assert.equal(isPortableActivitySignalMetadata({
+    isFile: () => true,
+    isSymbolicLink: () => true,
+    nlink: 1n,
+  }), false);
 });

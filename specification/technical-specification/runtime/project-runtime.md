@@ -65,6 +65,12 @@ capability-token authentication, and token-file support.
 There is no explicit `setup` command. Ordinary use initializes the runtime;
 `repair` is the explicit recovery path for missing or damaged state.
 
+An unmanaged Controller whose cwd is an ancestor of the requested project may
+initialize and launch into a nested canonical root with `--project-root`. The
+nested directory owns its own runtime and Work Graph. After the first Primary
+is created, all managed descendants remain bound to that exact nested root.
+Sibling and ancestor jumps are rejected.
+
 ## Status
 
 Status reports readiness and current active-work counts:

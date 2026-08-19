@@ -22,23 +22,26 @@ filesystem path. It briefly introduces Codex Small Loop and always lists optiona
 Slack and Obsidian recommendations with a short reason to use them. Its Next
 Action then invites the user to choose the Agent model, compares the available
 models, and presents 1x versus accelerated execution speed before the one
-necessary profile question. The entry path inspects neither connector nor
-project state. Internal runtime names such as `serviceTier` remain hidden. The
-complete guide and question appear together in the final response without HTML
-or a visualization file.
+necessary model question. Speed defaults to 1x without a separate question;
+1.5x applies only when the user explicitly selects it. The entry path inspects
+neither connector nor project state. Internal runtime names such as
+`serviceTier` remain hidden. The complete guide and question appear together in
+the final response without HTML or a visualization file.
 
 The Root uses conversation history rather than persistent preference state. If
-the user already specified both model and speed, both values are agreed and the
-Root proceeds without profile confirmation. If exactly one is present, the Root
-asks only for the missing setting. If neither is present, it proposes Terra
-Medium at 1x speed and asks one confirmation in the user's language in the
-guide's Next Action section, for example:
+the user specified a model, the Root resolves the profile immediately with the
+explicit speed or the 1x default and does not reconfirm it. If the model is
+missing, the Root asks only for the model while retaining an explicitly selected
+speed or defaulting it to 1x. With neither setting present, it proposes Terra
+Medium and explains the 1x default in the guide's Next Action section, for
+example:
 
-> Start with Terra Medium at 1x speed?
+> Start with Terra Medium? Unless you explicitly select 1.5x, execution remains at 1x.
 
 An explicit answer that supplies or changes a setting is agreement to that
 value and is not reconfirmed. On that next user-authored turn, the entry Skill
-loads the Controller Role only after both settings are resolved; project
+loads the Controller Role after the model is resolved and the explicit or
+default speed is fixed; project
 investigation and Interview begin there. The Controller keeps the Codex App
 settings of its user-facing Task. It applies the agreed model, reasoning effort,
 and speed explicitly when creating Primary; Primary and its managed Children
