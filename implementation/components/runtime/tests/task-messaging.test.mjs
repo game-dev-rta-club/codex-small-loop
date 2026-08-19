@@ -155,6 +155,25 @@ test("renders scheduled messages with schedule deletion in the same action list"
     /schedule read --schedule codex-small-loop-message-conversation --task task-review[\s\S]*schedule delete --schedule codex-small-loop-message-conversation --task task-review --if-match <returned-etag>[\s\S]*2\. Reply to this Conversation/,
   );
 
+  const reply = renderConversationMessage({
+    conversationId: "conversation-1",
+    initiatorTaskId: "task-controller",
+    initiatorRole: "controller",
+    operation: "reply",
+    responderTaskId: "task-primary",
+    responderRole: "primary",
+    scheduleId: "codex-small-loop-message-reply",
+    text: "The Milestone is complete.",
+  });
+  assert.match(
+    reply,
+    /schedule read --schedule codex-small-loop-message-reply --task task-controller[\s\S]*schedule delete --schedule codex-small-loop-message-reply --task task-controller --if-match <returned-etag>[\s\S]*2\. Continue or accept this replied Conversation/,
+  );
+  assert.doesNotMatch(
+    reply,
+    /schedule (?:read|delete)[^\n]*--task task-primary/,
+  );
+
   const notification = renderNotificationMessage({
     scheduleId: "codex-small-loop-message-notification",
     targetTaskId: "task-controller",

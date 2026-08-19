@@ -159,7 +159,9 @@ export function renderConversationMessage(options) {
     actions.push({
       type: "delete_schedule",
       scheduleId,
-      targetTaskId: responderTaskId,
+      targetTaskId: options.operation === "reply"
+        ? initiatorTaskId
+        : responderTaskId,
     });
   }
   actions.push(options.operation === "reply"

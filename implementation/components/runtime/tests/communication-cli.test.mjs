@@ -432,6 +432,14 @@ test("replies to an App Controller without reading its locked session", async ()
   assert.equal(current.sent.length, 0);
   assert.equal(current.state().conversations[0].state, "replied");
   assert.equal(current.state().appMessages[0].targetTaskId, "controller-task");
+  assert.match(
+    current.state().appMessages[0].text,
+    /schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task --if-match <returned-etag>/,
+  );
+  assert.doesNotMatch(
+    current.state().appMessages[0].text,
+    /schedule (?:read|delete)[^\n]*--task primary-task/,
+  );
 });
 
 test("notifies an unmanaged Codex Small Loop Task without a Conversation", async () => {
