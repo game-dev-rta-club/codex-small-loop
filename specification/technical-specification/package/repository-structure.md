@@ -49,12 +49,14 @@ codex-small-loop/
   .gitignore
 ```
 
-Every Work directory contains `WORK_NODE.xml`, and its basename exactly matches
-the Work ID. The `specification/` parent classifies related Works and
-intentionally has no marker. Directories below each Specification Work are
-focused Parts, not additional Work Nodes. Role and Skill specification names
-deliberately mirror their Implementation component names; runtime capability
-documents deliberately do not mirror individual source modules.
+Every Work directory contains `WORK_NODE.xml`. Its stable Work ID may differ
+from the directory basename, so physical organization can follow the host
+project while graph edges retain durable semantic identities. The
+`specification/` parent classifies related Works and intentionally has no
+marker. Directories below each Specification Work are focused Parts, not
+additional Work Nodes. Role and Skill specification names deliberately mirror
+their Implementation component names; runtime capability documents
+deliberately do not mirror individual source modules.
 
 ## Implementation Is The Plugin
 

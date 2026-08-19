@@ -68,6 +68,11 @@ explicit agent name that is unique among the managing Parent's direct Children.
 Do not repeat the name, Role, Parent identity, protocol instructions, or Next
 Actions in the body.
 
+An unmanaged Controller may set `--project-root` to a descendant of its cwd to
+bootstrap a focused nested project. That directory becomes the canonical root
+for the new Primary and all of its managed descendants. Existing managed Tasks
+cannot change roots, and sibling or ancestor targets fail closed.
+
 For `create`, omitted execution-profile fields inherit the direct Parent's
 effective values. For `fork`, they inherit the source Task's effective values;
 the source defaults to the Parent. Model and reasoning effort are one pair:

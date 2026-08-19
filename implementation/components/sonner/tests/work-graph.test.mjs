@@ -65,15 +65,28 @@ test("discovers nested Works, ignores generated roots, and decodes XML entities"
   ]);
 });
 
-test("rejects malformed metadata and directory/id mismatch with relative paths", async (t) => {
+test("rejects malformed metadata and allows Work IDs independent of directory names", async (t) => {
   const root = await fixture(t);
   await mkdir(path.join(root, "overview"));
   await writeFile(path.join(root, "overview", "WORK_NODE.xml"), "<work-node><summary>Broken</summary></work-node>\n");
   await rejection(root, /overview\/WORK_NODE\.xml.*id.*attribute/i);
 
   await rm(path.join(root, "overview"), { recursive: true });
-  await writeWork(root, "system", { id: "system-specification", type: "SystemSpecification", summary: "Defines the system." });
-  await rejection(root, /directory name "system" must match Work ID "system-specification"/);
+  await writeWork(root, "system", {
+    id: "system-specification",
+    type: "SystemSpecification",
+    summary: "Defines the system.",
+    inputs: ["overview"],
+  });
+  await writeWork(root, "overview", { type: "Overview", summary: "Root." });
+  const works = await loadWorkGraph(root);
+  assert.deepEqual(
+    works.map(({ id, nodePath }) => ({ id, nodePath })),
+    [
+      { id: "overview", nodePath: "overview/WORK_NODE.xml" },
+      { id: "system-specification", nodePath: "system/WORK_NODE.xml" },
+    ],
+  );
 });
 
 test("rejects duplicate IDs and duplicate inputs", async (t) => {

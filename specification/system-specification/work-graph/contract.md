@@ -29,9 +29,10 @@ collect nodes:
 - `summary` describes the maintained or intended production output, not the
   activity that creates it.
 - `id` is unique, stable, and readable by people and programs.
-- The Work directory's basename exactly matches `id`. Parent directories may
-  classify related outputs, so `specification/technical-specification/` is
-  valid for `id="technical-specification"`; `specification/technical/` is not.
+- `id` is independent of the containing directory name. This lets an existing
+  production path remain stable while the graph uses a durable semantic
+  identity. Parent directories may classify related outputs, and moving or
+  renaming a directory does not require changing the Work ID.
 - `type` is a recognizable production classification such as `Overview`,
   `ProductConcept`, `InteractionSpecification`, `SystemSpecification`,
   `TechnicalSpecification`, `Implementation`, or `UserDocumentation`.
@@ -40,11 +41,11 @@ collect nodes:
 
 The presence of `WORK_NODE.xml` marks a Work entry point. It does not claim
 exclusive ownership of every descendant or require every maintained project
-file to belong to a Work. Mapping starts at the project root and
-discovers Work markers recursively while excluding generated and local-state
-directories. The mapper rejects a marker when its containing directory name and
-Work ID differ, keeping the production output visible from the directory tree
-without opening the XML.
+file to belong to a Work. Mapping starts at the project root and discovers Work
+markers recursively while excluding generated and local-state directories. The
+marker path identifies where the Work lives; the XML ID identifies it in graph
+edges. Agents read both instead of inferring identity from the directory
+basename.
 
 Work directories do not require README files. Agents inspect the selected
 directory after mapping the graph. Create a README only for an external host or
@@ -73,8 +74,7 @@ The project Work Graph must:
 3. reference only existing Work IDs;
 4. keep every non-Overview Work reachable from the Overview;
 5. remain acyclic; and
-6. avoid duplicate Work IDs; and
-7. place every marker in a directory whose basename exactly matches its Work ID.
+6. avoid duplicate Work IDs.
 
 ## Input Relation Contract
 

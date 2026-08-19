@@ -125,7 +125,13 @@ test("missing and invalid graphs expose distinct stable opaque-directory summari
       const root = await repository(t);
       await write(root, "README.md", "---\nsummary: Root file.\n---\n# Root\n");
       await write(root, "docs/guide.md", "---\nsummary: Nested file.\n---\n");
-      if (graph === "invalid") await write(root, "broken/WORK_NODE.xml", work("different-id", "Overview", "Broken."));
+      if (graph === "invalid") {
+        await write(
+          root,
+          "broken/WORK_NODE.xml",
+          work("different-id", "Overview", "Broken.", ["missing-input"]),
+        );
+      }
       await git(root, "add", ".");
       const result = await buildSonner(root);
       assert.deepEqual(result.workGraph, { status: graph });

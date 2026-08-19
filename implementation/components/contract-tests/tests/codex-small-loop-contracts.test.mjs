@@ -2719,7 +2719,7 @@ test("Work Graph knowledge supports media-independent project grounding", async 
     graph,
     /not a schedule, task list,[\s\S]*(?:or )?inventory of every[\s\S]*repository file/i,
   );
-  assert.match(graph, /directory\s+basename equals the Work ID/i);
+  assert.match(graph, /ID.*independent of the directory basename/i);
   assert.match(graph, /references only existing inputs/i);
   assert.match(graph, /contains no cycle/i);
   assert.match(graph, /smallest graph that improves production decisions/i);
@@ -2913,14 +2913,14 @@ test("Work Graph documents expose distributed markers without Task coupling", as
   assert.match(concept, /^---\nsummary:/);
   assert.match(concept, /WORK_NODE\.xml/i);
   assert.match(concept, /meaningful project directory/i);
-  assert.match(concept, /directory.*Work ID|Work ID.*directory/is);
+  assert.match(concept, /Work ID is independent of the containing directory/i);
   assert.match(concept, /approved future Works/i);
   assert.match(concept, /does not mean.*complete|does not indicate.*completion/is);
   assert.doesNotMatch(concept, /\bTask\b/);
 
   assert.match(contract, /^---\nsummary:/);
   assert.match(contract, /WORK_NODE\.xml/i);
-  assert.match(contract, /directory.*basename.*id/is);
+  assert.match(contract, /id.*independent of the containing directory name/is);
   assert.match(contract, /do not require README files/i);
   assert.match(contract, /project root/i);
   assert.match(contract, /does not claim[\s\S]*every maintained project[\s\S]*file to belong to a Work/i);

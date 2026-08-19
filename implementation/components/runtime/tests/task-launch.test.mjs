@@ -1404,6 +1404,110 @@ test("rejects missing, archived, and wrong-project parents before creating work"
   );
 });
 
+test("allows an external Controller to launch into a nested project root", async () => {
+  const projectRoot = "/workspace/mokup/abyss-cycle-v1";
+  const harness = coordinatorHarness({
+    parentCwd: "/workspace",
+    state: coordinatorState({
+      projectRoot,
+      projectKey: "other-key",
+    }),
+  });
+
+  const result = await launchTask({
+    assignment: "Inspect the nested project and report the result.",
+    name: "Curie",
+    projectRoot,
+    parentTaskId: "parent-1",
+    role: "primary",
+  }, harness.options);
+
+  assert.equal(result.phase, "ready");
+  assert.equal(
+    harness.events.find(([event]) => event === "createTask")[1],
+    projectRoot,
+  );
+});
+
+test("allows a deferred fork from an external Controller into a nested project root", async () => {
+  const projectRoot = "/workspace/mokup/abyss-cycle-v1";
+  const harness = coordinatorHarness({
+    parentCwd: "/workspace",
+    state: coordinatorState({
+      projectRoot,
+      projectKey: "other-key",
+    }),
+  });
+
+  await forkTask({
+    assignment: "Continue in the nested project.",
+    name: "Builder-1",
+    projectRoot,
+    parentTaskId: "parent-1",
+    role: "primary",
+  }, harness.options);
+  const result = await continueDeferredFork({
+    launchId: "launch-1",
+    projectRoot,
+  }, harness.options);
+
+  assert.equal(result.phase, "ready");
+  assert.deepEqual(
+    harness.events.find(([event]) => event === "forkTask").slice(1, 3),
+    ["parent-1", projectRoot],
+  );
+});
+
+test("does not move a managed Parent into a different nested project", async () => {
+  const projectRoot = "/workspace/mokup/abyss-cycle-v1";
+  const harness = coordinatorHarness({
+    parentCwd: "/workspace",
+    state: coordinatorState({
+      projectRoot,
+      projectKey: "other-key",
+      managedTasks: [{
+        taskId: "parent-1",
+        name: "Existing Primary",
+        role: "primary",
+        createdAt: "2026-07-25T00:00:00.000Z",
+      }],
+      links: [link("root-1", "parent-1")],
+    }),
+  });
+
+  await assert.rejects(
+    launchTask({
+      assignment: "Do not cross the managed project boundary.",
+      name: "Curie",
+      projectRoot,
+      parentTaskId: "parent-1",
+      role: "execute",
+    }, harness.options),
+    (error) => error.code === "PROJECT_ROOT_MISMATCH",
+  );
+  assert.equal(
+    harness.events.some(([event]) => event === "createTask"),
+    false,
+  );
+});
+
+test("does not let an external Controller bootstrap an ancestor project", async () => {
+  const harness = coordinatorHarness({
+    parentCwd: "/workspace/mokup/abyss-cycle-v1",
+  });
+
+  await assert.rejects(
+    launchTask({
+      assignment: "Do not widen the project boundary.",
+      name: "Curie",
+      projectRoot: "/workspace",
+      parentTaskId: "parent-1",
+      role: "primary",
+    }, harness.options),
+    (error) => error.code === "PROJECT_ROOT_MISMATCH",
+  );
+});
+
 test("rejects an unavailable runtime before creating pending or external work", async () => {
   const harness = coordinatorHarness({
     runtimeError: Object.assign(new Error("Runtime state unavailable"), {

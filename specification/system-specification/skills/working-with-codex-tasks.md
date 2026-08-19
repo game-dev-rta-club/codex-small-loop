@@ -29,6 +29,11 @@ here-document so EOF is deterministic. The Skill runs Task creation and fork
 without a PTY; the command rejects interactive TTY input before creating a
 Task.
 
+An unmanaged Controller may bootstrap a project strictly below its own cwd by
+passing that nested canonical root explicitly. The created Primary and every
+managed descendant remain bound to the nested root; managed Tasks cannot move
+between roots.
+
 Creation and fork load the requested Role before the assignment. They return a
 durable Task ID that the caller records directly. A required `end_turn` is
 honored without polling in the same turn.

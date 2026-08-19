@@ -31,9 +31,10 @@ repository file. Graph membership does not mean that a Work is complete.
 
 ## Storage
 
-Every Work is a meaningful directory containing `WORK_NODE.xml`. The directory
-basename equals the Work ID. Parent directories may classify Works without
-becoming Works themselves.
+Every Work is a meaningful directory containing `WORK_NODE.xml`. The marker's
+`id` is a stable graph identity independent of the directory basename. Parent
+directories may classify Works without becoming Works themselves, and existing
+production paths do not need to be renamed to participate in the graph.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -56,7 +57,7 @@ A valid graph:
 
 - has exactly one Overview with no inputs;
 - gives every Work a unique ID;
-- keeps the Work directory basename equal to that ID;
+- keeps every Work ID unique even when directory names differ;
 - references only existing inputs;
 - keeps every Work reachable from the Overview; and
 - contains no cycle.

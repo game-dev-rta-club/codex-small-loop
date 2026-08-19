@@ -258,6 +258,13 @@ page is the complete user-facing action; Controller does not add a separate URL
 message. The shared Board Host does no Activity history work while idle and its
 open pages own its lease lifetime.
 
+When the maintained project is a subdirectory of the Controller's workspace,
+pass that directory as `--project-root` when creating or forking the Primary and
+when opening the Board. For example, a Controller rooted at a repository may
+bootstrap `mokup/abyss-cycle-v1` as its own canonical project. The nested
+project receives its own private runtime and Work Graph; its managed Tasks stay
+inside that root.
+
 You can inspect or control it from the canonical project:
 
 ```sh

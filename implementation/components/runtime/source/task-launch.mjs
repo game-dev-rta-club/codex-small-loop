@@ -795,6 +795,7 @@ async function preflightProjectTask(
     label,
     notFoundCode,
     projectMismatchCode,
+    allowAncestorProject = false,
   },
 ) {
   const snapshot = await dependencies.observeLatestTask(
@@ -852,9 +853,14 @@ async function preflightProjectTask(
       { [detailKey]: taskId, cause },
     );
   }
+  const relativeProjectRoot = path.relative(taskProject.root, project.root);
+  const nestedProject = relativeProjectRoot.length > 0
+    && relativeProjectRoot !== ".."
+    && !relativeProjectRoot.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relativeProjectRoot);
   if (
-    taskProject.root !== project.root
-    || taskProject.key !== project.key
+    (taskProject.root !== project.root || taskProject.key !== project.key)
+    && !(allowAncestorProject && nestedProject)
   ) {
     throw publicError(
       projectMismatchCode,
@@ -865,7 +871,13 @@ async function preflightProjectTask(
   return snapshot;
 }
 
-function preflightParent(project, parentTaskId, dependencies, options) {
+function preflightParent(
+  project,
+  parentTaskId,
+  dependencies,
+  options,
+  { allowAncestorProject = false } = {},
+) {
   return preflightProjectTask(
     project,
     parentTaskId,
@@ -877,6 +889,7 @@ function preflightParent(project, parentTaskId, dependencies, options) {
       label: "Parent Task",
       notFoundCode: "PARENT_TASK_NOT_FOUND",
       projectMismatchCode: "PROJECT_ROOT_MISMATCH",
+      allowAncestorProject,
     },
   );
 }
@@ -900,6 +913,11 @@ function preflightForkSource(
       projectMismatchCode: "FORK_SOURCE_PROJECT_ROOT_MISMATCH",
     },
   );
+}
+
+function isExternalController(ledger, taskId) {
+  return !ledger.managedTasks.some((task) => task.taskId === taskId)
+    && !ledger.links.some((link) => link.childTaskId === taskId);
 }
 
 async function recordFailure(
@@ -1084,6 +1102,12 @@ async function createManagedTask(input, options, operation) {
       parentTaskId,
       dependencies,
       options,
+      {
+        allowAncestorProject: isExternalController(
+          runtime.ledger,
+          parentTaskId,
+        ),
+      },
     );
     if (parent.turnState !== "ended") {
       throw publicError(
@@ -1122,6 +1146,12 @@ async function createManagedTask(input, options, operation) {
       parentTaskId,
       dependencies,
       options,
+      {
+        allowAncestorProject: isExternalController(
+          runtime.ledger,
+          parentTaskId,
+        ),
+      },
     );
     launchId = requireId(
       dependencies.createLaunchId(),
@@ -1642,7 +1672,7 @@ export async function forkTask(input, options = {}) {
   const store = options.store ?? new AtomicJsonStore(project.stateFile);
 
   try {
-    await dependencies.assertRuntimeAvailable(project, {
+    const runtime = await dependencies.assertRuntimeAvailable(project, {
       ...observationOptions(options),
       store,
       nowMs: options.nowMs,
@@ -1652,6 +1682,12 @@ export async function forkTask(input, options = {}) {
       parentTaskId,
       dependencies,
       options,
+      {
+        allowAncestorProject: isExternalController(
+          runtime.ledger,
+          parentTaskId,
+        ),
+      },
     );
     if (sourceTaskId !== parentTaskId) {
       await preflightForkSource(
