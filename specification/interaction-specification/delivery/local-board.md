@@ -61,10 +61,11 @@ Sonner panel; their tab panels do not repeat those titles.
 The Files tab contains one collapsible tree. Root entries are visible
 immediately, folders sort before files, and every
 child directory starts collapsed. Folder disclosure toggles and file icons make
-their types distinct without badges or graph-status labels. Opening an opaque
-folder shows an ellipsis row and the omission summary supplied by the JSON. A file summary appears in a
-single aligned column beside its file name and truncates when space is tight;
-file bodies and binary payloads are never exposed.
+their types distinct without badges or graph-status labels. Text files appear
+by name; a Markdown summary appears in a single aligned column beside its file
+name and truncates when space is tight. Non-text files appear only as direct-parent
+extension/count rows such as `53 png files`. File bodies, binary filenames, and
+binary payloads are never exposed.
 
 Clicking a folder toggles it. Clicking a file once asks the local Host to open
 that indexed regular-file object with the operating system's default

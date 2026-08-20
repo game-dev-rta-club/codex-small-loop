@@ -81,11 +81,13 @@ ordering belong to Sonner. A valid public graph contains Work identity, type,
 summary, node path, direct inputs, and direct outputs. Missing and invalid
 states expose status only, never diagnostics.
 
-When the Work Graph is valid, the Files projection expands Work directories and the
-ancestor routes needed to reach them. Other sibling directories are opaque.
-When the graph is missing or invalid, only root files and opaque root
-directories remain visible. Files directory nodes do not duplicate Work metadata.
-Each opaque directory exposes only a stable summary explaining the omission.
+The Files projection preserves every admitted directory route independently of
+Work Graph validity. It classifies regular files from at most the first 512
+bytes with the VS Code BOM, NUL, and UTF-16-layout heuristic. Text files remain
+individually visible and Markdown files retain a leading-frontmatter summary
+when present. Non-text regular files are omitted by name and represented as
+deterministic extension/count groups in their direct parent directory. Files
+directory nodes do not duplicate Work metadata or graph status.
 
 The Browser may request opening one visible regular file or a selected Work's
 exact validated directory through a narrow local action. The Host repeats canonical

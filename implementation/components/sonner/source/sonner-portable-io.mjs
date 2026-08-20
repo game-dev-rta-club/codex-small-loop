@@ -11,8 +11,9 @@ import { classifyPortablePathMetadata } from "../../runtime/source/portable-path
 
 const execFileAsync = promisify(execFile);
 const MAX_GIT_BYTES = 32 * 1024 * 1024;
-const MAX_PATHS = 10_000;
+const MAX_PATHS = 100_000;
 const MAX_FILE_BYTES = 64 * 1024;
+const TEXT_DETECTION_BYTES = 512;
 const MAX_WORK_DISCOVERY_ENTRIES = 100_000;
 const MAX_HISTORY_BYTES = 256 * 1024 * 1024;
 const MAX_HISTORY_TAIL_BYTES = 2 * 1024 * 1024;
@@ -109,9 +110,9 @@ export async function detectPortableSonnerPath(session, projectPath, options = {
   return (await inspectPortableSonnerPath(session, projectPath, options)).type;
 }
 
-async function readInspectedPortableSonnerRegularFile(session, inspected, maximum) {
+async function readInspectedPortableSonnerRegularFile(session, inspected, maximum, { requireComplete = true } = {}) {
   if (inspected.type !== "regular-file"
-      || inspected.pathname.size > BigInt(maximum)) {
+      || (requireComplete && inspected.pathname.size > BigInt(maximum))) {
     throw portableError("Sonner file is unavailable or oversized.");
   }
   const { ancestors, filename, pathname } = inspected;
@@ -120,7 +121,7 @@ async function readInspectedPortableSonnerRegularFile(session, inspected, maximu
     handle = await open(filename, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     const opened = await handle.stat({ bigint: true });
     if (!opened.isFile() || !sameFile(pathname, opened)) throw portableError("Sonner file identity changed.");
-    const raw = Buffer.alloc(Number(opened.size));
+    const raw = Buffer.alloc(Number(opened.size > BigInt(maximum) ? BigInt(maximum) : opened.size));
     let offset = 0;
     while (offset < raw.length) {
       session.throwIfAborted();
@@ -298,14 +299,12 @@ async function readPortableIndexEntry(session, projectPath, maximum) {
     return { path: projectPath, type: "symlink", raw: Buffer.alloc(0) };
   }
   if (inspected.type !== "regular-file") return null;
-  if (maximum === 0 || inspected.pathname.size > BigInt(maximum)) {
-    return { path: projectPath, type: "file", raw: Buffer.alloc(0) };
-  }
   try {
     const record = await readInspectedPortableSonnerRegularFile(
       session,
       inspected,
       maximum,
+      { requireComplete: false },
     );
     return { path: projectPath, type: "file", raw: record.raw };
   } catch {
@@ -335,7 +334,7 @@ export async function readPortableSonnerProject({ project, session, includeFiles
   for (const projectPath of paths) {
     session.throwIfAborted();
     try {
-      const maximum = /\.md$/i.test(projectPath) ? MAX_FILE_BYTES : 0;
+      const maximum = /\.md$/i.test(projectPath) ? MAX_FILE_BYTES : TEXT_DETECTION_BYTES;
       const record = await readPortableIndexEntry(session, projectPath, maximum);
       if (record === null) continue;
       outputBytes += record.raw.length;

@@ -56,9 +56,13 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
 `);
   await writeFile(path.join(root, ".gitignore"), "overview/WORK_NODE.xml\n");
   await writeFile(path.join(root, "README.md"), "---\nsummary: Portable summary.\n---\n\nBody is never projected.\n");
+  await writeFile(path.join(root, "image.unknown"), Buffer.concat([
+    Buffer.from([1, 2, 0, 3]),
+    Buffer.alloc(1024, 0xff),
+  ]));
   await mkdir(path.join(root, "dist"));
   await writeFile(path.join(root, "dist", "generated.md"), "---\nsummary: Generated output.\n---\n");
-  await execFileAsync("git", ["-C", root, "add", ".gitignore", "README.md", "dist/generated.md"]);
+  await execFileAsync("git", ["-C", root, "add", ".gitignore", "README.md", "image.unknown", "dist/generated.md"]);
   const marker = path.join(root, "fsmonitor-ran");
   const fsmonitor = path.join(root, "fsmonitor.sh");
   await writeFile(fsmonitor, `#!/bin/sh\ntouch '${marker}'\nprintf '{}\\n'\n`, "utf8");
@@ -79,13 +83,18 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
     },
   });
 
-  assert.equal(projection.version, 8);
+  assert.equal(projection.version, 9);
   assert.equal(projection.workGraph.status, "valid");
   assert.deepEqual(projection.workGraph.works.map(({ id }) => id), ["overview"]);
   assert.equal(projection.runtime.status, "missing");
   const readme = projection.files.root.children.find(({ path: entryPath }) => entryPath === "README.md");
   assert.equal(readme.type, "file");
   assert.equal(readme.summary, "Portable summary.");
+  assert.deepEqual(projection.files.root.children.find(({ type }) => type === "binary-files"), {
+    type: "binary-files",
+    extension: "unknown",
+    count: 1,
+  });
   assert.equal(projection.files.root.children.some(({ path: entryPath }) => entryPath === "dist"), false);
   await assert.rejects(access(marker), (error) => error.code === "ENOENT");
 });

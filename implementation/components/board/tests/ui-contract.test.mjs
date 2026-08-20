@@ -123,7 +123,9 @@ test("Activity Bar switches Activity and Sonner while Work Graph, Files, and Run
   assert.match(js, /renderFileNode\(node, depth = 0\)/);
   assert.match(js, /style\.setProperty\("--tree-depth", depth\)/);
   assert.match(js, /if \(node\.type === "directory"\)/);
-  assert.match(js, /name: "…", type: "omission", summary: node\.summary/);
+  assert.match(js, /node\.type === "binary-files"/);
+  assert.match(js, /`\$\{node\.count\} \$\{node\.extension \?\? "extensionless"\}/);
+  assert.doesNotMatch(js, /type: "omission"/);
   assert.match(js, /layoutWorkGraph\(works\)/);
   assert.match(js, /\["Inputs", work\.inputs\]/);
   assert.match(js, /\["Outputs", work\.outputs\]/);

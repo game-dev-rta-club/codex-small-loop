@@ -406,18 +406,20 @@ function fileLabel(node, { interactive = false } = {}) {
   const row = document.createElement(interactive ? "button" : "span");
   if (interactive) row.type = "button";
   row.className = `file-row type-${node.type}`;
-  if (["file", "symlink"].includes(node.type)) {
+  if (["file", "symlink", "binary-files"].includes(node.type)) {
     const marker = document.createElement("span");
     marker.className = "file-marker";
     marker.setAttribute("aria-hidden", "true");
-    marker.textContent = node.type === "symlink" ? "↗" : "▤";
+    marker.textContent = node.type === "symlink" ? "↗" : node.type === "binary-files" ? "∑" : "▤";
     row.append(marker);
   }
   const name = document.createElement("span");
   name.className = "file-name";
-  name.textContent = node.name;
+  name.textContent = node.type === "binary-files"
+    ? `${node.count} ${node.extension ?? "extensionless"} ${node.count === 1 ? "file" : "files"}`
+    : node.name;
   row.append(name);
-  if (["file", "omission"].includes(node.type) && node.summary) {
+  if (node.type === "file" && node.summary) {
     const summary = document.createElement("span");
     summary.className = "file-summary";
     summary.id = `file-summary-${++state.fileSummarySequence}`;
@@ -457,7 +459,7 @@ function renderFileNode(node, depth = 0) {
   const item = document.createElement("li");
   item.className = "file-node";
   item.setAttribute("role", "treeitem");
-  item.dataset.path = node.path;
+  if (typeof node.path === "string") item.dataset.path = node.path;
   item.style.setProperty("--tree-depth", depth);
   if (node.type === "directory") {
     const details = document.createElement("details");
@@ -469,16 +471,6 @@ function renderFileNode(node, depth = 0) {
       const group = document.createElement("ul");
       group.setAttribute("role", "group");
       group.append(...node.children.map((child) => renderFileNode(child, depth + 1)));
-      details.append(group);
-    } else if (node.summary) {
-      const group = document.createElement("ul");
-      group.setAttribute("role", "group");
-      const omission = document.createElement("li");
-      omission.className = "file-node omission-node";
-      omission.setAttribute("role", "treeitem");
-      omission.style.setProperty("--tree-depth", depth + 1);
-      omission.append(fileLabel({ name: "…", type: "omission", summary: node.summary }));
-      group.append(omission);
       details.append(group);
     }
     details.addEventListener("toggle", () => {

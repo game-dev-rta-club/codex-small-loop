@@ -9,7 +9,7 @@ import { isValidSonnerProjectPath } from "../sonner/source/sonner-project-reader
 import { createActivityLiveSession, loadActivity, updateActivityLiveSession } from "./source/activity-data.mjs";
 import { openSonnerFileReference } from "./source/sonner-open-file.mjs";
 
-export const BOARD_SERVER_BUILD_VERSION = "board-host-v10";
+export const BOARD_SERVER_BUILD_VERSION = "board-host-v11";
 export const MAX_BOARD_RESPONSE_BYTES = 32 * 1024 * 1024;
 export const MAX_SONNER_OPEN_REQUEST_BYTES = 8 * 1024;
 

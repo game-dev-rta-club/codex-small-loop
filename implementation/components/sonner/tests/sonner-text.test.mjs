@@ -5,7 +5,7 @@ import { formatSonnerText, unsafeTextCodePoint } from "../source/sonner-text.mjs
 
 function projection(overrides = {}) {
   return {
-    version: 8,
+    version: 9,
     workGraph: { status: "missing" },
     files: {
       root: { path: ".", name: ".", type: "directory", children: [] },
@@ -17,7 +17,7 @@ function projection(overrides = {}) {
 
 test("formats every Sonner section in canonical order with explicit empty states", () => {
   assert.equal(formatSonnerText(projection()), [
-    "Sonner v8",
+    "Sonner v9",
     "Work Graph: missing",
     "Files: empty",
     "Runtime: missing",
@@ -28,7 +28,7 @@ test("formats every Sonner section in canonical order with explicit empty states
     workGraph: { status: "invalid" },
     runtime: { status: "invalid" },
   })), [
-    "Sonner v8",
+    "Sonner v9",
     "Work Graph: invalid",
     "Files: empty",
     "Runtime: invalid",
@@ -39,7 +39,7 @@ test("formats every Sonner section in canonical order with explicit empty states
     workGraph: { status: "valid", works: [] },
     runtime: { status: "available", health: "ok", reasons: [], tasks: [] },
   })), [
-    "Sonner v8",
+    "Sonner v9",
     "Work Graph: valid",
     "  Works: empty",
     "Files: empty",
@@ -49,7 +49,7 @@ test("formats every Sonner section in canonical order with explicit empty states
   ].join("\n"));
 });
 
-test("formats Works, Files, omissions, links, and active Runtime Tasks without ambiguity", () => {
+test("formats Works, text files, binary groups, links, and active Runtime Tasks without ambiguity", () => {
   const value = projection({
     workGraph: {
       status: "valid",
@@ -68,12 +68,15 @@ test("formats Works, Files, omissions, links, and active Runtime Tasks without a
         name: ".",
         type: "directory",
         children: [
-          { path: "docs", name: "docs", type: "directory", summary: "Not in Work Graph" },
+          { path: "docs", name: "docs", type: "directory", children: [] },
           {
             path: "src",
             name: "src",
             type: "directory",
-            children: [{ path: "src/index.md", name: "index.md", type: "file", summary: null }],
+            children: [
+              { path: "src/index.md", name: "index.md", type: "file", summary: null },
+              { type: "binary-files", extension: "png", count: 53 },
+            ],
           },
           { path: "README.md", name: "README.md", type: "file", summary: "Project summary." },
           { path: "current", name: "current", type: "symlink", summary: null },
@@ -92,14 +95,15 @@ test("formats Works, Files, omissions, links, and active Runtime Tasks without a
   });
   const text = formatSonnerText(value);
   assert.equal(text, [
-    "Sonner v8",
+    "Sonner v9",
     "Work Graph: valid",
     "  Work id=\"overview\" type=\"Overview\" node=\"overview/WORK_NODE.xml\" inputs=[] outputs=[\"implementation\"] summary=\"Project overview.\"",
     "Files:",
     "  Directory path=\".\"",
-    "    Omitted Directory path=\"docs\" reason=\"Not in Work Graph\"",
+    "    Directory path=\"docs\"",
     "    Directory path=\"src\"",
     "      File path=\"src/index.md\" summary=null",
+    "      Binary Files extension=\"png\" count=53",
     "    File path=\"README.md\" summary=\"Project summary.\"",
     "    Symlink path=\"current\"",
     "Runtime: available health=attention reasons=[\"task_aborted\",\"runtime_diagnostic\"]",
@@ -130,7 +134,7 @@ test("escapes every repository-derived string as one safe JSON-style field", () 
         name: ".",
         type: "directory",
         children: [
-          { path: unsafe, name: unsafe, type: "directory", summary: unsafe },
+          { path: unsafe, name: unsafe, type: "directory", children: [] },
           { path: `${unsafe}/file`, name: unsafe, type: "file", summary: unsafe },
         ],
       },
@@ -235,7 +239,7 @@ test("routes every free-form field through one reversible quoted primitive", () 
         name: ".",
         type: "directory",
         children: [
-          { path: hostile, name: hostile, type: "directory", summary: hostile },
+          { path: hostile, name: hostile, type: "directory", children: [] },
           { path: `${hostile}/file`, name: hostile, type: "file", summary: hostile },
           { path: `${hostile}/null`, name: hostile, type: "file", summary: null },
           { path: `${hostile}/link`, name: hostile, type: "symlink", summary: null },
@@ -264,10 +268,10 @@ test("routes every free-form field through one reversible quoted primitive", () 
     }
   }
   const literals = [...text.matchAll(/"(?:\\.|[^"\\])*"/g)].map((match) => match[0]);
-  assert.equal(literals.length, 19);
+  assert.equal(literals.length, 18);
   for (const literal of literals) assert.doesNotThrow(() => JSON.parse(literal));
   const decoded = literals.map((literal) => JSON.parse(literal));
-  assert.equal(decoded.filter((value) => value === hostile).length, 14);
+  assert.equal(decoded.filter((value) => value === hostile).length, 13);
   for (const value of [".", `${hostile}/file`, `${hostile}/null`, `${hostile}/link`, `${hostile}-null`]) {
     assert.ok(decoded.includes(value));
   }

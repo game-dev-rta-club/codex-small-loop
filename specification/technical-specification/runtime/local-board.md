@@ -102,8 +102,8 @@ unverified content.
 The CLI formats the projection as deterministic Agent text by default. It uses
 fixed ASCII headings and record keywords, encodes every projection-derived
 string as a JSON-compatible quoted display field, preserves canonical
-Work/File/Task order, and writes explicit missing, invalid, empty, and
-opaque-omitted states. Its checked-in Unicode 16.0 display boundary renders
+Work/File/Task order, and writes explicit missing, invalid, and empty states.
+Its checked-in Unicode 16.0 display boundary renders
 format controls, default-ignorables, noncharacters, and lone surrogates as
 lowercase `\\u` escapes without normalizing ordinary Unicode. Plaintext is not a
 lossless source-recovery format. `--json` selects the lossless canonical
@@ -111,7 +111,7 @@ serialization; `/api/sonner` always returns those same JSON bytes for the same
 observation. The formatter records its Unicode data-file provenance beside its
 single pinned range table rather than depending on runtime ICU properties.
 
-The version-8 Sonner document has exactly four top-level keys in order:
+The version-9 Sonner document has exactly four top-level keys in order:
 numeric `version`, `workGraph`, `files`, and `runtime`. A valid `workGraph`
 contains `status: "valid"` and topologically
 ordered `works`; each Work exposes only `id`, `type`, `summary`, `nodePath`,
@@ -127,14 +127,14 @@ selection to the corresponding DOM card. Zoom scales the retained graph stage
 between 0.5 and 2.0 without another ELK invocation; the stage dimensions expand
 with the transform so both native scroll axes remain accurate.
 
-`files` contains
-a deterministic root tree. Every node has project-relative `path`, `name`, and
-`type`. Files also have a nullable Markdown `summary`. An expanded directory has
-`children`; an intentionally opaque directory instead has one stable
-human-readable `summary` explaining that it is not a Work Node or that the Work
-Graph is missing or invalid. Directories never expose Work metadata or graph
-status. At every level, directories sort before files and each group uses UTF-8
-byte order. The same validated Work list is the Files expansion boundary.
+`files` contains a deterministic root tree. Directory nodes have
+project-relative `path`, `name`, `type`, and `children`. Individually projected
+text files have `path`, `name`, `type`, and a nullable Markdown `summary`.
+Non-text files are represented in their direct parent by `binary-files` nodes
+containing a lowercase final `extension` (or `null`) and positive `count`;
+their individual names and bodies are absent. Directories never expose Work
+metadata or graph status. At every level, directories sort before individual
+text files and binary groups; each category uses UTF-8 byte order.
 
 Sonner owns Work marker discovery, XML entity decoding, basename/ID matching,
 unique Work and input validation, single input-free Overview, existing input
@@ -149,14 +149,17 @@ optional locks and fsmonitor disabled, and an allowlisted non-interactive
 environment. A complete bounded NUL result is validated and normalized in
 UTF-8 byte order before product exclusions are applied. Its second phase receives
 the same Root as fd 3, walks each component with descriptor-relative no-follow calls,
-and returns the exact bounded bytes consumed by Node. Root pathnames are never
+and returns the exact bounded prefixes consumed by Node. Root pathnames are never
 sent to or reopened by the helper. A final symbolic link is indexed as a link
 and its target is never opened; unsafe, missing, or changed indexed descendants
 are omitted. Work discovery and marker reads use the same anchored operation,
-with unsafe metadata producing the invalid-graph fallback. Only `.md` files are
-eligible for summary reads. At most the first 64 KiB is read, the document must
-begin with YAML frontmatter, and only its `summary` scalar or block value is
-returned. No body fallback is allowed.
+with unsafe metadata producing the invalid-graph fallback. Every admitted
+regular file contributes at most its first 512 bytes to VS Code-compatible text
+detection: BOM-marked UTF-8/UTF-16 is text; otherwise NUL-free content or a
+consistent UTF-16 NUL layout is text, and other NUL-bearing content is binary.
+Markdown files may contribute at most the first 64 KiB so a leading YAML
+frontmatter `summary` scalar or block value can be returned. No body fallback is
+allowed.
 
 Sonner's internal Work-only loading mode skips Git but retains the same verified
 descriptor boundary, so focused validation and non-Git projects remain

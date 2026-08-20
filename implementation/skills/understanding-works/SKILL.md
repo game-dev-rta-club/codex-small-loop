@@ -72,8 +72,9 @@ Within relevant Work directories, inspect in this order:
 
 The directory is a live information map. Prefer it to a handwritten inventory.
 An atomic summary should let an agent decide whether to open the full document.
-Code, images, video, audio, and formats without a natural summary surface rely
-primarily on descriptive names and surrounding Work context.
+Code and other mechanically detected text files retain their names. Images,
+video, audio, and other non-text formats appear as extension/count groups and
+rely on their directory placement and surrounding Work context.
 
 ## Trace Related Knowledge
 

@@ -125,12 +125,8 @@ function formatWorkGraph(workGraph, lines) {
 
 function formatFileNode(node, lines, depth) {
   const indentation = "  ".repeat(depth);
-  const type = fixedToken(node.type, ["directory", "file", "symlink"], "Files node type");
+  const type = fixedToken(node.type, ["directory", "file", "symlink", "binary-files"], "Files node type");
   if (type === "directory") {
-    if (!Object.hasOwn(node, "children")) {
-      lines.push(`${indentation}Omitted Directory path=${quoted(node.path)} reason=${quoted(node.summary)}`);
-      return;
-    }
     lines.push(`${indentation}Directory path=${quoted(node.path)}`);
     for (const child of node.children) formatFileNode(child, lines, depth + 1);
     return;
@@ -139,13 +135,17 @@ function formatFileNode(node, lines, depth) {
     lines.push(`${indentation}File path=${quoted(node.path)} summary=${nullable(node.summary)}`);
     return;
   }
+  if (type === "binary-files") {
+    if (!Number.isInteger(node.count) || node.count <= 0) throw new TypeError("Invalid binary file count");
+    lines.push(`${indentation}Binary Files extension=${nullable(node.extension)} count=${node.count}`);
+    return;
+  }
   lines.push(`${indentation}Symlink path=${quoted(node.path)}`);
 }
 
 function formatFiles(files, lines) {
   const root = files.root;
-  const rootType = fixedToken(root.type, ["directory", "file", "symlink"], "Files node type");
-  if (rootType !== "directory") throw new TypeError("Files root must be a directory");
+  if (root.type !== "directory") throw new TypeError("Files root must be a directory");
   if (root.children.length === 0) {
     lines.push("Files: empty");
     return;

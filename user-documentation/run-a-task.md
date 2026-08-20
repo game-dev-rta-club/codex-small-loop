@@ -144,10 +144,11 @@ graph is stated without diagnostics, and the Files tab remains available.
 
 The **Files** tab shows project-relative paths, file or directory types, and the
 `summary` from leading Markdown frontmatter when one exists. It does not show
-file bodies. Root entries appear immediately; folders start collapsed and do
-not show summaries on their own row. Opening an opaque folder shows `…` and the
-reason Sonner omitted its contents. Folders sort before files at every level.
-File summaries appear in a single aligned column and shorten
+file bodies. Root entries appear immediately; every admitted folder remains in
+the hierarchy and starts collapsed. Text files appear by name. Non-text files
+are grouped in their direct folder by lowercase extension and count, such as
+`53 png files`; their individual names are omitted. Folders sort before files
+at every level. File summaries appear in a single aligned column and shorten
 with an ellipsis when space is tight. Click a folder to toggle it, or click an
 underlined file once to open it with the operating system's default application.
 Only indexed regular files can be opened. Sonner passes an identity-bound
@@ -168,11 +169,11 @@ display field, so embedded newlines, tabs, controls, quotes, and backslashes
 cannot create a second record or imitate a heading. Invisible Unicode display
 controls, default-ignorables, noncharacters, and lone surrogates appear as
 visible lowercase `\\u` escapes, while ordinary Japanese, CJK, emoji, RTL
-letters, and combining marks remain readable. Missing, invalid, empty, and
-opaque omitted states are written explicitly. Plaintext is not the lossless
+letters, and combining marks remain readable. Missing, invalid, and empty
+states are written explicitly. Plaintext is not the lossless
 source format.
 
-Add `--json` for the lossless versioned document. Schema version 8 contains
+Add `--json` for the lossless versioned document. Schema version 9 contains
 `version`, `workGraph`, `files`, and `runtime` in that order and is byte-identical
 to the authenticated Browser API response at the same observation. Valid Works
 include ID, type, summary, node path, direct inputs, and outputs. Missing or
