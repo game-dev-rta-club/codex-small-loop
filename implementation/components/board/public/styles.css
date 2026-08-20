@@ -212,11 +212,10 @@ button.file-row:focus-visible { box-shadow: inset 2px 0 #3978d4; }
 button.file-row:disabled { cursor: wait; opacity: .6; }
 .file-marker { grid-column: 1; color: #8a6b22; text-align: center; font-family: ui-sans-serif, system-ui, sans-serif; }
 .type-file .file-marker { color: #526d8b; }
-.type-symlink .file-marker { color: #795c9f; }
-.type-binary-files .file-marker { color: #6f8094; }
+.type-file-counts .file-marker { color: #6f8094; }
 .file-name { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .type-file .file-name { color: #245fa8; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
-.type-binary-files .file-name { color: #66768a; }
+.type-file-counts .file-name { color: #66768a; }
 .file-summary { grid-column: 3; min-width: 0; padding-left: 18px; overflow: hidden; color: var(--muted); font: 12px/1.35 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 
 @media(max-width: 720px) {

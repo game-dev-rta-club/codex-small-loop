@@ -83,17 +83,20 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
     },
   });
 
-  assert.equal(projection.version, 9);
+  assert.equal(projection.version, 10);
   assert.equal(projection.workGraph.status, "valid");
   assert.deepEqual(projection.workGraph.works.map(({ id }) => id), ["overview"]);
   assert.equal(projection.runtime.status, "missing");
   const readme = projection.files.root.children.find(({ path: entryPath }) => entryPath === "README.md");
   assert.equal(readme.type, "file");
   assert.equal(readme.summary, "Portable summary.");
-  assert.deepEqual(projection.files.root.children.find(({ type }) => type === "binary-files"), {
-    type: "binary-files",
-    extension: "unknown",
-    count: 1,
+  assert.deepEqual(projection.files.root.children.find(({ type }) => type === "file-counts"), {
+    type: "file-counts",
+    counts: [
+      { extension: null, count: 1 },
+      { extension: "sh", count: 1 },
+      { extension: "unknown", count: 1 },
+    ],
   });
   assert.equal(projection.files.root.children.some(({ path: entryPath }) => entryPath === "dist"), false);
   await assert.rejects(access(marker), (error) => error.code === "ENOENT");

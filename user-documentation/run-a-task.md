@@ -145,13 +145,14 @@ graph is stated without diagnostics, and the Files tab remains available.
 The **Files** tab shows project-relative paths, file or directory types, and the
 `summary` from leading Markdown frontmatter when one exists. It does not show
 file bodies. Root entries appear immediately; every admitted folder remains in
-the hierarchy and starts collapsed. Text files appear by name. Non-text files
-are grouped in their direct folder by lowercase extension and count, such as
-`53 png files`; their individual names are omitted. Folders sort before files
-at every level. File summaries appear in a single aligned column and shorten
+the hierarchy and starts collapsed. Only files with a summary appear by name.
+All other files are grouped in their direct folder into one lowercase
+extension/count line, such as `53 png, 53 meta`; their individual names are
+omitted. Folders sort before summarized files at every level. File summaries
+appear in a single aligned column and shorten
 with an ellipsis when space is tight. Click a folder to toggle it, or click an
 underlined file once to open it with the operating system's default application.
-Only indexed regular files can be opened. Sonner passes an identity-bound
+Only displayed summarized regular files can be opened. Sonner passes an identity-bound
 reference to the selected original file rather than reopening a pathname. Use
 **Refresh** in the Sonner view to retry a loading error or update the index.
 

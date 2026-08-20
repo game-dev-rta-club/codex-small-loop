@@ -72,7 +72,7 @@ test("VS Code-compatible content detection recognizes text without relying on ex
     "only the first 512 bytes participate");
 });
 
-test("valid graph preserves every directory, lists text files, and groups binary files", async (t) => {
+test("valid graph preserves every directory, lists summarized files, and groups everything else", async (t) => {
   const root = await repository(t);
   await write(root, ".gitignore", "ignored/\nnode_modules/\n");
   await write(root, "README.md", "---\nsummary: Project summary.\n---\n# Project\nsecret body\n");
@@ -98,7 +98,7 @@ test("valid graph preserves every directory, lists text files, and groups binary
   assert.deepEqual(first, second, "projection ordering is deterministic");
   assert.deepEqual(Object.keys(first), ["version", "workGraph", "files", "runtime"]);
   assert.equal(first.version, SONNER_SCHEMA_VERSION);
-  assert.equal(first.version, 9);
+  assert.equal(first.version, 10);
   assert.deepEqual(Object.keys(first.workGraph), ["status", "works"]);
   assert.deepEqual(first.workGraph.works, [
     {
@@ -125,30 +125,39 @@ test("valid graph preserves every directory, lists text files, and groups binary
 
   const projected = first.files.root;
   assert.equal(find(projected, "README.md").summary, "Project summary.");
-  assert.equal(find(projected, "misc/note.md").summary, null);
+  assert.equal(find(projected, "misc/note.md"), null);
   assert.ok(Array.isArray(find(projected, "misc").children));
+  assert.deepEqual(find(projected, "misc").children.find(({ type }) => type === "file-counts"), {
+    type: "file-counts",
+    counts: [{ extension: "md", count: 1 }],
+  });
   assert.ok(Array.isArray(find(projected, "spec").children), "Work ancestor remains visible");
   assert.equal(find(projected, "spec/work").summary, undefined, "directory summaries are not projected");
   assert.equal(find(projected, "spec/work").work, undefined, "Work metadata stays internal");
   assert.equal(find(projected, "spec/work/detail.md").summary, "Detailed contract.");
   assert.equal(find(projected, "spec/unrelated/private.md").summary, "Visible outside the Work Graph.");
   assert.ok(Array.isArray(find(projected, "spec/unrelated").children));
-  assert.equal(find(projected, "assets/nested/config.unknown").summary, null);
-  assert.deepEqual(find(projected, "assets").children.filter(({ type }) => type === "binary-files"), [
-    { type: "binary-files", extension: null, count: 1 },
-    { type: "binary-files", extension: "png", count: 2 },
+  assert.equal(find(projected, "assets/nested/config.unknown"), null);
+  assert.deepEqual(find(projected, "assets").children.find(({ type }) => type === "file-counts"), {
+    type: "file-counts",
+    counts: [
+      { extension: null, count: 1 },
+      { extension: "png", count: 2 },
+    ],
+  });
+  assert.deepEqual(find(projected, "assets/nested").children, [
+    { type: "file-counts", counts: [{ extension: "unknown", count: 1 }] },
   ]);
-  assert.equal(JSON.stringify(first.files).includes("icon.png"), false, "binary filenames are not projected");
-  assert.equal(JSON.stringify(first.files).includes("photo.PNG"), false, "binary filename case is not leaked");
-  assert.equal(find(projected, "linked-directory").type, "symlink");
-  assert.equal(find(projected, "linked-directory").children, undefined, "symlink target is never followed");
+  assert.equal(JSON.stringify(first.files).includes("icon.png"), false, "summary-less filenames are not projected");
+  assert.equal(JSON.stringify(first.files).includes("photo.PNG"), false, "summary-less filename case is not leaked");
+  assert.equal(JSON.stringify(first.files).includes("linked-directory"), false, "symlink filenames are not projected");
   assert.equal(find(projected, "ignored"), null);
   assert.equal(find(projected, "node_modules"), null);
   assert.equal(find(projected, "dist"), null, "tracked generated output is explicitly excluded");
   assert.doesNotMatch(JSON.stringify(first), /DO NOT RETURN THIS BODY/);
 });
 
-test("missing and invalid graphs still expose complete text directory routes", async (t) => {
+test("missing and invalid graphs still expose complete directories and summarized files", async (t) => {
   for (const graph of ["missing", "invalid"]) {
     await t.test(graph, async (t) => {
       const root = await repository(t);
@@ -165,8 +174,12 @@ test("missing and invalid graphs still expose complete text directory routes", a
       const result = await buildSonner(root);
       assert.deepEqual(result.workGraph, { status: graph });
       assert.equal(find(result.files.root, "README.md").summary, "Root file.");
-      const expectedPath = graph === "invalid" ? "broken/WORK_NODE.xml" : "docs/guide.md";
-      assert.equal(find(result.files.root, expectedPath).type, "file");
+      assert.equal(find(result.files.root, "docs/guide.md").summary, "Nested file.");
+      if (graph === "invalid") {
+        assert.deepEqual(find(result.files.root, "broken").children, [
+          { type: "file-counts", counts: [{ extension: "xml", count: 1 }] },
+        ]);
+      }
     });
   }
 });
@@ -181,8 +194,8 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   const secondText = await execFileAsync(process.execPath, [command, "--project-root", root], { encoding: "utf8" });
   assert.equal(firstText.stderr, "");
   assert.equal(firstText.stdout, secondText.stdout);
-  assert.match(firstText.stdout, /^Sonner v9\nWork Graph: missing\nFiles:\n/);
-  assert.match(firstText.stdout, /Directory path="docs"\n\s+File path="docs\/guide\.md" summary=null/);
+  assert.match(firstText.stdout, /^Sonner v10\nWork Graph: missing\nFiles:\n/);
+  assert.match(firstText.stdout, /Directory path="docs"\n\s+1 md/);
   assert.match(firstText.stdout, /File path="README\.md" summary="CLI project \\u202eTXT \\u200d \\ufe0f"/);
   assert.equal(firstText.stdout.includes("\u202e"), false);
   assert.equal(firstText.stdout.includes("\u200d"), false);
@@ -196,11 +209,14 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   assert.equal(firstJson.stdout.trim().split("\n").length, 1);
   const result = JSON.parse(firstJson.stdout);
   assert.deepEqual(Object.keys(result), ["version", "workGraph", "files", "runtime"]);
-  assert.equal(result.version, 9);
+  assert.equal(result.version, 10);
   assert.deepEqual(result.workGraph, { status: "missing" });
   assert.deepEqual(result.runtime, { status: "missing" });
   assert.deepEqual(result.files.root.children.map((node) => node.path), ["docs", "README.md"], "directories sort before files");
   assert.equal(result.files.root.children.find((node) => node.path === "README.md").summary, hostileSummary);
+  assert.deepEqual(result.files.root.children[0].children, [
+    { type: "file-counts", counts: [{ extension: "md", count: 1 }] },
+  ]);
 });
 
 test("the CLI rejects duplicate, missing, positional, and unknown options in the requested format", () => {

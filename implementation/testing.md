@@ -49,8 +49,8 @@ Focused Activity tests cover:
 Sonner focused tests cover Git tracked and non-ignored untracked discovery,
 dependency/generated/cache exclusions, symbolic-link non-following, leading
 Markdown summary extraction, complete Work Graph XML validation and topological
-ordering, version-9 valid/missing/invalid states, VS Code-compatible bounded
-text detection, direct-parent binary extension groups, active-only Runtime
+ordering, version-10 valid/missing/invalid states, summary-only individual file
+projection, direct-parent compact extension counts, active-only Runtime
 health and bounded coarse reasons, deterministic default Agent text, JSON-string escaping,
 the pinned Unicode 16.0 unsafe-display boundary and ordinary-Unicode
 preservation, fixed-token fail-closed behavior, explicit empty states, the

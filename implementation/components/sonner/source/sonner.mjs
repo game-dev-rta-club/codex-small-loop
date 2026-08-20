@@ -9,7 +9,7 @@ import {
 import { buildRuntimeProjection } from "./runtime.mjs";
 import { formatSonnerText } from "./sonner-text.mjs";
 
-export const SONNER_SCHEMA_VERSION = 9;
+export const SONNER_SCHEMA_VERSION = 10;
 export const MAX_MARKDOWN_FRONTMATTER_BYTES = 64 * 1024;
 export const SONNER_TEXT_DETECTION_BYTES = SONNER_READER_TEXT_DETECTION_BYTES;
 
@@ -300,7 +300,7 @@ function parentOf(projectPath) {
   return parent === "." ? "." : parent;
 }
 
-function binaryExtension(name) {
+function fileExtension(name) {
   const extension = path.posix.extname(name);
   return extension.length > 1 ? extension.slice(1).toLowerCase() : null;
 }
@@ -323,24 +323,26 @@ function tree(files) {
     };
 
     const filesHere = childFiles.get(directory) ?? [];
-    const binaryCounts = new Map();
+    const fileCounts = new Map();
     for (const file of filesHere) {
-      if (file.type !== "file" || file.text) continue;
-      const extension = binaryExtension(file.name);
-      binaryCounts.set(extension, (binaryCounts.get(extension) ?? 0) + 1);
+      if (file.type === "file" && file.summary !== null) continue;
+      const extension = fileExtension(file.name);
+      fileCounts.set(extension, (fileCounts.get(extension) ?? 0) + 1);
     }
+
+    const counts = [...fileCounts.entries()]
+      .sort(([left], [right]) => compareText(left ?? "", right ?? ""))
+      .map(([extension, count]) => ({ extension, count }));
 
     const children = [
       ...(childDirectories.get(directory) ?? [])
         .map((child) => directoryNode(child))
         .sort((left, right) => compareText(left.path, right.path)),
       ...filesHere
-        .filter((file) => file.type !== "file" || file.text)
+        .filter((file) => file.type === "file" && file.summary !== null)
         .map(({ text: _text, ...file }) => file)
         .sort((left, right) => compareText(left.path, right.path)),
-      ...[...binaryCounts.entries()]
-        .sort(([left], [right]) => compareText(left ?? "", right ?? ""))
-        .map(([extension, count]) => ({ type: "binary-files", extension, count })),
+      ...(counts.length === 0 ? [] : [{ type: "file-counts", counts }]),
     ];
     return { ...node, children };
   }

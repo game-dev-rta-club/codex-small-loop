@@ -82,11 +82,10 @@ summary, node path, direct inputs, and direct outputs. Missing and invalid
 states expose status only, never diagnostics.
 
 The Files projection preserves every admitted directory route independently of
-Work Graph validity. It classifies regular files from at most the first 512
-bytes with the VS Code BOM, NUL, and UTF-16-layout heuristic. Text files remain
-individually visible and Markdown files retain a leading-frontmatter summary
-when present. Non-text regular files are omitted by name and represented as
-deterministic extension/count groups in their direct parent directory. Files
+Work Graph validity. A regular Markdown file remains individually visible only
+when its bounded leading frontmatter contains a non-empty summary. Every other
+regular file and symbolic link is omitted by name and represented in one
+deterministic extension/count node in its direct parent directory. Files
 directory nodes do not duplicate Work metadata or graph status.
 
 The Browser may request opening one visible regular file or a selected Work's

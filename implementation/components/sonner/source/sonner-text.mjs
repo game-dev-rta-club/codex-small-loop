@@ -106,6 +106,10 @@ function stringList(values) {
   return `[${values.map((value) => quoted(value)).join(",")}]`;
 }
 
+function compactExtension(value) {
+  return /^[a-z0-9][a-z0-9+_-]*$/.test(value) ? value : quoted(value);
+}
+
 function formatWorkGraph(workGraph, lines) {
   const status = fixedToken(workGraph.status, ["valid", "missing", "invalid"], "Work Graph status");
   lines.push(`Work Graph: ${status}`);
@@ -125,22 +129,27 @@ function formatWorkGraph(workGraph, lines) {
 
 function formatFileNode(node, lines, depth) {
   const indentation = "  ".repeat(depth);
-  const type = fixedToken(node.type, ["directory", "file", "symlink", "binary-files"], "Files node type");
+  const type = fixedToken(node.type, ["directory", "file", "file-counts"], "Files node type");
   if (type === "directory") {
     lines.push(`${indentation}Directory path=${quoted(node.path)}`);
     for (const child of node.children) formatFileNode(child, lines, depth + 1);
     return;
   }
   if (type === "file") {
-    lines.push(`${indentation}File path=${quoted(node.path)} summary=${nullable(node.summary)}`);
+    if (typeof node.summary !== "string" || node.summary.length === 0) throw new TypeError("Invalid file summary");
+    lines.push(`${indentation}File path=${quoted(node.path)} summary=${quoted(node.summary)}`);
     return;
   }
-  if (type === "binary-files") {
-    if (!Number.isInteger(node.count) || node.count <= 0) throw new TypeError("Invalid binary file count");
-    lines.push(`${indentation}Binary Files extension=${nullable(node.extension)} count=${node.count}`);
+  if (type === "file-counts") {
+    if (!Array.isArray(node.counts) || node.counts.length === 0) throw new TypeError("Invalid file counts");
+    const values = node.counts.map(({ extension, count }) => {
+      if ((extension !== null && (typeof extension !== "string" || extension.length === 0))
+          || !Number.isInteger(count) || count <= 0) throw new TypeError("Invalid file count");
+      return `${count} ${extension === null ? "extensionless" : compactExtension(extension)}`;
+    });
+    lines.push(`${indentation}${values.join(", ")}`);
     return;
   }
-  lines.push(`${indentation}Symlink path=${quoted(node.path)}`);
 }
 
 function formatFiles(files, lines) {

@@ -111,7 +111,7 @@ serialization; `/api/sonner` always returns those same JSON bytes for the same
 observation. The formatter records its Unicode data-file provenance beside its
 single pinned range table rather than depending on runtime ICU properties.
 
-The version-9 Sonner document has exactly four top-level keys in order:
+The version-10 Sonner document has exactly four top-level keys in order:
 numeric `version`, `workGraph`, `files`, and `runtime`. A valid `workGraph`
 contains `status: "valid"` and topologically
 ordered `works`; each Work exposes only `id`, `type`, `summary`, `nodePath`,
@@ -128,13 +128,14 @@ between 0.5 and 2.0 without another ELK invocation; the stage dimensions expand
 with the transform so both native scroll axes remain accurate.
 
 `files` contains a deterministic root tree. Directory nodes have
-project-relative `path`, `name`, `type`, and `children`. Individually projected
-text files have `path`, `name`, `type`, and a nullable Markdown `summary`.
-Non-text files are represented in their direct parent by `binary-files` nodes
-containing a lowercase final `extension` (or `null`) and positive `count`;
-their individual names and bodies are absent. Directories never expose Work
-metadata or graph status. At every level, directories sort before individual
-text files and binary groups; each category uses UTF-8 byte order.
+project-relative `path`, `name`, `type`, and `children`. Only files with a
+non-empty Markdown `summary` are projected individually with `path`, `name`,
+`type`, and `summary`. Every other regular file or symbolic link is represented
+in its direct parent by one `file-counts` node. Its ordered `counts` array holds
+a lowercase final `extension` (or `null`) and positive `count` for each group;
+individual names and bodies are absent. Directories never expose Work metadata
+or graph status. At every level, directories sort before summarized files and
+the single compact count node; extensions use UTF-8 byte order.
 
 Sonner owns Work marker discovery, XML entity decoding, basename/ID matching,
 unique Work and input validation, single input-free Overview, existing input

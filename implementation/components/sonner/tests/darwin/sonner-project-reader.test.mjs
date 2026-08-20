@@ -120,8 +120,14 @@ test("static final and ancestor symlinks never expose target bytes", async (t) =
     await symlink(path.join(external, "docs", "secret.md"), path.join(root, "docs", "secret.md"));
     const result = await candidate(root);
     serialized(result);
-    assert.equal(find(result.files.root, "docs/secret.md").type, "symlink");
-    assert.equal(find(result.files.root, "docs/secret.md").summary, undefined);
+    assert.equal(find(result.files.root, "docs/secret.md"), null);
+    assert.deepEqual(find(result.files.root, "docs").children.find(({ type }) => type === "file-counts"), {
+      type: "file-counts",
+      counts: [
+        { extension: "md", count: 1 },
+        { extension: "xml", count: 1 },
+      ],
+    });
   });
   await t.test("ancestor", async (t) => {
     const { root, external } = await fixture(t);

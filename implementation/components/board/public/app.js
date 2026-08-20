@@ -406,17 +406,17 @@ function fileLabel(node, { interactive = false } = {}) {
   const row = document.createElement(interactive ? "button" : "span");
   if (interactive) row.type = "button";
   row.className = `file-row type-${node.type}`;
-  if (["file", "symlink", "binary-files"].includes(node.type)) {
+  if (["file", "file-counts"].includes(node.type)) {
     const marker = document.createElement("span");
     marker.className = "file-marker";
     marker.setAttribute("aria-hidden", "true");
-    marker.textContent = node.type === "symlink" ? "↗" : node.type === "binary-files" ? "∑" : "▤";
+    marker.textContent = node.type === "file-counts" ? "∑" : "▤";
     row.append(marker);
   }
   const name = document.createElement("span");
   name.className = "file-name";
-  name.textContent = node.type === "binary-files"
-    ? `${node.count} ${node.extension ?? "extensionless"} ${node.count === 1 ? "file" : "files"}`
+  name.textContent = node.type === "file-counts"
+    ? node.counts.map(({ extension, count }) => `${count} ${extension ?? "extensionless"}`).join(", ")
     : node.name;
   row.append(name);
   if (node.type === "file" && node.summary) {
