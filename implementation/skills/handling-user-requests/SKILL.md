@@ -51,14 +51,16 @@ Resolve the execution profile in this entry exchange:
 - Speed defaults immediately to 1x whenever the user has not explicitly
   selected a speed. Do not ask a speed-only follow-up. Use 1.5x only when the
   user explicitly selects it.
-- Treat the ordinary model selection as the Primary model. If it is unknown,
+- Treat the ordinary model selection and the user-facing "thinking model" as
+  the Primary model. If it is unknown,
   propose Terra Medium with the JSON default summary and ask only for the model
   decision, meaning the Primary model. State that execution remains at 1x unless the user explicitly
   selects 1.5x.
-- A Worker model is optional and applies to Execute, Review, and Interviewer.
+- Treat the user-facing "implementation model" as the optional Worker model;
+  it applies to Execute, Review, and Interviewer.
   Do not add it to the normal question sequence or ask the user to choose one.
   Resolve it only when the user voluntarily supplies a separate implementation
-  or review model. If the user explicitly asks to split the models without
+  model. If the user explicitly asks to split thinking and implementation without
   naming the Worker model, ask only for that missing Worker model. Otherwise,
   resolve Worker to the Primary model without a follow-up.
 - If the Primary model is known, treat the profiles as resolved using the
@@ -69,14 +71,14 @@ Resolve the execution profile in this entry exchange:
 For example, a reply containing only `Sol Medium` resolves to Sol Medium and
 1x and proceeds to Controller. A reply containing only `1.5x` preserves that
 speed but still asks for the Primary model. A reply such as `Primary: Sol
-Medium; implementation and review: Luna Max` resolves the separate Worker
+Medium; implementation: Luna Max` resolves the separate Worker
 model without adding another setup turn. If only the Worker model is supplied,
 retain it while asking for the missing Primary model.
 
 Reflect the resolved Primary model and speed in the Markdown tables by bolding
 their selected rows and removing bold from the previous defaults. The optional
 Worker model does not create another table or change the table selection; when
-explicitly supplied, state it briefly below the tables. A missing speed is
+explicitly supplied, state it briefly after the speed table. A missing speed is
 already resolved as 1x; only an unknown Primary model or an explicitly
 requested but unnamed Worker model remains unresolved. Keep raw model IDs and
 the internal `serviceTier` value private.
@@ -87,6 +89,8 @@ The user-facing Controller Task keeps its Codex App execution settings. Retain
 the selected Primary model ID and reasoning effort as the Primary profile.
 Retain the optional Worker model ID and reasoning effort as the Worker profile,
 falling back to the Primary pair when it was omitted. Speed is shared by both.
+Controller handles the user-facing thinking/implementation terminology and
+passes the corresponding internal Primary/Worker profiles onward.
 Controller passes the Primary model, reasoning effort, and speed explicitly
 when it creates Primary and includes the resolved Worker model, reasoning
 effort, and shared speed in Primary's assignment. Primary explicitly applies

@@ -191,10 +191,12 @@ test("handling-user-requests renders setup before loading Controller", async () 
   assert.match(skill, /later explicit Codex Small Loop activation/i);
   assert.match(skill, /Controller Role command\s+again/i);
   assert.match(skill, /project.*investigation.*Controller|Controller.*project.*investigation/is);
-  assert.match(welcome, /Optional:[^\n]*separate model for implementation and review/i);
-  assert.match(welcome, /If omitted,[^\n]*Primary model/i);
-  assert.match(skill, /ordinary model selection as the Primary model/i);
-  assert.match(skill, /Worker model is optional/i);
+  const modelTableIndex = welcome.indexOf("| Model |");
+  const splitModelNoteIndex = welcome.indexOf("separate models for thinking and implementation");
+  const speedTableIndex = welcome.indexOf("| Speed |");
+  assert.ok(modelTableIndex >= 0 && modelTableIndex < splitModelNoteIndex && splitModelNoteIndex < speedTableIndex);
+  assert.match(skill, /user-facing "thinking model" as\s+the Primary model/i);
+  assert.match(skill, /user-facing "implementation model" as the optional Worker model/i);
   assert.match(skill, /Execute, Review, and Interviewer/i);
   assert.match(skill, /Do not add it to the normal question sequence/i);
   assert.match(skill, /resolve Worker to the Primary model without a follow-up/i);
@@ -208,6 +210,7 @@ test("Primary judgment and delegated detail work use resolved separate profiles"
   );
 
   assert.match(controller, /selected model and reasoning effort exactly as the Primary\s*profile/is);
+  assert.match(controller, /thinking model is Primary.*implementation\s*model is Worker/is);
   assert.match(controller, /Worker model.*reasoning effort.*service tier/is);
   assert.match(controller, /Worker defaults? to the Primary/is);
   assert.match(activation, /Primary model, reasoning\s*effort, and speed/is);

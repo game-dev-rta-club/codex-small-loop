@@ -130,6 +130,8 @@ Never reuse a Primary from an earlier Milestone. Each Primary is one independent
 Activity in the Board and owns only its Milestone.
 
 Use the Primary and Worker execution profiles resolved during initial setup.
+In user-facing language, the thinking model is Primary and the implementation
+model is Worker; Controller owns that translation.
 Keep the Controller Task's own Codex App settings unchanged. When forking
 Primary, pass the selected model and reasoning effort exactly as the Primary
 profile; pass
