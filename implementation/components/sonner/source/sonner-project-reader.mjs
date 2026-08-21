@@ -10,13 +10,14 @@ import { isExcludedSonnerProjectPath } from "./sonner-path-policy.mjs";
 
 export const SONNER_READER_PROTOCOL_VERSION = 2;
 export const SONNER_READER_TIMEOUT_MS = 5_000;
-export const SONNER_READER_MAX_PATHS = 10_000;
+export const SONNER_READER_MAX_PATHS = 100_000;
 export const SONNER_READER_MAX_PATH_BYTES = 4096;
 export const SONNER_READER_MAX_WORKS = 1024;
 export const SONNER_READER_MAX_WORK_BYTES = 256 * 1024;
 export const SONNER_READER_MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 export const SONNER_READER_MAX_STDERR_BYTES = 4096;
 export const SONNER_GIT_MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
+export const SONNER_READER_TEXT_DETECTION_BYTES = 512;
 
 const FRAME_HELLO = 1;
 const FRAME_PATH = 2;
@@ -468,7 +469,7 @@ export async function readSonnerProject({
     }
     const normalized = admittedPaths.map((projectPath) => ({
       path: projectPath,
-      maxBytes: /\.md$/i.test(projectPath) ? 64 * 1024 : 0,
+      maxBytes: /\.md$/i.test(projectPath) ? 64 * 1024 : SONNER_READER_TEXT_DETECTION_BYTES,
     }));
     const request = encodeSonnerReaderRequest({ rootIdentity: project.rootIdentity, paths: normalized, maxWorks, maxWorkBytes, maxOutputBytes });
     await onPhase?.("before-content-spawn");

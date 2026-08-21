@@ -65,15 +65,16 @@ the current request and accepted plan authorize project mutation.
 Within relevant Work directories, inspect in this order:
 
 1. directory names;
-2. filenames;
+2. filenames for summarized atomic documents;
 3. the Work summary in `WORK_NODE.xml`;
 4. available atomic document summaries or native-format summaries;
 5. only the files whose names and summaries indicate that their bodies matter.
 
 The directory is a live information map. Prefer it to a handwritten inventory.
 An atomic summary should let an agent decide whether to open the full document.
-Code, images, video, audio, and formats without a natural summary surface rely
-primarily on descriptive names and surrounding Work context.
+Only files with an extracted atomic summary retain their names. Every other
+file appears only in its direct directory's compact extension/count line and
+relies on directory placement and surrounding Work context.
 
 ## Trace Related Knowledge
 

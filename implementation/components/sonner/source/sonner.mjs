@@ -1,12 +1,17 @@
 import path from "node:path";
 
 import { resolveProject } from "../../runtime/source/project.mjs";
-import { openSonnerProjectReadSession, readSonnerProject } from "./sonner-project-reader.mjs";
+import {
+  openSonnerProjectReadSession,
+  readSonnerProject,
+  SONNER_READER_TEXT_DETECTION_BYTES,
+} from "./sonner-project-reader.mjs";
 import { buildRuntimeProjection } from "./runtime.mjs";
 import { formatSonnerText } from "./sonner-text.mjs";
 
-export const SONNER_SCHEMA_VERSION = 8;
+export const SONNER_SCHEMA_VERSION = 10;
 export const MAX_MARKDOWN_FRONTMATTER_BYTES = 64 * 1024;
+export const SONNER_TEXT_DETECTION_BYTES = SONNER_READER_TEXT_DETECTION_BYTES;
 
 function compareText(left, right) {
   return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
@@ -207,15 +212,45 @@ export async function loadWorkGraph(directory, { project = null, readerOptions =
   return loadWorkGraphRecords(result.works, { workUnsafe: result.workUnsafe, directory: resolved.root });
 }
 
+function hasPrefix(bytes, prefix) {
+  return bytes.length >= prefix.length && prefix.every((value, index) => bytes[index] === value);
+}
+
+export function isSonnerTextBytes(raw) {
+  const bytes = raw.subarray(0, SONNER_TEXT_DETECTION_BYTES);
+  if (hasPrefix(bytes, [0xef, 0xbb, 0xbf])
+      || hasPrefix(bytes, [0xfe, 0xff])
+      || hasPrefix(bytes, [0xff, 0xfe])) return true;
+
+  let couldBeUtf16Le = true;
+  let couldBeUtf16Be = true;
+  let containsZero = false;
+  for (let index = 0; index < bytes.length; index += 1) {
+    const odd = index % 2 === 1;
+    const zero = bytes[index] === 0;
+    if (zero) containsZero = true;
+    if (couldBeUtf16Le && ((odd && !zero) || (!odd && zero))) couldBeUtf16Le = false;
+    if (couldBeUtf16Be && ((odd && zero) || (!odd && !zero))) couldBeUtf16Be = false;
+    if (zero && !couldBeUtf16Le && !couldBeUtf16Be) return false;
+  }
+  return !containsZero || couldBeUtf16Le || couldBeUtf16Be;
+}
+
 function collectFiles(entries) {
-  return entries.map((entry) => ({
-    path: entry.path,
-    name: path.posix.basename(entry.path),
-    type: entry.type,
-    summary: entry.type === "file" && /\.md$/i.test(entry.path)
-      ? parseMarkdownSummary(entry.raw.toString("utf8"))
-      : null,
-  }));
+  return entries.map((entry) => {
+    const name = path.posix.basename(entry.path);
+    if (entry.type !== "file") return { path: entry.path, name, type: entry.type };
+    const text = isSonnerTextBytes(entry.raw);
+    return {
+      path: entry.path,
+      name,
+      type: "file",
+      text,
+      summary: text && /\.md$/i.test(entry.path)
+        ? parseMarkdownSummary(entry.raw.toString("utf8"))
+        : null,
+    };
+  });
 }
 
 function graphState(reader, root) {
@@ -265,7 +300,12 @@ function parentOf(projectPath) {
   return parent === "." ? "." : parent;
 }
 
-function tree(files, graph) {
+function fileExtension(name) {
+  const extension = path.posix.extname(name);
+  return extension.length > 1 ? extension.slice(1).toLowerCase() : null;
+}
+
+function tree(files) {
   const directories = directoryIndex(files);
   const childDirectories = new Map(directories.map((directory) => [directory, []]));
   const childFiles = new Map(directories.map((directory) => [directory, []]));
@@ -275,35 +315,34 @@ function tree(files, graph) {
   }
   for (const file of files) childFiles.get(parentOf(file.path) ?? ".")?.push(file);
 
-  const worksByDirectory = new Map(graph.works.map((work) => [path.posix.dirname(work.relativePath), work]));
-  const ancestors = new Set(["."]);
-  for (const directory of worksByDirectory.keys()) {
-    const parts = directory.split("/");
-    for (let length = 1; length <= parts.length; length += 1) ancestors.add(parts.slice(0, length).join("/"));
-  }
-  const workDirectories = [...worksByDirectory.keys()].sort(compareText);
-  const underWork = (directory) => workDirectories.some((work) => directory === work || directory.startsWith(`${work}/`));
-  const omissionSummary = graph.status === "valid"
-    ? "Not in Work Graph"
-    : graph.status === "missing"
-      ? "Work Graph missing"
-      : "Work Graph invalid";
-
   function directoryNode(directory, root = false) {
-    const expanded = root || (graph.status === "valid" && (ancestors.has(directory) || underWork(directory)));
     const node = {
       path: directory,
       name: root ? "." : path.posix.basename(directory),
       type: "directory",
     };
-    if (!expanded) return { ...node, summary: omissionSummary };
+
+    const filesHere = childFiles.get(directory) ?? [];
+    const fileCounts = new Map();
+    for (const file of filesHere) {
+      if (file.type === "file" && file.summary !== null) continue;
+      const extension = fileExtension(file.name);
+      fileCounts.set(extension, (fileCounts.get(extension) ?? 0) + 1);
+    }
+
+    const counts = [...fileCounts.entries()]
+      .sort(([left], [right]) => compareText(left ?? "", right ?? ""))
+      .map(([extension, count]) => ({ extension, count }));
 
     const children = [
       ...(childDirectories.get(directory) ?? [])
         .map((child) => directoryNode(child))
         .sort((left, right) => compareText(left.path, right.path)),
-      ...(childFiles.get(directory) ?? [])
+      ...filesHere
+        .filter((file) => file.type === "file" && file.summary !== null)
+        .map(({ text: _text, ...file }) => file)
         .sort((left, right) => compareText(left.path, right.path)),
+      ...(counts.length === 0 ? [] : [{ type: "file-counts", counts }]),
     ];
     return { ...node, children };
   }
@@ -354,7 +393,7 @@ export async function buildSonnerProject(project, {
       version: SONNER_SCHEMA_VERSION,
       workGraph: publicWorkGraph(graph),
       files: {
-        root: tree(files, graph),
+        root: tree(files),
       },
       runtime,
     };

@@ -30,8 +30,9 @@ open execution currently contains active or mechanically uncertain Tasks
 without turning current state into historical analysis.
 
 Sonner does not copy file bodies, generate interpretations with AI, or hide an
-unknown project boundary behind a plausible-looking tree. Work-aware file
-expansion uses the same validated graph. Missing or invalid graphs remain
+unknown project boundary behind a plausible-looking tree. It preserves admitted
+directory routes, lists only files with maintained summaries, and compresses
+every other file into direct-parent extension/count groups. Missing or invalid graphs remain
 explicit without hiding Files or exposing parser diagnostics. Runtime exposes
 only health, coarse reasons, and active or uncertain Task identities—not ended
 Tasks, Root history, coordination records, message bodies, logs, summaries, or

@@ -21,17 +21,18 @@ localized Markdown source and renders the bundled hero image from its absolute
 filesystem path. It briefly introduces Codex Small Loop and always lists optional
 Slack and Obsidian recommendations with a short reason to use them. Its Next
 Action then invites the user to choose the Agent model, compares the available
-models, and presents 1x versus accelerated execution speed before the one
+models, places a short note between the model and speed tables that thinking
+and implementation may use separate models, and presents 1x versus accelerated execution speed before the one
 necessary model question. Speed defaults to 1x without a separate question;
 1.5x applies only when the user explicitly selects it. The entry path inspects
 neither connector nor project state. Internal runtime names such as
 `serviceTier` remain hidden. The complete guide and question appear together in
 the final response without HTML or a visualization file.
 
-The ordinary model choice is the Primary profile. Below the tables, the guide
-briefly notes that a separate implementation-and-review model is available as
-an optional cost-control setting. It does not add another table or question to
-the normal path. A voluntarily supplied Worker model applies to Execute,
+The ordinary model choice and the user-facing thinking model are the Primary
+profile. The user-facing implementation model is the optional Worker profile.
+The short note does not add another table or question to the normal path. A
+voluntarily supplied Worker model applies to Execute,
 Review, and Interviewer; otherwise Worker uses the Primary model. If the user
 asks to split profiles without naming the Worker model, only that missing value
 is clarified. The selected speed remains shared by both profiles.
@@ -50,7 +51,8 @@ An explicit answer that supplies or changes a setting is agreement to that
 value and is not reconfirmed. On that next user-authored turn, the entry Skill
 loads the Controller Role after the model is resolved and the explicit or
 default speed is fixed; project
-investigation and Interview begin there. The Controller keeps the Codex App
+investigation and Interview begin there. Controller owns the user-facing
+thinking/implementation terminology and maps it to Primary/Worker. It keeps the Codex App
 settings of its user-facing Task. It applies the agreed Primary model, reasoning
 effort, and speed explicitly when creating Primary and supplies the resolved
 Worker model, reasoning effort, and shared speed in the launch assignment.

@@ -191,10 +191,12 @@ test("handling-user-requests renders setup before loading Controller", async () 
   assert.match(skill, /later explicit Codex Small Loop activation/i);
   assert.match(skill, /Controller Role command\s+again/i);
   assert.match(skill, /project.*investigation.*Controller|Controller.*project.*investigation/is);
-  assert.match(welcome, /Optional:[^\n]*separate model for implementation and review/i);
-  assert.match(welcome, /If omitted,[^\n]*Primary model/i);
-  assert.match(skill, /ordinary model selection as the Primary model/i);
-  assert.match(skill, /Worker model is optional/i);
+  const modelTableIndex = welcome.indexOf("| Model |");
+  const splitModelNoteIndex = welcome.indexOf("separate models for thinking and implementation");
+  const speedTableIndex = welcome.indexOf("| Speed |");
+  assert.ok(modelTableIndex >= 0 && modelTableIndex < splitModelNoteIndex && splitModelNoteIndex < speedTableIndex);
+  assert.match(skill, /user-facing "thinking model" as\s+the Primary model/i);
+  assert.match(skill, /user-facing "implementation model" as the optional Worker model/i);
   assert.match(skill, /Execute, Review, and Interviewer/i);
   assert.match(skill, /Do not add it to the normal question sequence/i);
   assert.match(skill, /resolve Worker to the Primary model without a follow-up/i);
@@ -208,6 +210,7 @@ test("Primary judgment and delegated detail work use resolved separate profiles"
   );
 
   assert.match(controller, /selected model and reasoning effort exactly as the Primary\s*profile/is);
+  assert.match(controller, /thinking model is Primary.*implementation\s*model is Worker/is);
   assert.match(controller, /Worker model.*reasoning effort.*service tier/is);
   assert.match(controller, /Worker defaults? to the Primary/is);
   assert.match(activation, /Primary model, reasoning\s*effort, and speed/is);
@@ -949,6 +952,8 @@ test("primary coordinates milestone-scoped execute and four parallel review resp
   assert.match(primary, /build|compile/i);
   assert.match(primary, /lint|typecheck/i);
   assert.match(primary, /four Review.*responsibilities.*parallel/is);
+  assert.match(primary, /parallel.*reduce overall Review time/is);
+  assert.match(primary, /No Review responsibility is a serial gate for another/i);
   assert.match(primary, /same candidate/i);
   assert.match(primary, /parallel/i);
   assert.match(primary, /review.*read-only|review work as read-only/is);
@@ -1111,7 +1116,10 @@ test("interviewer turns required Review Signals into implementation guidance", a
   assert.match(interviewer, /^---\nsummary:/);
   assert.match(interviewer, /Interviewer Job Role/i);
   assert.match(interviewer, /existing Reviewer Task/i);
-  assert.match(interviewer, /working-with-codex-tasks[\s\S]*start a new Conversation/is);
+  assert.match(
+    interviewer,
+    /working-with-codex-tasks[\s\S]*start (?:a|one) new Conversation/is,
+  );
   assert.match(interviewer, /Implementation Approach/i);
   assert.match(interviewer, /required Review Signals|Signals.*`required`/i);
   assert.match(
@@ -1154,6 +1162,16 @@ test("interviewer turns required Review Signals into implementation guidance", a
       source,
       /related[\s\S]*(?:question|topic)[\s\S]*(?:batch|group|one message|same message|same round)/is,
     );
+    assert.match(source, /paired with exactly one existing\s+Reviewer Task/is);
+    assert.match(
+      source,
+      /start(?:s)? one new Conversation[\s\S]*assigned existing Reviewer Task/is,
+    );
+    assert.match(
+      source,
+      /never\s+interviews or starts a\s+Conversation with another Reviewer/is,
+    );
+    assert.doesNotMatch(source, /Reviewer Conversations.*parallel/is);
     assert.match(source, /Primary[\s\S]*final severity|final severity[\s\S]*Primary/is);
     assert.match(source, /signal\.mjs set-severity/);
     assert.doesNotMatch(
@@ -1172,7 +1190,26 @@ test("interviewer turns required Review Signals into implementation guidance", a
 
   assert.match(primary, /group.*`required`.*implementation problem\s+context/is);
   assert.match(primary, /one new `interviewer` fork/is);
-  assert.match(primary, /relevant existing Reviewer\s+Task/is);
+  assert.match(
+    primary,
+    /every\s+originating Reviewer.*`required` Signal[\s\S]*exactly one Reviewer Task/is,
+  );
+  assert.match(
+    primary,
+    /only that Reviewer's required Signals/is,
+  );
+  for (const source of [primary, primaryReference]) {
+    assert.match(
+      source,
+      /independent\s+Interviewers in parallel.*reduce\s+overall\s+Interview\s+time/is,
+    );
+    assert.match(
+      source,
+      /No independent\s+Interviewer is a serial gate for another/i,
+    );
+  }
+  assert.match(primary, /one direct Conversation.*assigned existing\s+Reviewer Task/is);
+  assert.match(primary, /integrates the results across Reviewers/is);
   assert.match(
     primary,
     /wait for all.*Interviewer results[\s\S]*Before Execute/is,
@@ -1691,7 +1728,7 @@ test("current project Works form an Overview-rooted graph", async () => {
   );
   assert.equal(map.status, 0, map.stderr);
   const sonner = JSON.parse(map.stdout);
-  assert.equal(sonner.version, 8);
+  assert.equal(sonner.version, 10);
   assert.equal(sonner.workGraph.status, "valid");
   const works = sonner.workGraph.works;
   assert.equal(works.filter((work) => work.type === "Overview").length, 1);
@@ -2473,12 +2510,12 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   assert.match(portable, /shell:\s*false/);
   assert.match(portable, /revalidateAncestors/);
   assert.doesNotMatch(portable, /\.\.\.environment/);
-  assert.match(projection, /SONNER_SCHEMA_VERSION = 8/);
+  assert.match(projection, /SONNER_SCHEMA_VERSION = 10/);
   assert.match(projection, /version: SONNER_SCHEMA_VERSION,[\s\S]*workGraph:[\s\S]*files:[\s\S]*runtime,/);
   assert.match(projection, /outputs:/);
   assert.match(projection, /options\.json \? serializeSonner\(projection\) : formatSonnerText\(projection\)/);
   assert.match(textFormatter, /Sonner v\$\{value\.version\}/);
-  assert.match(textFormatter, /Omitted Directory path=/);
+  assert.match(textFormatter, /values\.join\(", "\)/);
   assert.match(textFormatter, /Tasks: empty/);
   assert.match(textFormatter, /Unicode 16\.0 unsafe-display union/);
   assert.match(textFormatter, /DerivedGeneralCategory\.txt/);
@@ -2544,7 +2581,7 @@ test("Sonner packages descriptor-anchored Runtime and history readers", async ()
   assert.doesNotMatch(historySource, /CODEX_HOME|archived_sessions|\/Users\//);
 });
 
-test("Sonner closure keeps schema v8 and flat active Runtime surfaces free of retired contracts", async () => {
+test("Sonner closure keeps schema v10 and flat active Runtime surfaces free of retired contracts", async () => {
   const creating = await read("implementation/skills/creating-and-maintaining-works/SKILL.md");
   const lifecycleTests = await read("implementation/components/sonner/tests/sonner-lifecycle.test.mjs");
   const serverTests = await read("implementation/components/board/tests/board-server.test.mjs");
@@ -2555,7 +2592,7 @@ test("Sonner closure keeps schema v8 and flat active Runtime surfaces free of re
   assert.match(creating, /does not automatically load `understanding-works`, run\s+Sonner/i);
   assert.doesNotMatch(creating, /Work Graph mapper/i);
   assert.doesNotMatch(serverTests, /\bversion:\s*6\b/);
-  assert.match(serverTests, /\bversion:\s*8\b/);
+  assert.match(serverTests, /\bversion:\s*10\b/);
   assert.match(lifecycleTests, /health:\s*"unknown", reasons:\s*\["observation_failed"\], tasks:\s*\[\]/);
   assert.doesNotMatch(lifecycleTests, /health:\s*"unknown", settled:|counts:\s*\{\}, roots:/);
   assert.match(html, /id="runtime-task-list"[^>]*class="runtime-task-list"/);

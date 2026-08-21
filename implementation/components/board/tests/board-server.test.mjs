@@ -173,16 +173,16 @@ test("Sonner opens indexed files and Work directories and propagates opener reva
   const nativeOpener = async (...args) => { calls.push(args); };
   await openSonnerFile(project, "README.md", { nativeOpener });
   assert.deepEqual(calls[0], [project, "README.md"]);
-  await openSonnerFile(project, "overview/WORK_NODE.xml", { nativeOpener });
-  assert.deepEqual(calls[1], [project, "overview/WORK_NODE.xml"]);
+  await assert.rejects(openSonnerFile(project, "overview/WORK_NODE.xml", { nativeOpener }),
+    (error) => error.code === "SONNER_FILE_NOT_INDEXED");
   await openSonnerFile(project, "overview", { nativeOpener });
-  assert.deepEqual(calls[2], [project, "overview"]);
+  assert.deepEqual(calls[1], [project, "overview"]);
   await assert.rejects(openSonnerFile(project, "../outside", { nativeOpener }),
     (error) => error.code === "SONNER_FILE_INVALID");
   await assert.rejects(openSonnerFile(project, "missing.md", { nativeOpener }),
     (error) => error.code === "SONNER_FILE_NOT_INDEXED");
 
-  const indexedProjection = { version: 8, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory",
+  const indexedProjection = { version: 10, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory",
     children: [{ path: "README.md", name: "README.md", type: "file", summary: "Open me." }] } }, runtime: { status: "missing" } };
   await assert.rejects(openSonnerFile(project, "README.md", {
     sonnerLoader: async () => indexedProjection,
@@ -261,7 +261,7 @@ test("resolver key mismatch and downgraded pathname authority never reach loader
 test("Sonner shares project single-flight and the exact response-byte bound", async (t) => {
   const projectRoot = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-board-sonner-bound-"));
   t.after(() => rm(projectRoot, { recursive: true, force: true }));
-  const projection = { version: 8, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory", children: [] } }, runtime: { status: "missing" } };
+  const projection = { version: 10, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory", children: [] } }, runtime: { status: "missing" } };
   const exactBytes = Buffer.byteLength(serializeSonner(projection));
   const gate = deferred();
   const started = deferred();
@@ -301,7 +301,7 @@ test("failed Sonner response keeps 429 admission until loader cleanup settles", 
   const cleanupStarted = deferred();
   const cleanup = deferred();
   let calls = 0;
-  const projection = { version: 8, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory", children: [] } }, runtime: { status: "missing" } };
+  const projection = { version: 10, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory", children: [] } }, runtime: { status: "missing" } };
   const { server, url } = await listenBoard({
     projectRoot,
     sonnerLoader: async () => {

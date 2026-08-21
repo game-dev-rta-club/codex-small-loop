@@ -46,9 +46,11 @@ lifecycle:
 4. With zero heartbeat schedules for the Milestone, it forks a fresh Primary
    directly from its complete conversation for the
    current Milestone with a bootstrap-only
-   launch assignment and explicitly applies the Primary model, reasoning
+   launch assignment and explicitly applies the Primary model (the user-facing
+   thinking model), reasoning
    effort, and speed selected during initial setup. The assignment also carries
-   the resolved Worker model and reasoning effort with the same speed; Worker
+   the resolved Worker model (the user-facing implementation model) and
+   reasoning effort with the same speed; Worker
    defaults to the Primary pair and applies to Execute, Review, and Interviewer.
    The Controller Task retains its own Codex App settings. Primary sends the one
    required launch reply, Controller accepts that Conversation, and no heartbeat

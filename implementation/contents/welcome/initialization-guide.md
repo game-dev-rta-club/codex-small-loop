@@ -26,11 +26,11 @@ Let's choose the Agent model.
 | Sol Low | 51 | US$344 | 46 sec | Pro 5x | Balancing cost, speed, and accuracy |
 | Sol Medium | 56 | US$580 | 79 sec | Pro 20x | Prioritizing accuracy |
 
+*You can also use separate models for thinking and implementation.*
+
 | Speed | Execution Speed | Token Usage |
 |---|---:|---:|
 | **1x** | 1x | 1x |
 | **1.5x** | 1.5x faster | 2.5x |
-
-*(Optional: You may specify a separate model for implementation and review work. If omitted, those Tasks use the Primary model.)*
 
 **May I start with the standard Terra Medium model? Unless you explicitly select 1.5x, execution remains at 1x.**

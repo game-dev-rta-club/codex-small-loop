@@ -49,11 +49,12 @@ Focused Activity tests cover:
 Sonner focused tests cover Git tracked and non-ignored untracked discovery,
 dependency/generated/cache exclusions, symbolic-link non-following, leading
 Markdown summary extraction, complete Work Graph XML validation and topological
-ordering, version-8 valid/missing/invalid states, active-only Runtime health and
-bounded coarse reasons, deterministic default Agent text, JSON-string escaping,
+ordering, version-10 valid/missing/invalid states, summary-only individual file
+projection, direct-parent compact extension counts, active-only Runtime
+health and bounded coarse reasons, deterministic default Agent text, JSON-string escaping,
 the pinned Unicode 16.0 unsafe-display boundary and ordinary-Unicode
-preservation, fixed-token fail-closed behavior, explicit empty and omitted
-states, the strict default/`--json` option grammar,
+preservation, fixed-token fail-closed behavior, explicit empty states, the
+strict default/`--json` option grammar,
 and the shared authenticated HTTP JSON
 projection, same-origin indexed-file and Work-directory opening, and Activity
 Bar/Work Graph/Files/Runtime UI states.

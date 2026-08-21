@@ -120,8 +120,14 @@ test("static final and ancestor symlinks never expose target bytes", async (t) =
     await symlink(path.join(external, "docs", "secret.md"), path.join(root, "docs", "secret.md"));
     const result = await candidate(root);
     serialized(result);
-    assert.equal(find(result.files.root, "docs/secret.md").type, "symlink");
-    assert.equal(find(result.files.root, "docs/secret.md").summary, null);
+    assert.equal(find(result.files.root, "docs/secret.md"), null);
+    assert.deepEqual(find(result.files.root, "docs").children.find(({ type }) => type === "file-counts"), {
+      type: "file-counts",
+      counts: [
+        { extension: "md", count: 1 },
+        { extension: "xml", count: 1 },
+      ],
+    });
   });
   await t.test("ancestor", async (t) => {
     const { root, external } = await fixture(t);
@@ -137,7 +143,8 @@ test("static final and ancestor symlinks never expose target bytes", async (t) =
     await symlink(path.join(external, "docs", "WORK_NODE.xml"), path.join(root, "docs", "WORK_NODE.xml"));
     const result = await candidate(root);
     serialized(result);
-    assert.equal(find(result.files.root, "docs/secret.md"), null);
+    assert.deepEqual(result.workGraph, { status: "invalid" });
+    assert.equal(find(result.files.root, "docs/secret.md").summary, ORIGINAL);
   });
 });
 
@@ -198,7 +205,7 @@ test("Markdown Root, ancestor, final-open, opened-file, and in-place read transi
   });
 });
 
-test("unsafe Work discovery/open/read replacements keep nested files behind the minimal boundary", async (t) => {
+test("unsafe Work discovery/open/read replacements invalidate Work without hiding safely read files", async (t) => {
   const cases = [
     ["ancestor-discovery", "before-work-directory-open:docs", async ({ root, external }) => {
       await rename(path.join(root, "docs"), path.join(root, "docs-original"));
@@ -224,7 +231,8 @@ test("unsafe Work discovery/open/read replacements keep nested files behind the 
       } });
       serialized(result); assert.equal(changed, true);
       assert.equal(expected, "invalid");
-      assert.equal(find(result.files.root, "docs/secret.md"), null);
+      assert.deepEqual(result.workGraph, { status: "invalid" });
+      assert.equal(find(result.files.root, "docs/secret.md").summary, ORIGINAL);
     });
   }
 });

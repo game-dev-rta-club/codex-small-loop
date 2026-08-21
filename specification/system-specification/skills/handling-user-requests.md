@@ -24,9 +24,11 @@ response.
 Speed resolves to 1x whenever the user did not explicitly choose one; 1.5x is
 used only by explicit selection. The final response therefore never asks a
 speed-only follow-up. It asks only for a missing Primary model and states that
-speed remains 1x unless 1.5x is selected. The guide notes below the tables that
-a separate implementation-and-review model is optional, without adding that
-choice to the normal question sequence. A voluntarily supplied Worker model
+speed remains 1x unless 1.5x is selected. Between the model and speed tables,
+the guide briefly notes that thinking and implementation may use separate
+models, without adding that choice to the normal question sequence. In this
+user-facing terminology, thinking maps to Primary and implementation maps to
+Worker. A voluntarily supplied Worker model
 applies to Execute, Review, and Interviewer; otherwise it resolves to the
 Primary model. If the user requests a split without naming the Worker model,
 only that missing value is clarified. On the next user-authored turn, the Skill
@@ -34,7 +36,7 @@ incorporates the answer and keeps asking only while a required value is missing.
 Once the profiles are resolved, it retains the exact Primary and Worker model
 and reasoning-effort pairs plus their shared speed, runs
 `components/commands/role.mjs controller`, and reads the complete output. The
-user-facing Controller keeps its Codex App settings, applies the Primary
+user-facing Controller owns this terminology, keeps its Codex App settings, applies the Primary
 profile explicitly when it creates Primary, and supplies the Worker profile in
 that assignment for explicit use by Execute, Review, and Interviewer. The
 Controller Role owns intent clarification, Interview, plan agreement, Primary
