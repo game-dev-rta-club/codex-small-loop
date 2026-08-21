@@ -6,10 +6,15 @@ import { fileURLToPath } from "node:url";
 import { resolveProject } from "../runtime/source/project.mjs";
 import { buildSonnerProject, serializeSonner } from "../sonner/source/sonner.mjs";
 import { isValidSonnerProjectPath } from "../sonner/source/sonner-project-reader.mjs";
-import { createActivityLiveSession, loadActivity, updateActivityLiveSession } from "./source/activity-data.mjs";
+import {
+  createActivityLiveSession,
+  loadActivity,
+  loadActivityIndex,
+  updateActivityLiveSession,
+} from "./source/activity-data.mjs";
 import { openSonnerFileReference } from "./source/sonner-open-file.mjs";
 
-export const BOARD_SERVER_BUILD_VERSION = "board-host-v12";
+export const BOARD_SERVER_BUILD_VERSION = "board-host-v14";
 export const MAX_BOARD_RESPONSE_BYTES = 32 * 1024 * 1024;
 export const MAX_SONNER_OPEN_REQUEST_BYTES = 8 * 1024;
 
@@ -139,6 +144,12 @@ export function createLeaseTracker({ idleTimeoutMs = 5 * 60_000, onIdle = () => 
 }
 
 export function createBoardServer({ projectRoot, project = null, projectResolver, activityLoader = loadActivity, sonnerLoader = buildSonnerProject,
+  activityIndexLoader = activityLoader === loadActivity
+    ? loadActivityIndex
+    : async (root) => {
+      const activity = await activityLoader(root);
+      return { project: activity.project, activities: activity.activities, partial: activity.partial };
+    },
   activityLiveSessionFactory = createActivityLiveSession, activityLiveUpdater = updateActivityLiveSession,
   fileOpener = openSonnerFile,
   maxResponseBytes = MAX_BOARD_RESPONSE_BYTES, runtimeIdentity = null, leaseTracker = null,
@@ -262,15 +273,17 @@ export function createBoardServer({ projectRoot, project = null, projectResolver
         if (url.pathname === "/api/activities" || url.pathname === "/api/activity") {
           liveActivities.delete(busyKey);
         }
-        const activity = await activityLoader(selectedRoot);
-        if (!canWrite(response)) return;
         if (url.pathname === "/api/activities") {
-          boundedJson(response, { project: activity.project, activities: activity.activities, partial: activity.partial }, maxResponseBytes);
+          const index = await activityIndexLoader(selectedRoot);
+          if (!canWrite(response)) return;
+          boundedJson(response, index, maxResponseBytes);
           return;
         }
-        const detail = activity.detail(url.searchParams.get("id"));
-        if (!detail) return json(response, 404, { error: "ACTIVITY_NOT_FOUND" });
         const activityId = url.searchParams.get("id");
+        const activity = await activityLoader(selectedRoot, { activityTaskId: activityId });
+        if (!canWrite(response)) return;
+        const detail = activity.detail(activityId);
+        if (!detail) return json(response, 404, { error: "ACTIVITY_NOT_FOUND" });
         const session = activityLiveSessionFactory(activity, activityId);
         if (session) liveActivities.set(busyKey, { activityId, session });
         else liveActivities.delete(busyKey);
@@ -278,6 +291,10 @@ export function createBoardServer({ projectRoot, project = null, projectResolver
           ? { status: "ready", revision: session.revision }
           : { status: "refresh-required", reason: "continuation_unavailable" } }, maxResponseBytes);
       } catch (error) {
+        if (canWrite(response) && error?.code === "ACTIVITY_NOT_FOUND") {
+          json(response, 404, { error: "ACTIVITY_NOT_FOUND" });
+          return;
+        }
         if (canWrite(response)) json(response, 503, {
           error: error?.code === "ACTIVITY_LEDGER_UNAVAILABLE"
             ? "ACTIVITY_LEDGER_UNAVAILABLE"
@@ -300,12 +317,12 @@ export function createBoardServer({ projectRoot, project = null, projectResolver
 }
 
 export async function listenBoard({ projectRoot = process.cwd(), projectResolver, port = 0, activityLoader, sonnerLoader, fileOpener,
-  activityLiveSessionFactory, activityLiveUpdater,
+  activityIndexLoader, activityLiveSessionFactory, activityLiveUpdater,
   maxResponseBytes, runtimeIdentity = null, leaseTracker = null, stopToken = null, onStop = null } = {}) {
   const project = projectResolver ? null : await resolveProject(path.resolve(projectRoot));
   if (!Number.isInteger(port) || port < 0 || port > 65_535) throw new TypeError("port must be an integer from 0 to 65535");
   const server = createBoardServer({ projectRoot: project?.root, project, projectResolver, activityLoader, sonnerLoader, fileOpener,
-    activityLiveSessionFactory, activityLiveUpdater, maxResponseBytes,
+    activityIndexLoader, activityLiveSessionFactory, activityLiveUpdater, maxResponseBytes,
     runtimeIdentity, leaseTracker, stopToken, onStop });
   await new Promise((resolve, reject) => {
     server.once("error", reject);

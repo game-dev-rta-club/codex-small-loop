@@ -352,6 +352,9 @@ Conversation ID: <conversation-id>
 1. Reply to this Conversation after completing the requested work.
    Conversation ID: <conversation-id>
    Use Codex Small Loop `conversation reply --conversation <conversation-id>`.
+
+After completing the protocol actions above, resume the currently loaded Role
+and perform its next applicable Action for the resulting state.
 ```
 
 Codex Small Loop sets the Child's Codex Task name to `<agent-name>` for runtime

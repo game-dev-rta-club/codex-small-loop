@@ -791,7 +791,8 @@ function renderSignals() {
 }
 
 function renderDetail() {
-  el("title").textContent = state.detail.activity.name;
+  el("title").textContent = state.activities.find((activity) => activity.id === state.detail.activity.id)?.name
+    ?? state.detail.activity.name;
   renderTimeline(); renderAgents(); renderSignals();
   const warnings = state.detail.diagnostics;
   el("status").textContent = state.detail.partial

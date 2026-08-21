@@ -107,8 +107,8 @@ does not create a heartbeat during the pre-execution interview, manage raw
 automation files, or use a standalone project cron job. There is no fixed
 elapsed-time limit.
 
-All heartbeat creation, update, inspection, and deletion goes through Whole
-Job Loop `schedule apply/read/delete`, never Codex App `automation_update`.
+All heartbeat creation, update, inspection, and deletion goes through Codex
+Small Loop `schedule apply/read/delete`, never Codex App `automation_update`.
 Creation requires `if-match=absent`; updates and deletions require the opaque
 etag from an exact read. Controller reads back after apply and confirms absence
 after delete. An etag mismatch retains the last confirmed state and grants no

@@ -34,8 +34,13 @@ evidence rather than guessed data.
 
 ## Projection
 
-The Activity list and selected Primary detail are loaded on demand. Activities
-sort newest-first and retain ended history. Idle server and
+The Activity list is projected from the valid ledger without reading any Task
+session history. It includes every authorized Primary heading, uses its managed
+Task name, and sorts newest-first. The browser initially waits for an explicit
+selection. Selecting a heading loads only that Primary and its authorized
+descendants, with fresh per-Activity safety budgets; unrelated Milestone
+histories consume no source or projection budget. Refresh reloads the currently
+selected Activity when it still exists. Activities retain ended history. Idle server and
 health requests perform no history traversal. Only one data load per project
 may be in flight; overlapping requests receive `429 BOARD_BUSY` and may retry.
 A client disconnect does not release that slot until the loader resolves or

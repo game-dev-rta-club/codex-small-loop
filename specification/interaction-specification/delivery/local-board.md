@@ -159,6 +159,11 @@ height without page-body scrolling; Timeline and Agents/Reviews content scroll
 inside their own bounded regions, and only the Timeline owns horizontal
 scrolling.
 
+The Activity sidebar first shows every ledger-authorized Primary heading
+without loading retained Task histories. Detail remains empty until the user
+selects a heading. Selection loads only that Milestone's Primary subtree;
+explicit Refresh reloads the existing selection when it remains available.
+
 While Activity is visible, the selected Activity updates in place about every
 two seconds. Timeline, Think, and Output changes preserve the selected Agent or
 Review, active tab, scroll positions, and keyboard focus. The Activity list and

@@ -105,10 +105,9 @@ export function createActivityListLoader({ loadActivities, begin, commitActiviti
       commitActivities(data);
       if (data.activities.length > 0) {
         const preferred = preferredActivityId();
-        const activityId = preferred && data.activities.some((activity) => activity.id === preferred)
-          ? preferred
-          : data.activities[0].id;
-        await selectActivity(activityId);
+        const selected = preferred && data.activities.some((activity) => activity.id === preferred)
+          ? preferred : data.activities[0].id;
+        await selectActivity(selected);
       } else {
         showEmpty(data, emptyActivityMessage(data));
       }

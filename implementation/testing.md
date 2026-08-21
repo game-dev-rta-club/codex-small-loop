@@ -26,6 +26,8 @@ Focused Activity tests cover:
 - canonical project and ledger ownership;
 - Controller-to-Primary Activity roots, Primary-only descendant forests,
   newest-first multiple-Primary history, and compacted history;
+- ledger-only complete Activity headings and click-selected Primary-subtree
+  history loading without unrelated-Milestone budget consumption;
 - descriptor-anchored bounded history and Signal reads;
 - partial evidence and exact response byte limits;
 - one in-flight data load per project, including disconnected clients;

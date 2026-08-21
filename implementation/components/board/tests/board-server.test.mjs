@@ -373,6 +373,48 @@ test("data APIs allow one in-flight load, return 429 for overlap, and recover", 
   assert.equal(loadCount, 2);
 });
 
+test("Activity headings and selected detail use separate lazy loaders", async (t) => {
+  const projectRoot = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-board-lazy-"));
+  t.after(() => rm(projectRoot, { recursive: true, force: true }));
+  const calls = [];
+  const detail = { activity: { id: "older", name: "Older" }, agents: [], cycles: [], signals: [] };
+  const { server, url } = await listenBoard({
+    projectRoot,
+    activityIndexLoader: async () => {
+      calls.push("index");
+      return {
+        project: { rootName: "project" },
+        activities: [
+          { id: "newer", name: "Newer", startedAt: "2026-08-02T00:00:00.000Z" },
+          { id: "older", name: "Older", startedAt: "2026-08-01T00:00:00.000Z" },
+        ],
+        partial: false,
+      };
+    },
+    activityLoader: async (_root, options) => {
+      calls.push(`detail:${options.activityTaskId}`);
+      return {
+        project: { rootName: "project" },
+        activities: [{ id: "older", name: "Older" }],
+        partial: false,
+        detail: (id) => id === "older" ? detail : null,
+      };
+    },
+    activityLiveSessionFactory: () => null,
+  });
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const port = Number(new URL(url).port);
+  const headings = await request({ port, requestPath: "/api/activities" });
+  assert.equal(headings.status, 200);
+  assert.deepEqual(JSON.parse(headings.body).activities.map((item) => item.id), ["newer", "older"]);
+  assert.deepEqual(calls, ["index"]);
+
+  const selected = await request({ port, requestPath: "/api/activity?id=older" });
+  assert.equal(selected.status, 200);
+  assert.equal(JSON.parse(selected.body).activity.id, "older");
+  assert.deepEqual(calls, ["index", "detail:older"]);
+});
+
 test("selected Activity update endpoint uses one Host-memory revision and fails closed", async (t) => {
   const projectRoot = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-board-live-"));
   t.after(() => rm(projectRoot, { recursive: true, force: true }));

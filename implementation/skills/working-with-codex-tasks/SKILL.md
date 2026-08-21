@@ -150,6 +150,12 @@ fulfills it. `accept` closes only that Conversation; it never completes,
 archives, or accepts the Task. An accepted Conversation cannot be continued,
 so use a new `start` operation for a later exchange.
 
+Every delivered Conversation ends its `Next Actions` with the same unnumbered
+Role-continuation reminder. After the numbered protocol mechanics, resume the
+currently loaded Role and perform its next applicable Action for the resulting
+state. The reminder does not define another mechanical action or grant new
+authority.
+
 A Task may initiate several Conversations and may initiate downstream work
 while it owes an upstream reply. A target may have only one active incoming
 reply obligation. A simultaneous target attempt fails with
@@ -237,6 +243,13 @@ outside the `codex-small-loop-` namespace.
 A queued App-owned message contains this same read-then-delete action. Follow
 it before continuing; the runtime acknowledges delivery when the temporary
 schedule disappears.
+
+When a Codex Small Loop Heartbeat request reaches this Task only after Codex
+App `automation_update` was unavailable or rejected, load
+`$codex-small-loop:recover-unavailable-thread-schedules`. That adapter preserves
+the exact target and requested definition while returning the operation to this
+same Task-owned schedule boundary. It does not authorize raw TOML or a second
+schedule route.
 
 ## Stop Or Resume A Task
 

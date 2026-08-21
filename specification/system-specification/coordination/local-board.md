@@ -139,7 +139,10 @@ request bodies, and permits only GET except for its token-authenticated private
 stop route. Security headers disable caching, framing, referrers, external
 scripts, and broad connection targets.
 
-Only one Activity data request per project may load history at once. Client disconnect
+The Activity-list request reads only the validated ledger and returns every
+authorized Primary heading. A selected-detail request reads only that
+Activity's Primary subtree; other Activities are not admitted against its
+safety budget. Only one Activity data request per project may load history at once. Client disconnect
 does not release that slot early. The server returns bounded JSON projection;
 the browser never reads the ledger, sessions, Signal directory, or Desktop
 database directly.
