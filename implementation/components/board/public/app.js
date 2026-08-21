@@ -982,14 +982,6 @@ const load = createActivityListLoader({
     state.activities = data.activities;
     renderActivities();
   },
-  showUnselected(data) {
-    state.activityId = null;
-    renderActivities();
-    clearActivity(data.project.rootName, "Select an Activity to load its retained detail.");
-    el("status").textContent = data.partial
-      ? "Partial · available Activity headings shown. Select one to load retained detail."
-      : "Select an Activity to load retained detail.";
-  },
   selectActivity,
   showEmpty(data, message) {
     state.activityId = null;

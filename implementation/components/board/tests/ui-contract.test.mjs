@@ -444,19 +444,18 @@ test("failed selection clears prior detail and a 429 retry cannot be clobbered",
   assert.equal(view.error, null);
 });
 
-test("Activity headings load without detail and Refresh restores an explicit selection", async () => {
+test("Activity headings select the latest Activity initially and Refresh preserves the selection", async () => {
   const responses = [
     { project: { activityName: "project" }, activities: [], partial: true },
-    { project: { activityName: "project" }, activities: [{ id: "B", name: "Activity B" }], partial: false },
-    { project: { activityName: "project" }, activities: [{ id: "B", name: "Activity B" }], partial: false },
+    { project: { activityName: "project" }, activities: [{ id: "C", name: "Activity C" }, { id: "B", name: "Activity B" }], partial: false },
+    { project: { activityName: "project" }, activities: [{ id: "D", name: "Activity D" }, { id: "C", name: "Activity C" }], partial: false },
   ];
-  const view = { activities: [], selected: null, unselected: null, empty: null, clears: 0 };
+  const view = { activities: [], selected: null, empty: null, clears: 0 };
   const loadActivities = createActivityListLoader({
     loadActivities: async () => responses.shift(),
     begin() { view.clears += 1; },
     commitActivities(data) { view.activities = data.activities; },
     async selectActivity(activityId) { view.selected = activityId; },
-    showUnselected(data) { view.selected = null; view.unselected = data.activities.map((item) => item.id); },
     showEmpty(data, message) { view.empty = { partial: data.partial, message }; },
     fail(error) { throw error; },
     preferredActivityId: () => view.selected,
@@ -467,11 +466,9 @@ test("Activity headings load without detail and Refresh restores an explicit sel
   assert.equal(view.empty.message, emptyActivityMessage({ partial: true }));
   assert.match(view.empty.message, /Partial.*Refresh/);
   assert.equal((await loadActivities()).status, "committed");
-  assert.equal(view.selected, null);
-  assert.deepEqual(view.unselected, ["B"]);
-  assert.deepEqual(view.activities, [{ id: "B", name: "Activity B" }]);
-  view.selected = "B";
+  assert.equal(view.selected, "C");
+  assert.deepEqual(view.activities, [{ id: "C", name: "Activity C" }, { id: "B", name: "Activity B" }]);
   assert.equal((await loadActivities()).status, "committed");
-  assert.equal(view.selected, "B");
+  assert.equal(view.selected, "C");
   assert.equal(view.clears, 3);
 });
