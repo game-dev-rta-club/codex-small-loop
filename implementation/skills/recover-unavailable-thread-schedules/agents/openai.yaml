@@ -1,0 +1,7 @@
+interface:
+  display_name: "codex-small-loop:recover-unavailable-thread-schedules"
+  short_description: "Recover blocked Codex Small Loop Heartbeats"
+  default_prompt: "Use $codex-small-loop:recover-unavailable-thread-schedules to recover this blocked Codex Small Loop Heartbeat through its exact Task-owned schedule."
+policy:
+  allow_implicit_invocation: false
+

@@ -78,6 +78,11 @@ temporary App-message delivery schedules. Agents do not use Codex App
 `automation_update`, edit automation TOML, enumerate unrelated schedules, or
 blindly retry an etag mismatch.
 
+An App scheduling failure is adapted by
+[Recover Unavailable Thread Schedules](/specification/system-specification/skills/recover-unavailable-thread-schedules.md).
+The adapter preserves the exact target and full definition while re-entering
+this same schedule boundary; it does not create another scheduling mechanism.
+
 ## Exact Turn Observation
 
 A direct delivery result proves one `taskId` and `turnId`. `task read` returns

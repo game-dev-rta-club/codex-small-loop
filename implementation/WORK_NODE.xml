@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <work-node id="implementation" type="Implementation">
-  <summary>Contains the complete installable plugin: six Skills, role definitions, local runtime, Sonner project inspection, contract tests, assets, and third-party source.</summary>
+  <summary>Contains the complete installable plugin: seven Skills, role definitions, local runtime, Sonner project inspection, contract tests, assets, and third-party source.</summary>
   <inputs>
     <input ref="interaction-specification" />
     <input ref="system-specification" />

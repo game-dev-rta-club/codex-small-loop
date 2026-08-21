@@ -244,6 +244,13 @@ A queued App-owned message contains this same read-then-delete action. Follow
 it before continuing; the runtime acknowledges delivery when the temporary
 schedule disappears.
 
+When a Codex Small Loop Heartbeat request reaches this Task only after Codex
+App `automation_update` was unavailable or rejected, load
+`$codex-small-loop:recover-unavailable-thread-schedules`. That adapter preserves
+the exact target and requested definition while returning the operation to this
+same Task-owned schedule boundary. It does not authorize raw TOML or a second
+schedule route.
+
 ## Stop Or Resume A Task
 
 ```text

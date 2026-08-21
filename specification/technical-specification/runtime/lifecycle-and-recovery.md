@@ -86,6 +86,10 @@ states or schedules run in parallel. This uses Codex Small Loop
 `schedule apply/read/delete`, not Codex App `automation_update`, raw TOML, or
 project cron. Create uses `if-match=absent`; update and delete consume a read
 etag, and deletion is confirmed by a final absent read. There is no timeout.
+An inherited App scheduling failure loads
+`$codex-small-loop:recover-unavailable-thread-schedules`, which returns the
+request to this same exact-Task, etag-guarded boundary without adding a raw
+store path.
 
 Controller uses `task resume` for a safe recovery that preserves the existing
 Conversation graph. It does not replace tasks merely to escape a stopped state.

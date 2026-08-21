@@ -1604,6 +1604,37 @@ test("task coordination owns explicit runtime diagnosis", async () => {
   assert.equal(await exists("implementation/skills/codex-small-loop-doctor"), false);
 });
 
+test("unavailable App schedules recover through the Codex Small Loop boundary", async () => {
+  const recovery = await read(
+    "implementation/skills/recover-unavailable-thread-schedules/SKILL.md",
+  );
+  const metadata = await read(
+    "implementation/skills/recover-unavailable-thread-schedules/agents/openai.yaml",
+  );
+  const specification = await read(
+    "specification/system-specification/skills/recover-unavailable-thread-schedules.md",
+  );
+  const coordination = await read(
+    "implementation/skills/working-with-codex-tasks/SKILL.md",
+  );
+
+  for (const source of [recovery, specification]) {
+    assert.match(source, /automation_update/);
+    assert.match(source, /local-thread restriction|local threads/i);
+    assert.match(source, /exact.*target Task|target Task.*exact/is);
+    assert.match(source, /schedule apply\/read\/delete|schedule\.mjs (?:apply|read|delete)/i);
+    assert.match(source, /opaque.*etag|etag.*exact read/is);
+    assert.match(source, /real Heartbeat Turn/i);
+    assert.match(source, /two eligible intervals/i);
+    assert.doesNotMatch(source, /automation-store\.mjs|automation-backups/);
+  }
+  assert.match(recovery, /Do not\s+create a relay Task/i);
+  assert.match(recovery, /Never edit,\s*move, or enumerate automation TOML directly/i);
+  assert.match(metadata, /codex-small-loop:recover-unavailable-thread-schedules/);
+  assert.match(metadata, /\$codex-small-loop:recover-unavailable-thread-schedules/);
+  assert.match(coordination, /\$codex-small-loop:recover-unavailable-thread-schedules/);
+});
+
 test("working-with-codex-tasks owns mechanics while Roles own workflow", async () => {
   const skill = await read("implementation/skills/working-with-codex-tasks/SKILL.md");
   const roles = await Promise.all([
@@ -1774,14 +1805,14 @@ test("current project Works form an Overview-rooted graph", async () => {
 
   const implementationNode = await read("implementation/WORK_NODE.xml");
   assert.match(implementationNode, /<work-node id="implementation" type="Implementation">/);
-  assert.match(implementationNode, /<summary>[^<]*six Skills[^<]*Sonner project inspection[^<]*<\/summary>/);
+  assert.match(implementationNode, /<summary>[^<]*seven Skills[^<]*Sonner project inspection[^<]*<\/summary>/);
   assert.doesNotMatch(implementationNode, /Work mapper/i);
   assert.match(implementationNode, /<input ref="interaction-specification"\s*\/>/);
   assert.match(implementationNode, /<input ref="system-specification"\s*\/>/);
   assert.match(implementationNode, /<input ref="technical-specification"\s*\/>/);
 
   const systemNode = await read("specification/system-specification/WORK_NODE.xml");
-  assert.match(systemNode, /<summary>[^<]*five job roles[^<]*six skills[^<]*<\/summary>/i);
+  assert.match(systemNode, /<summary>[^<]*five job roles[^<]*seven skills[^<]*<\/summary>/i);
   assert.doesNotMatch(systemNode, /eight skills/i);
 
   const implementationEntries = await readdir(
@@ -2296,6 +2327,7 @@ test("host-constrained skills remain at the Implementation plugin root", async (
     "creating-and-maintaining-works",
     "handling-user-requests",
     "interview-me",
+    "recover-unavailable-thread-schedules",
     "sending-user-notifications",
     "understanding-works",
     "working-with-codex-tasks",
