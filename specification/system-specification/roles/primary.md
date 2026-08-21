@@ -162,9 +162,10 @@ For every Milestone, Primary:
    On each later
    Review pass, it starts a new Conversation with each same Review Task using
    Role reload. Every pass supplies one shared snapshot pair and exact diff,
-   runs the four responsibilities in parallel, and limits broader inspection to
-   the complete material impact surface of the pass's changes; reviewers may
-   write only private ignored Review Signal files;
+   runs the four Review responsibilities in parallel to reduce overall Review
+   time, and limits broader inspection to the complete material impact surface
+   of the pass's changes. No Review responsibility is a serial gate for another;
+   reviewers may write only private ignored Review Signal files;
 7. when each Reviewer replies, requires `PASS`, `FINDING`, or `LIMIT` accounting
    for every planned exploration axis and accepts that completed Review
    Conversation. Primary does not ask the Reviewer to assume all Signals were
@@ -211,19 +212,21 @@ For every Milestone, Primary:
    When at least one Signal is still `required`, Primary groups required Signals
    by implementation problem context and creates one
    [Interviewer Job Role](/specification/system-specification/roles/interviewer.md)
-   fork for every problem context with required Signals. Primary remains
-   the managing Parent and uses the existing Execute Task as each fork's
-   `--source`. It queues the required Interviewers together so they run in
-   parallel from the same completed Execute context. Each Interviewer starts a
-   Conversation with every relevant existing originating Reviewer Task and records the complete
-   technical result in every Signal that remains `required`. Its
+   fork for each originating Reviewer that owns a required Signal in that
+   context. Each Interviewer is paired with exactly one Reviewer Task and
+   receives only that Reviewer's required Signals from the context. Primary
+   remains the managing Parent and uses the existing Execute Task as each fork's
+   `--source`. It runs independent Interviewers in parallel to reduce overall
+   Interview time; no independent Interviewer is a serial gate for another.
+   Each Interviewer starts one Conversation with its assigned existing Reviewer
+   Task and records the complete technical result in every supplied Signal. Its
    `Implementation Approach` must deepen the Signal into an
    implementation-ready correction, include identified same-cause adjacent
    cases, and list the actual project files and concrete change locations to
    modify, without imposing a rigid template.
    Interview may refine a Signal's Explanation, severity, summary, or
-   Implementation Approach. Primary records any changed final severity with
-   `signal.mjs set-severity`.
+   Implementation Approach. Primary integrates the results across Reviewers and
+   records any changed final severity with `signal.mjs set-severity`.
 
    The existing Execute does not edit while Interviews run. Primary waits for
    all Interviewer results, then lists and rereads every Signal before Execute

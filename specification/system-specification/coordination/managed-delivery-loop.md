@@ -23,9 +23,9 @@ Milestone's implementation coordination and returns evidence to Controller.
 One fresh Execute owns each Milestone and its later corrections. Four Review
 responsibilities independently judge each candidate through Baseline
 Verification, Trust Review, Technical Excellence Review, and Customer Value
-Review. These are broad outcome goals, not fixed checklists. An
-Interviewer handles one required-Signal problem context and consults every
-relevant existing originating Reviewer when implementation detail is needed.
+Review. These are broad outcome goals, not fixed checklists. One Interviewer
+handles one required-Signal problem context for exactly one originating
+Reviewer. Each additional originating Reviewer gets a separate Interviewer.
 
 A Job Role defines what an agent owns. A Skill supplies reusable behavior used
 to fulfill that responsibility. Installed Role definitions remain passive
@@ -51,10 +51,12 @@ of every Signal. Only required findings enter the current correction loop; the
 other severities remain observations for that pass and are not carried forward.
 Primary preserves all Signal files, keeps one representative required for a
 same-cause correction, and dismisses duplicates with an Explanation reference
-to that representative. An Interviewer then deepens each remaining required
-problem context with its relevant originating Reviewers. Primary keeps coupled or same-context
-corrections together, sends different correction contexts sequentially to the
-same Milestone Execute, and creates the next snapshot only after all of them are
+to that representative. For each remaining required problem context, Primary
+creates one Interviewer per originating Reviewer and runs the Interviewers in
+parallel. Each Interviewer consults only its assigned Reviewer, and Primary
+integrates their results. Primary keeps coupled or same-context corrections
+together, sends different correction contexts sequentially to the same
+Milestone Execute, and creates the next snapshot only after all of them are
 integrated. The same four Reviews then inspect it.
 
 The current Milestone ends only when the candidate, Review results, tests,

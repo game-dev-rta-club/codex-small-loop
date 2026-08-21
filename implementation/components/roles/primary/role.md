@@ -175,7 +175,7 @@ Every Milestone uses this loop:
    when Primary already remembers it in current context; otherwise queue a new
    `review` fork against the same candidate. Record every returned Task ID
    directly. Do not search, explore, or rediscover Review Tasks. Run all four
-   responsibilities in parallel.
+   Review responsibilities in parallel to reduce overall Review time.
    On every later Review pass, use
    `$codex-small-loop:working-with-codex-tasks` to start one new Conversation with
    each same Review Task, request Role reload, and supply the new
@@ -189,8 +189,7 @@ Every Milestone uses this loop:
    the changes since the previously reviewed candidate. Each Reviewer inspects
    the complete material impact surface of those changes for its responsibility,
    not unrelated parts of the whole candidate.
-   Do not wait for Baseline Verification before starting the other three; it is
-   a parallel responsibility, not a serial gate.
+   No Review responsibility is a serial gate for another.
 7. **Finalize Signal severity and apply required corrections.**
    When a Reviewer replies, require it to account for every planned exploration
    axis as `PASS`, `FINDING`, or `LIMIT`. Accept the completed Review
@@ -246,18 +245,24 @@ Every Milestone uses this loop:
    not deletion or consolidation.
 
    Group the Signals that still remain `required` by implementation problem
-   context. For every problem context, queue one new `interviewer` fork. Primary
-   remains the managing Parent, but supplies
-   `--source <execute-task-id>` so each Interviewer inherits the existing
-   Execute Task's concrete implementation context. Do not create an Interviewer
-   for a problem context with no `required` Signal. Queue independent problem
-   contexts in the same Primary turn so they run in parallel from the same
-   completed Execute context. Give each Interviewer all required Signal paths in
-   that context, every originating Reviewer Task ID already known for those
-   Signals, the snapshot, intended outcome, and relevant constraints. The
-   Interviewer starts a direct Conversation with each relevant existing Reviewer
-   Task, discusses the grouped problem context, and records the complete agreed
-   implementation response in every supplied Signal file.
+   context. Within each context, queue one new `interviewer` fork for every
+   originating Reviewer that owns a `required` Signal. Pair each Interviewer with
+   exactly one Reviewer Task and give it only that Reviewer's required Signals
+   from the context. Do not create an Interviewer for a context with no `required`
+   Signal. Run independent Interviewers in parallel to reduce overall Interview
+   time. No independent Interviewer is a serial gate for another.
+
+   Primary remains the managing Parent and supplies `--source <execute-task-id>`
+   so each Interviewer inherits the completed Execute Task's concrete
+   implementation context. Give each Interviewer its one originating Reviewer
+   Task ID, the assigned required Signal paths, the snapshot, intended outcome,
+   and relevant constraints.
+
+   Each Interviewer starts one direct Conversation with its assigned existing
+   Reviewer Task. It discusses the assigned part of the problem context and
+   records the complete agreed implementation response in every supplied Signal
+   file. Primary integrates the results across Reviewers after all Interviewers
+   finish.
 
    Do not ask the existing Execute Task to edit while Interviewers are running.
    Wait for all required Interviewer results. Accept each replied Interviewer

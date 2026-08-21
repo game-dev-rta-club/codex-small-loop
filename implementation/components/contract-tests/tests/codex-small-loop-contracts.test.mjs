@@ -952,6 +952,8 @@ test("primary coordinates milestone-scoped execute and four parallel review resp
   assert.match(primary, /build|compile/i);
   assert.match(primary, /lint|typecheck/i);
   assert.match(primary, /four Review.*responsibilities.*parallel/is);
+  assert.match(primary, /parallel.*reduce overall Review time/is);
+  assert.match(primary, /No Review responsibility is a serial gate for another/i);
   assert.match(primary, /same candidate/i);
   assert.match(primary, /parallel/i);
   assert.match(primary, /review.*read-only|review work as read-only/is);
@@ -1114,7 +1116,10 @@ test("interviewer turns required Review Signals into implementation guidance", a
   assert.match(interviewer, /^---\nsummary:/);
   assert.match(interviewer, /Interviewer Job Role/i);
   assert.match(interviewer, /existing Reviewer Task/i);
-  assert.match(interviewer, /working-with-codex-tasks[\s\S]*start a new Conversation/is);
+  assert.match(
+    interviewer,
+    /working-with-codex-tasks[\s\S]*start (?:a|one) new Conversation/is,
+  );
   assert.match(interviewer, /Implementation Approach/i);
   assert.match(interviewer, /required Review Signals|Signals.*`required`/i);
   assert.match(
@@ -1157,6 +1162,16 @@ test("interviewer turns required Review Signals into implementation guidance", a
       source,
       /related[\s\S]*(?:question|topic)[\s\S]*(?:batch|group|one message|same message|same round)/is,
     );
+    assert.match(source, /paired with exactly one existing\s+Reviewer Task/is);
+    assert.match(
+      source,
+      /start(?:s)? one new Conversation[\s\S]*assigned existing Reviewer Task/is,
+    );
+    assert.match(
+      source,
+      /never\s+interviews or starts a\s+Conversation with another Reviewer/is,
+    );
+    assert.doesNotMatch(source, /Reviewer Conversations.*parallel/is);
     assert.match(source, /Primary[\s\S]*final severity|final severity[\s\S]*Primary/is);
     assert.match(source, /signal\.mjs set-severity/);
     assert.doesNotMatch(
@@ -1175,7 +1190,26 @@ test("interviewer turns required Review Signals into implementation guidance", a
 
   assert.match(primary, /group.*`required`.*implementation problem\s+context/is);
   assert.match(primary, /one new `interviewer` fork/is);
-  assert.match(primary, /relevant existing Reviewer\s+Task/is);
+  assert.match(
+    primary,
+    /every\s+originating Reviewer.*`required` Signal[\s\S]*exactly one Reviewer Task/is,
+  );
+  assert.match(
+    primary,
+    /only that Reviewer's required Signals/is,
+  );
+  for (const source of [primary, primaryReference]) {
+    assert.match(
+      source,
+      /independent\s+Interviewers in parallel.*reduce\s+overall\s+Interview\s+time/is,
+    );
+    assert.match(
+      source,
+      /No independent\s+Interviewer is a serial gate for another/i,
+    );
+  }
+  assert.match(primary, /one direct Conversation.*assigned existing\s+Reviewer Task/is);
+  assert.match(primary, /integrates the results across Reviewers/is);
   assert.match(
     primary,
     /wait for all.*Interviewer results[\s\S]*Before Execute/is,
