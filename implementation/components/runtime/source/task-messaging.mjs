@@ -23,6 +23,10 @@ const DEFAULT_MESSAGE_TIMEOUT_MS = 30_000;
 const DEFAULT_MESSAGE_POLL_INTERVAL_MS = 250;
 const DEFAULT_MESSAGE_ROUTE_ATTEMPTS = 4;
 const PROGRAM_PROTOCOL_MARKER = /^===.*===$/m;
+const ROLE_CONTINUATION_REMINDER = [
+  "After completing the protocol actions above, resume the currently loaded",
+  "Role and perform its next applicable Action for the resulting state.",
+].join(" ");
 
 function requireExactOptions(options, expectedKeys) {
   if (options === null || typeof options !== "object" || Array.isArray(options)) {
@@ -184,7 +188,9 @@ Conversation ID: ${conversationId}
 === Message ===
 ${text}
 
-${renderNextActions(actions)}`;
+${renderNextActions(actions)}
+
+${ROLE_CONTINUATION_REMINDER}`;
 }
 
 export function renderNotificationMessage(options) {

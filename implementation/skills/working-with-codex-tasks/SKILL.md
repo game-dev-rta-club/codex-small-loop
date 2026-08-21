@@ -150,6 +150,12 @@ fulfills it. `accept` closes only that Conversation; it never completes,
 archives, or accepts the Task. An accepted Conversation cannot be continued,
 so use a new `start` operation for a later exchange.
 
+Every delivered Conversation ends its `Next Actions` with the same unnumbered
+Role-continuation reminder. After the numbered protocol mechanics, resume the
+currently loaded Role and perform its next applicable Action for the resulting
+state. The reminder does not define another mechanical action or grant new
+authority.
+
 A Task may initiate several Conversations and may initiate downstream work
 while it owes an upstream reply. A target may have only one active incoming
 reply obligation. A simultaneous target attempt fails with

@@ -149,10 +149,16 @@ Please clarify the required Signal.
 1. Reply to this Conversation after completing the requested work.
    Conversation ID: <conversation-id>
    Use Codex Small Loop `conversation reply --conversation <conversation-id>`.
+
+After completing the protocol actions above, resume the currently loaded Role
+and perform its next applicable Action for the resulting state.
 ```
 
 A reply tells the Initiator the exact `conversation continue` and `conversation accept`
-commands. Every Conversation renders its Initiator and Responder Task IDs. Task
+commands. Every Conversation ends its `Next Actions` with the same unnumbered
+Role-continuation reminder. The reminder returns control to the Role after the
+protocol mechanics; it does not define another mechanical action or grant new
+authority. Every Conversation renders its Initiator and Responder Task IDs. Task
 names, Agent names, and historical `Parent|Child` labels are not rendered. Lines
 shaped like `=== ... ===` are reserved and rejected in caller bodies.
 

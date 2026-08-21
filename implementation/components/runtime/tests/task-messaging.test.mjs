@@ -57,7 +57,9 @@ Please explain the Signal boundary.
 === Next Actions ===
 1. Reply to this Conversation after completing the requested work.
    Conversation ID: conversation-1
-   Use Codex Small Loop \`conversation reply --conversation conversation-1\`.`,
+   Use Codex Small Loop \`conversation reply --conversation conversation-1\`.
+
+After completing the protocol actions above, resume the currently loaded Role and perform its next applicable Action for the resulting state.`,
   );
 
   assert.equal(
@@ -85,8 +87,33 @@ The boundary is the current snapshot.
 1. Continue or accept this replied Conversation.
    Conversation ID: conversation-1
    Use Codex Small Loop \`conversation continue --conversation conversation-1\` to ask for another reply.
-   Use Codex Small Loop \`conversation accept --conversation conversation-1\` to close only this Conversation.`,
+   Use Codex Small Loop \`conversation accept --conversation conversation-1\` to close only this Conversation.
+
+After completing the protocol actions above, resume the currently loaded Role and perform its next applicable Action for the resulting state.`,
   );
+});
+
+test("appends the Role-continuation reminder to every Conversation operation", () => {
+  for (const operation of ["start", "reply", "continue"]) {
+    const message = renderConversationMessage({
+      conversationId: `conversation-${operation}`,
+      initiatorTaskId: "task-primary",
+      initiatorRole: "primary",
+      operation,
+      responderTaskId: "task-execute",
+      responderRole: "execute",
+      scheduleId: null,
+      text: "Continue the current work.",
+    });
+    assert.equal(
+      message.match(/resume the currently loaded Role/g)?.length,
+      1,
+    );
+    assert.match(
+      message,
+      /resulting state\.$/,
+    );
+  }
 });
 
 test("renders a one-way notification without a reply instruction", () => {
@@ -182,6 +209,7 @@ test("renders scheduled messages with schedule deletion in the same action list"
   assert.equal(notification.match(/^=== Next Actions ===$/gm)?.length, 1);
   assert.match(notification, /1\. Delete this delivery schedule/);
   assert.doesNotMatch(notification, /Reply to this Conversation/);
+  assert.doesNotMatch(notification, /resume the currently loaded Role/);
 });
 
 test("rejects program protocol markers with LF or CRLF line endings", () => {
