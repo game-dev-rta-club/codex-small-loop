@@ -13,6 +13,7 @@ import {
   createLoadBudget,
   createActivityLiveSession,
   loadActivity,
+  loadActivityIndex,
   readAllSignals,
   readVerifiedHistory,
   selectedLedgerProjection,
@@ -110,6 +111,86 @@ test("Activity list follows newest assignment order rather than session timestam
   const model = buildActivityModel({ project: { key: "key", root: "/project" }, histories, ledger: currentLedger,
     forest, signals: [], snapshotChains: new Map(), diagnostics: [], partial: false });
   assert.deepEqual(model.activities.map((item) => item.id), [primaryTwo, PRIMARY]);
+});
+
+test("Activity index exposes every ledger heading without reading session history", async (t) => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-activity-index-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const project = await resolveProject(temporary);
+  const currentLedger = ledger(project, {
+    managedTasks: [
+      { taskId: PRIMARY, name: "Milestone One", role: "primary", createdAt: AT },
+      { taskId: PRIMARY_TWO, name: "Milestone Two", role: "primary", createdAt: AT },
+    ],
+    conversations: [
+      conversation("older", ROOT, "controller", PRIMARY, "primary", "2026-08-01T00:00:00.000Z"),
+      conversation("newer", ROOT_TWO, "controller", PRIMARY_TWO, "primary", "2026-08-02T00:00:00.000Z"),
+    ],
+    links: [link(ROOT, PRIMARY, "primary"), link(ROOT_TWO, PRIMARY_TWO, "primary")],
+  });
+  const index = await loadActivityIndex(project.root, {
+    readLedger: async () => currentLedger,
+  });
+  assert.deepEqual(index.activities, [
+    { id: PRIMARY_TWO, name: "Milestone Two", startedAt: "2026-08-02T00:00:00.000Z" },
+    { id: PRIMARY, name: "Milestone One", startedAt: "2026-08-01T00:00:00.000Z" },
+  ]);
+  assert.equal(index.partial, false);
+});
+
+test("selected Activity detail reads only that Primary subtree", async (t) => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-activity-selected-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const project = await resolveProject(temporary);
+  const newerReview = "77777777-7777-4777-8777-777777777777";
+  const currentLedger = ledger(project, {
+    managedTasks: [
+      { taskId: PRIMARY, name: "Older Primary", role: "primary", createdAt: AT },
+      { taskId: REVIEW_ONE, name: "Older Review", role: "review", createdAt: AT },
+      { taskId: PRIMARY_TWO, name: "Newer Primary", role: "primary", createdAt: AT },
+      { taskId: newerReview, name: "Newer Review", role: "review", createdAt: AT },
+    ],
+    conversations: [
+      conversation("older-primary", ROOT, "controller", PRIMARY, "primary", "2026-08-01T00:00:00.000Z"),
+      conversation("older-review", PRIMARY, "primary", REVIEW_ONE, "review", "2026-08-01T00:01:00.000Z"),
+      conversation("newer-primary", ROOT_TWO, "controller", PRIMARY_TWO, "primary", "2026-08-02T00:00:00.000Z"),
+      conversation("newer-review", PRIMARY_TWO, "primary", newerReview, "review", "2026-08-02T00:01:00.000Z"),
+    ],
+    links: [
+      link(ROOT, PRIMARY, "primary"),
+      link(PRIMARY, REVIEW_ONE, "review"),
+      link(ROOT_TWO, PRIMARY_TWO, "primary"),
+      link(PRIMARY_TWO, newerReview, "review"),
+    ],
+  });
+  const taskIds = [PRIMARY, REVIEW_ONE, PRIMARY_TWO, newerReview];
+  const readOrder = [];
+  const model = await loadActivity(project.root, {
+    activityTaskId: PRIMARY,
+    readLedger: async () => currentLedger,
+    budgetLimits: { maxAuthorizedTasks: 2, maxSessionSourceBytes: 2 },
+    discoverSessionFiles: async () => ({
+      candidates: taskIds.map((taskId) => ({ taskId, file: taskId, size: 1 })),
+      omissions: [],
+      truncated: false,
+    }),
+    readVerifiedHistory: async (candidate, _project, budget) => {
+      readOrder.push(candidate.taskId);
+      assert.equal(chargeSession(budget, 1), true);
+      return {
+        taskId: candidate.taskId,
+        history: history({ id: candidate.taskId }),
+        metadata: {
+          parentTaskId: currentLedger.links.find((item) => item.childTaskId === candidate.taskId)?.sourceTaskId ?? null,
+        },
+      };
+    },
+    readAllSignals: async () => ({ signals: [], diagnostics: [] }),
+    listReviewSnapshots: async () => ({ snapshots: [], diagnostics: [], partial: false }),
+  });
+  assert.deepEqual(readOrder, [PRIMARY, REVIEW_ONE]);
+  assert.deepEqual(model.activities.map((item) => item.id), [PRIMARY]);
+  assert.deepEqual(model.detail(PRIMARY).agents.map((item) => item.id), [PRIMARY, REVIEW_ONE]);
 });
 
 test("model extends only a running lifecycle to the fixed observation", () => {

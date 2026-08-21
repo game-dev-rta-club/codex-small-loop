@@ -94,7 +94,7 @@ export function restoreDeferredReadingFocus({ activityId, currentActivityId, has
   return "restored";
 }
 
-export function createActivityListLoader({ loadActivities, begin, commitActivities, selectActivity, showEmpty, fail, preferredActivityId }) {
+export function createActivityListLoader({ loadActivities, begin, commitActivities, selectActivity, showUnselected, showEmpty, fail, preferredActivityId }) {
   let generation = 0;
   return async function load() {
     const current = ++generation;
@@ -105,10 +105,11 @@ export function createActivityListLoader({ loadActivities, begin, commitActiviti
       commitActivities(data);
       if (data.activities.length > 0) {
         const preferred = preferredActivityId();
-        const activityId = preferred && data.activities.some((activity) => activity.id === preferred)
-          ? preferred
-          : data.activities[0].id;
-        await selectActivity(activityId);
+        if (preferred && data.activities.some((activity) => activity.id === preferred)) {
+          await selectActivity(preferred);
+        } else {
+          showUnselected(data);
+        }
       } else {
         showEmpty(data, emptyActivityMessage(data));
       }

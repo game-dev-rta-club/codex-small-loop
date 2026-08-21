@@ -444,17 +444,19 @@ test("failed selection clears prior detail and a 429 retry cannot be clobbered",
   assert.equal(view.error, null);
 });
 
-test("partial empty Activity state stays recoverable and Refresh commits later verified Activities", async () => {
+test("Activity headings load without detail and Refresh restores an explicit selection", async () => {
   const responses = [
     { project: { activityName: "project" }, activities: [], partial: true },
     { project: { activityName: "project" }, activities: [{ id: "B", name: "Activity B" }], partial: false },
+    { project: { activityName: "project" }, activities: [{ id: "B", name: "Activity B" }], partial: false },
   ];
-  const view = { activities: [], selected: null, empty: null, clears: 0 };
+  const view = { activities: [], selected: null, unselected: null, empty: null, clears: 0 };
   const loadActivities = createActivityListLoader({
     loadActivities: async () => responses.shift(),
-    begin() { view.clears += 1; view.selected = null; },
+    begin() { view.clears += 1; },
     commitActivities(data) { view.activities = data.activities; },
     async selectActivity(activityId) { view.selected = activityId; },
+    showUnselected(data) { view.selected = null; view.unselected = data.activities.map((item) => item.id); },
     showEmpty(data, message) { view.empty = { partial: data.partial, message }; },
     fail(error) { throw error; },
     preferredActivityId: () => view.selected,
@@ -465,7 +467,11 @@ test("partial empty Activity state stays recoverable and Refresh commits later v
   assert.equal(view.empty.message, emptyActivityMessage({ partial: true }));
   assert.match(view.empty.message, /Partial.*Refresh/);
   assert.equal((await loadActivities()).status, "committed");
-  assert.equal(view.selected, "B");
+  assert.equal(view.selected, null);
+  assert.deepEqual(view.unselected, ["B"]);
   assert.deepEqual(view.activities, [{ id: "B", name: "Activity B" }]);
-  assert.equal(view.clears, 2);
+  view.selected = "B";
+  assert.equal((await loadActivities()).status, "committed");
+  assert.equal(view.selected, "B");
+  assert.equal(view.clears, 3);
 });

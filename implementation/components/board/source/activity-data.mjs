@@ -392,9 +392,12 @@ async function readVerifiedHistory(candidate, project, budget, options = {}) {
   }
 }
 
-function orderedAuthorizedTasks(forest) {
+function orderedAuthorizedTasks(forest, activityTaskId = null) {
   const ordered = [];
-  for (const activity of forest.activities) {
+  const activities = activityTaskId === null
+    ? forest.activities
+    : forest.activities.filter((activity) => activity.taskId === activityTaskId);
+  for (const activity of activities) {
     const pending = [activity.taskId];
     while (pending.length > 0) {
       const taskId = pending.shift();
@@ -776,16 +779,38 @@ export async function loadActivity(projectRoot, options = {}) {
   const project = await resolveProject(projectRoot);
   const ledger = await (options.readLedger ?? readLedger)(project);
   const forest = buildActivityAssignmentForest(ledger);
+  const activityTaskId = options.activityTaskId ?? null;
+  if (activityTaskId !== null && (
+    !safeTaskId(activityTaskId)
+    || !forest.activities.some((activity) => activity.taskId === activityTaskId)
+  )) {
+    throw new ActivityDataError("ACTIVITY_NOT_FOUND", "The selected Activity is not authorized by the current ledger.");
+  }
   const budget = createLoadBudget(options.budgetLimits);
-  const diagnostics = [...forest.diagnostics];
-  if (forest.partial) {
+  const selectedTaskIds = activityTaskId === null
+    ? forest.authorizedTaskIds
+    : descendantIds(activityTaskId, forest.childrenByParent);
+  const selectedExcludedTaskIds = activityTaskId === null
+    ? forest.excludedAuthorizedTaskIds
+    : new Set([...forest.excludedAuthorizedTaskIds].filter((taskId) => {
+      let current = taskId;
+      while (current) {
+        if (current === activityTaskId) return true;
+        current = forest.edgeByChild.get(current)?.parentTaskId ?? null;
+      }
+      return false;
+    }));
+  const diagnostics = forest.diagnostics.filter((entry) => entry.taskId === null
+    || selectedTaskIds.has(entry.taskId)
+    || selectedExcludedTaskIds.has(entry.taskId));
+  if (selectedExcludedTaskIds.size > 0) {
     budget.partial = true;
-    budget.omittedTasks += forest.excludedAuthorizedTaskIds.size;
-    for (const taskId of forest.excludedAuthorizedTaskIds) {
+    budget.omittedTasks += selectedExcludedTaskIds.size;
+    for (const taskId of selectedExcludedTaskIds) {
       budget.omissionKeys.add(`authorized-task:${taskId}`);
     }
   }
-  const allOrderedTasks = orderedAuthorizedTasks(forest);
+  const allOrderedTasks = orderedAuthorizedTasks(forest, activityTaskId);
   const plannedTasks = allOrderedTasks.slice(0, budget.maxAuthorizedTasks);
   const plannedTaskIds = new Set(plannedTasks);
   if (allOrderedTasks.length > plannedTasks.length) {
@@ -941,6 +966,25 @@ export async function loadActivity(projectRoot, options = {}) {
   const model = buildModel(modelArgs);
   liveContexts.set(model, { ...modelArgs, budget, liveSources });
   return model;
+}
+
+export async function loadActivityIndex(projectRoot, options = {}) {
+  const project = await resolveProject(projectRoot);
+  const ledger = await (options.readLedger ?? readLedger)(project);
+  const forest = buildActivityAssignmentForest(ledger);
+  const managedById = new Map(ledger.managedTasks.map((item) => [item.taskId, item]));
+  return {
+    project: { key: project.key, rootName: path.basename(project.root) },
+    activities: forest.activities.map((activity) => ({
+      id: activity.taskId,
+      name: safeName(
+        managedById.get(activity.taskId)?.name,
+        `Primary ${activity.taskId.slice(0, 8)}`,
+      ),
+      startedAt: activity.createdAt,
+    })),
+    partial: forest.partial,
+  };
 }
 
 function liveError(reason, message = "Activity changed. Refresh is required.") {
