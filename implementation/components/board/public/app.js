@@ -406,18 +406,20 @@ function fileLabel(node, { interactive = false } = {}) {
   const row = document.createElement(interactive ? "button" : "span");
   if (interactive) row.type = "button";
   row.className = `file-row type-${node.type}`;
-  if (["file", "file-counts"].includes(node.type)) {
+  if (["file", "file-counts", "warning"].includes(node.type)) {
     const marker = document.createElement("span");
     marker.className = "file-marker";
     marker.setAttribute("aria-hidden", "true");
-    marker.textContent = node.type === "file-counts" ? "∑" : "▤";
+    marker.textContent = node.type === "file-counts" ? "∑" : node.type === "warning" ? "⚠" : "▤";
     row.append(marker);
   }
   const name = document.createElement("span");
   name.className = "file-name";
   name.textContent = node.type === "file-counts"
     ? node.counts.map(({ extension, count }) => `${count} ${extension ?? "extensionless"}`).join(", ")
-    : node.name;
+    : node.type === "warning"
+      ? `Legacy WORK_NODE.xml — rename to ${node.renameTo.split("/").at(-1)}`
+      : node.name;
   row.append(name);
   if (node.type === "file" && node.summary) {
     const summary = document.createElement("span");

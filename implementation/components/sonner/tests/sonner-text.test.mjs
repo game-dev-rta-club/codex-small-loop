@@ -5,7 +5,7 @@ import { formatSonnerText, unsafeTextCodePoint } from "../source/sonner-text.mjs
 
 function projection(overrides = {}) {
   return {
-    version: 10,
+    version: 11,
     workGraph: { status: "missing" },
     files: {
       root: { path: ".", name: ".", type: "directory", children: [] },
@@ -17,7 +17,7 @@ function projection(overrides = {}) {
 
 test("formats every Sonner section in canonical order with explicit empty states", () => {
   assert.equal(formatSonnerText(projection()), [
-    "Sonner v10",
+    "Sonner v11",
     "Work Graph: missing",
     "Files: empty",
     "Runtime: missing",
@@ -28,7 +28,7 @@ test("formats every Sonner section in canonical order with explicit empty states
     workGraph: { status: "invalid" },
     runtime: { status: "invalid" },
   })), [
-    "Sonner v10",
+    "Sonner v11",
     "Work Graph: invalid",
     "Files: empty",
     "Runtime: invalid",
@@ -39,7 +39,7 @@ test("formats every Sonner section in canonical order with explicit empty states
     workGraph: { status: "valid", works: [] },
     runtime: { status: "available", health: "ok", reasons: [], tasks: [] },
   })), [
-    "Sonner v10",
+    "Sonner v11",
     "Work Graph: valid",
     "  Works: empty",
     "Files: empty",
@@ -57,7 +57,7 @@ test("formats Works, summarized files, compact counts, and active Runtime Tasks 
         id: "overview",
         type: "Overview",
         summary: "Project overview.",
-        nodePath: "overview/WORK_NODE.xml",
+        nodePath: "overview/.WORK_NODE.xml",
         inputs: [],
         outputs: ["implementation"],
       }],
@@ -68,7 +68,10 @@ test("formats Works, summarized files, compact counts, and active Runtime Tasks 
         name: ".",
         type: "directory",
         children: [
-          { path: "docs", name: "docs", type: "directory", children: [] },
+          { path: "docs", name: "docs", type: "directory", children: [
+            { path: "docs/WORK_NODE.xml", name: "WORK_NODE.xml", type: "warning",
+              code: "legacy-work-node", renameTo: "docs/.WORK_NODE.xml" },
+          ] },
           {
             path: "src",
             name: "src",
@@ -97,12 +100,13 @@ test("formats Works, summarized files, compact counts, and active Runtime Tasks 
   });
   const text = formatSonnerText(value);
   assert.equal(text, [
-    "Sonner v10",
+    "Sonner v11",
     "Work Graph: valid",
-    "  Work id=\"overview\" type=\"Overview\" node=\"overview/WORK_NODE.xml\" inputs=[] outputs=[\"implementation\"] summary=\"Project overview.\"",
+    "  Work id=\"overview\" type=\"Overview\" node=\"overview/.WORK_NODE.xml\" inputs=[] outputs=[\"implementation\"] summary=\"Project overview.\"",
     "Files:",
     "  Directory path=\".\"",
     "    Directory path=\"docs\"",
+    "      Warning code=legacy-work-node path=\"docs/WORK_NODE.xml\" renameTo=\"docs/.WORK_NODE.xml\"",
     "    Directory path=\"src\"",
     "      53 meta, 53 png",
     "    File path=\"README.md\" summary=\"Project summary.\"",
@@ -193,7 +197,7 @@ test("uses exact lowercase Unicode 16 visible escapes for hostile display scalar
           id: source,
           type: "Overview",
           summary: "summary",
-          nodePath: "WORK_NODE.xml",
+          nodePath: ".WORK_NODE.xml",
           inputs: [],
           outputs: [],
         }],

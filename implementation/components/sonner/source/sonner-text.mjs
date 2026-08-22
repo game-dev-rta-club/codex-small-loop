@@ -129,7 +129,7 @@ function formatWorkGraph(workGraph, lines) {
 
 function formatFileNode(node, lines, depth) {
   const indentation = "  ".repeat(depth);
-  const type = fixedToken(node.type, ["directory", "file", "file-counts"], "Files node type");
+  const type = fixedToken(node.type, ["directory", "file", "file-counts", "warning"], "Files node type");
   if (type === "directory") {
     lines.push(`${indentation}Directory path=${quoted(node.path)}`);
     for (const child of node.children) formatFileNode(child, lines, depth + 1);
@@ -138,6 +138,15 @@ function formatFileNode(node, lines, depth) {
   if (type === "file") {
     if (typeof node.summary !== "string" || node.summary.length === 0) throw new TypeError("Invalid file summary");
     lines.push(`${indentation}File path=${quoted(node.path)} summary=${quoted(node.summary)}`);
+    return;
+  }
+  if (type === "warning") {
+    const code = fixedToken(node.code, ["legacy-work-node"], "Files warning code");
+    if (typeof node.path !== "string" || node.path.length === 0
+        || typeof node.renameTo !== "string" || node.renameTo.length === 0) {
+      throw new TypeError("Invalid Files warning");
+    }
+    lines.push(`${indentation}Warning code=${code} path=${quoted(node.path)} renameTo=${quoted(node.renameTo)}`);
     return;
   }
   if (type === "file-counts") {

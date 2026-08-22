@@ -232,6 +232,7 @@ async function discoverPortableWorks(session, {
   const directories = ["."];
   let directoryIndex = 0;
   const works = [];
+  const legacyWorkNodes = [];
   let discoveredEntries = 0;
   let outputBytes = 0;
   let workUnsafe = false;
@@ -262,7 +263,20 @@ async function discoverPortableWorks(session, {
         }
         continue;
       }
-      if (entry.name !== "WORK_NODE.xml") continue;
+      if (entry.name === "WORK_NODE.xml") {
+        if (legacyWorkNodes.length >= maxWorks) {
+          workUnsafe = true;
+          continue;
+        }
+        outputBytes += Buffer.byteLength(projectPath, "utf8");
+        if (outputBytes > maxOutputBytes) {
+          workUnsafe = true;
+          continue;
+        }
+        legacyWorkNodes.push(projectPath);
+        continue;
+      }
+      if (entry.name !== ".WORK_NODE.xml") continue;
       if (works.length >= maxWorks) {
         workUnsafe = true;
         continue;
@@ -290,7 +304,11 @@ async function discoverPortableWorks(session, {
     Buffer.from(left.relativePath, "utf8"),
     Buffer.from(right.relativePath, "utf8"),
   ));
-  return { works, workUnsafe, outputBytes };
+  legacyWorkNodes.sort((left, right) => Buffer.compare(
+    Buffer.from(left, "utf8"),
+    Buffer.from(right, "utf8"),
+  ));
+  return { works, legacyWorkNodes, workUnsafe, outputBytes };
 }
 
 async function readPortableIndexEntry(session, projectPath, maximum) {
@@ -329,7 +347,7 @@ export async function readPortableSonnerProject({ project, session, includeFiles
   });
   const paths = includeFiles ? await admittedPaths(session, environment) : [];
   const entries = [];
-  const { works, workUnsafe } = discovered;
+  const { works, legacyWorkNodes, workUnsafe } = discovered;
   let { outputBytes } = discovered;
   for (const projectPath of paths) {
     session.throwIfAborted();
@@ -343,7 +361,7 @@ export async function readPortableSonnerProject({ project, session, includeFiles
     } catch { /* A vanished or unsafe admitted path is omitted. */ }
   }
   await assertRoot(session);
-  return { entries, works, workUnsafe };
+  return { entries, works, legacyWorkNodes, workUnsafe };
 }
 
 export async function readPortableRuntimeRecord({ session, mode } = {}) {

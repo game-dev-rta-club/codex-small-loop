@@ -47,14 +47,15 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
   t.after(() => rm(root, { recursive: true, force: true }));
   await execFileAsync("git", ["init", "--quiet", root]);
   await mkdir(path.join(root, "overview"));
-  await writeFile(path.join(root, "overview", "WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
+  await writeFile(path.join(root, "overview", ".WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
 <work-node id="overview" type="Overview">
   <summary>Defines the portable project.</summary>
   <inputs>
   </inputs>
 </work-node>
 `);
-  await writeFile(path.join(root, ".gitignore"), "overview/WORK_NODE.xml\n");
+  await writeFile(path.join(root, "overview", "WORK_NODE.xml"), "legacy marker contents are not read\n");
+  await writeFile(path.join(root, ".gitignore"), "overview/.WORK_NODE.xml\noverview/WORK_NODE.xml\n");
   await writeFile(path.join(root, "README.md"), "---\nsummary: Portable summary.\n---\n\nBody is never projected.\n");
   await writeFile(path.join(root, "image.unknown"), Buffer.concat([
     Buffer.from([1, 2, 0, 3]),
@@ -83,9 +84,16 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
     },
   });
 
-  assert.equal(projection.version, 10);
+  assert.equal(projection.version, 11);
   assert.equal(projection.workGraph.status, "valid");
   assert.deepEqual(projection.workGraph.works.map(({ id }) => id), ["overview"]);
+  assert.deepEqual(projection.files.root.children.find(({ path: entryPath }) => entryPath === "overview").children, [{
+    path: "overview/WORK_NODE.xml",
+    name: "WORK_NODE.xml",
+    type: "warning",
+    code: "legacy-work-node",
+    renameTo: "overview/.WORK_NODE.xml",
+  }]);
   assert.equal(projection.runtime.status, "missing");
   const readme = projection.files.root.children.find(({ path: entryPath }) => entryPath === "README.md");
   assert.equal(readme.type, "file");
@@ -106,7 +114,7 @@ test("Win32 portable Sonner discovers Work Graph without a Git repository", asyn
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-sonner-work-win32-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, "overview"));
-  await writeFile(path.join(root, "overview", "WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
+  await writeFile(path.join(root, "overview", ".WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
 <work-node id="overview" type="Overview">
   <summary>Defines a non-Git portable project.</summary>
   <inputs>

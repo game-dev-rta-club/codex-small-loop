@@ -24,7 +24,7 @@ inventory.
 ## Start With The Current Map
 
 Locate the project root. Work directories may appear anywhere beneath it and
-are identified by `WORK_NODE.xml`.
+are identified by `.WORK_NODE.xml`.
 
 Resolve the installed Codex Small Loop plugin root from this `SKILL.md`, then run:
 
@@ -39,6 +39,10 @@ together with its summary, node path, direct inputs, and outputs. The adjacent
 Files records are the shared project index; they are not
 a claim that every file belongs to a Work. Host-required configuration may live
 outside a Work without creating a graph defect.
+
+If Files reports `legacy-work-node`, tell the user to rename the identified
+`WORK_NODE.xml` to `.WORK_NODE.xml`. The legacy file is not part of the Work
+Graph and must not be interpreted as if it had been loaded.
 
 Treat quoted values as JSON-compatible display fields: invisible Unicode
 formatting controls, default-ignorables, noncharacters, and lone surrogates are
@@ -66,7 +70,7 @@ Within relevant Work directories, inspect in this order:
 
 1. directory names;
 2. filenames for summarized atomic documents;
-3. the Work summary in `WORK_NODE.xml`;
+3. the Work summary in `.WORK_NODE.xml`;
 4. available atomic document summaries or native-format summaries;
 5. only the files whose names and summaries indicate that their bodies matter.
 

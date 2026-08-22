@@ -21,7 +21,7 @@ Every graph begins at exactly one `Overview`. The Overview has no inputs and
 states the intended production at the broadest useful level.
 
 An edge points from an input Work toward the downstream Work that it shapes.
-The downstream Work lists that input in its own `WORK_NODE.xml`. Branches allow
+The downstream Work lists that input in its own `.WORK_NODE.xml`. Branches allow
 independent outputs to advance from shared context. Merges state that a result
 depends directly on several maintained inputs.
 
@@ -31,10 +31,13 @@ repository file. Graph membership does not mean that a Work is complete.
 
 ## Storage
 
-Every Work is a meaningful directory containing `WORK_NODE.xml`. The marker's
+Every Work is a meaningful directory containing `.WORK_NODE.xml`. The marker's
 `id` is a stable graph identity independent of the directory basename. Parent
 directories may classify Works without becoming Works themselves, and existing
 production paths do not need to be renamed to participate in the graph.
+
+The historical `WORK_NODE.xml` name is not loaded. Sonner surfaces it as a
+Files warning with the exact `.WORK_NODE.xml` rename target.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -70,7 +73,7 @@ maintained, changes for a recognizable production reason, can shape several
 downstream outputs, or preserves a cheaper representation of a costly result.
 
 Not every maintained file belongs to a Work. Host-required configuration and
-support files may remain outside the graph. Conversely, `WORK_NODE.xml` marks a
+support files may remain outside the graph. Conversely, `.WORK_NODE.xml` marks a
 Work entry point without claiming exclusive ownership of every descendant.
 
 Prefer forms reusable across the relevant production practice. `Storyboard`,
@@ -87,7 +90,7 @@ reachable downstream consumer.
 
 An approved future Work may appear before its full content exists. Its marker
 records agreed production structure, not completion or readiness. Progress and
-execution state belong outside `WORK_NODE.xml`.
+execution state belong outside `.WORK_NODE.xml`.
 
 ## Traceability
 

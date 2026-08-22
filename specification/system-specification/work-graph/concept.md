@@ -62,7 +62,7 @@ maintained graph.
 ## Representation
 
 Each Work Node is represented by a meaningful project directory. Its
-`WORK_NODE.xml` declares a stable `id`, a recognizable `type`, a summary, and
+`.WORK_NODE.xml` declares a stable `id`, a recognizable `type`, a summary, and
 its direct `inputs`. The Work ID is independent of the containing directory's
 basename: the path describes physical organization while the ID provides a
 stable semantic identity for graph edges. Parent directories may classify

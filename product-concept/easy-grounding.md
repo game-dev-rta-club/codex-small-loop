@@ -48,7 +48,7 @@ for the current work.
 
 ## How It Works
 
-1. Every maintained Work has a machine-readable `WORK_NODE.xml` in its project
+1. Every maintained Work has a machine-readable `.WORK_NODE.xml` in its project
    directory.
 2. Controller runs one command before a Milestone assignment to retrieve a
    deterministic Agent-readable Work Graph, Files index, and current Runtime

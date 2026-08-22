@@ -57,10 +57,10 @@ async function fixture(t) {
   });
   await git(root, "init", "-q");
   await mkdir(path.join(root, "docs"), { recursive: true });
-  await writeFile(path.join(root, "docs", "WORK_NODE.xml"), marker());
+  await writeFile(path.join(root, "docs", ".WORK_NODE.xml"), marker());
   await writeFile(path.join(root, "docs", "secret.md"), `---\nsummary: ${ORIGINAL}\n---\n# Original\n`);
   await mkdir(path.join(external, "docs"), { recursive: true });
-  await writeFile(path.join(external, "docs", "WORK_NODE.xml"), marker(EXTERNAL));
+  await writeFile(path.join(external, "docs", ".WORK_NODE.xml"), marker(EXTERNAL));
   await writeFile(path.join(external, "docs", "secret.md"), `---\nsummary: ${EXTERNAL}\n---\n`);
   await git(root, "add", "docs");
   return { root, external, movedRoot };
@@ -85,7 +85,7 @@ function find(node, projectPath) {
   return null;
 }
 
-test("packaged helper is executable, signed universal arm64/x86_64, and reads protocol v2", async (t) => {
+test("packaged helper is executable, signed universal arm64/x86_64, and reads protocol v3", async (t) => {
   const details = await inspectSonnerUniversalMachO(PACKAGED_SONNER_PROJECT_READER);
   assert.deepEqual(details, { arm64: true, x86_64: true });
   await exec("/usr/bin/codesign", ["--verify", "--strict", PACKAGED_SONNER_PROJECT_READER], { env: {} });
@@ -104,7 +104,7 @@ test("request contains Root identity but never its pathname and rejects path/cou
     maxWorkBytes: 256 * 1024,
     maxOutputBytes: SONNER_READER_MAX_OUTPUT_BYTES,
   });
-  assert.equal(request[4], 2);
+  assert.equal(request[4], 3);
   assert.equal(request.includes(Buffer.from(root)), false);
   assert.throws(() => encodeSonnerReaderRequest({ rootIdentity: project.rootIdentity,
     paths: Array.from({ length: SONNER_READER_MAX_PATHS + 1 }, (_, index) => ({ path: `p${index}`, maxBytes: 0 })),
@@ -139,8 +139,8 @@ test("static final and ancestor symlinks never expose target bytes", async (t) =
   });
   await t.test("Work marker final symlink", async (t) => {
     const { root, external } = await fixture(t);
-    await unlink(path.join(root, "docs", "WORK_NODE.xml"));
-    await symlink(path.join(external, "docs", "WORK_NODE.xml"), path.join(root, "docs", "WORK_NODE.xml"));
+    await unlink(path.join(root, "docs", ".WORK_NODE.xml"));
+    await symlink(path.join(external, "docs", ".WORK_NODE.xml"), path.join(root, "docs", ".WORK_NODE.xml"));
     const result = await candidate(root);
     serialized(result);
     assert.deepEqual(result.workGraph, { status: "invalid" });
@@ -211,16 +211,16 @@ test("unsafe Work discovery/open/read replacements invalidate Work without hidin
       await rename(path.join(root, "docs"), path.join(root, "docs-original"));
       await symlink(path.join(external, "docs"), path.join(root, "docs"));
     }, "invalid"],
-    ["marker-before-open", "before-work-open:docs/WORK_NODE.xml", async ({ root, external }) => {
-      await rename(path.join(root, "docs", "WORK_NODE.xml"), path.join(root, "docs", "WORK_NODE-original.xml"));
-      await rename(path.join(external, "docs", "WORK_NODE.xml"), path.join(root, "docs", "WORK_NODE.xml"));
+    ["marker-before-open", "before-work-open:docs/.WORK_NODE.xml", async ({ root, external }) => {
+      await rename(path.join(root, "docs", ".WORK_NODE.xml"), path.join(root, "docs", "WORK_NODE-original.xml"));
+      await rename(path.join(external, "docs", ".WORK_NODE.xml"), path.join(root, "docs", ".WORK_NODE.xml"));
     }, "invalid"],
-    ["marker-after-open", "after-work-open:docs/WORK_NODE.xml", async ({ root, external }) => {
-      await rename(path.join(root, "docs", "WORK_NODE.xml"), path.join(root, "docs", "WORK_NODE-original.xml"));
-      await symlink(path.join(external, "docs", "WORK_NODE.xml"), path.join(root, "docs", "WORK_NODE.xml"));
+    ["marker-after-open", "after-work-open:docs/.WORK_NODE.xml", async ({ root, external }) => {
+      await rename(path.join(root, "docs", ".WORK_NODE.xml"), path.join(root, "docs", "WORK_NODE-original.xml"));
+      await symlink(path.join(external, "docs", ".WORK_NODE.xml"), path.join(root, "docs", ".WORK_NODE.xml"));
     }, "invalid"],
-    ["marker-after-read", "after-work-read:docs/WORK_NODE.xml", async ({ root }) => {
-      await appendFile(path.join(root, "docs", "WORK_NODE.xml"), `<!--${EXTERNAL}-->`);
+    ["marker-after-read", "after-work-read:docs/.WORK_NODE.xml", async ({ root }) => {
+      await appendFile(path.join(root, "docs", ".WORK_NODE.xml"), `<!--${EXTERNAL}-->`);
     }, "invalid"],
   ];
   for (const [name, transition, mutate, expected] of cases) {
@@ -240,7 +240,7 @@ test("unsafe Work discovery/open/read replacements invalidate Work without hidin
 test("native byte/count/output bounds and crash/timeout/malformed helpers fail closed", async (t) => {
   const { root } = await fixture(t);
   const project = await resolveProject(root);
-  const workSize = Buffer.byteLength(await readFile(path.join(root, "docs", "WORK_NODE.xml"), "utf8"));
+  const workSize = Buffer.byteLength(await readFile(path.join(root, "docs", ".WORK_NODE.xml"), "utf8"));
   const exact = await readSonnerProject({ project, paths: [], helperPath: testHelper, validateArchitecture: false, maxWorkBytes: workSize });
   assert.equal(exact.workUnsafe, false);
   assert.equal(exact.works.length, 1);
@@ -292,10 +292,10 @@ test("Sonner Work-only graph loading consumes the same anchored helper records",
     helperPath: testHelper,
     validateArchitecture: false,
     onTransition: async (value) => {
-      if (!changed && value === "before-work-open:docs/WORK_NODE.xml") {
+      if (!changed && value === "before-work-open:docs/.WORK_NODE.xml") {
         changed = true;
-        await rename(path.join(tree.root, "docs", "WORK_NODE.xml"), path.join(tree.root, "docs", "WORK_NODE-original.xml"));
-        await rename(path.join(tree.external, "docs", "WORK_NODE.xml"), path.join(tree.root, "docs", "WORK_NODE.xml"));
+        await rename(path.join(tree.root, "docs", ".WORK_NODE.xml"), path.join(tree.root, "docs", "WORK_NODE-original.xml"));
+        await rename(path.join(tree.external, "docs", ".WORK_NODE.xml"), path.join(tree.root, "docs", ".WORK_NODE.xml"));
       }
     },
   } }), { code: "INVALID_GRAPH" });
@@ -452,7 +452,7 @@ test("Git output protocol rejects malformed lists and normalizes Unicode by UTF-
 test("Work-only mode skips Git and supports a non-Git project", async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-sonner-work-only-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(path.join(root, "docs")); await writeFile(path.join(root, "docs", "WORK_NODE.xml"), marker());
+  await mkdir(path.join(root, "docs")); await writeFile(path.join(root, "docs", ".WORK_NODE.xml"), marker());
   const project = await resolveProject(root); let gitSpawned = false;
   const result = await readSonnerProject({ project, includeFiles: false, helperPath: testHelper, validateArchitecture: false,
     spawnImpl: (command, arguments_, options) => {
@@ -464,10 +464,10 @@ test("Work-only mode skips Git and supports a non-Git project", async (t) => {
   assert.equal(result.works.length, 1);
 });
 
-test("Git v2 request is bounded and contains identity but no Root pathname", async (t) => {
+test("Git v3 request is bounded and contains identity but no Root pathname", async (t) => {
   const tree = await admissionFixture(t); const project = await resolveProject(tree.root);
   const request = encodeSonnerGitRequest({ rootIdentity: project.rootIdentity });
-  assert.equal(request[4], 2);
+  assert.equal(request[4], 3);
   assert.equal(request.length, 29);
   assert.equal(request.includes(Buffer.from(tree.root)), false);
   assert.throws(() => encodeSonnerGitRequest({ rootIdentity: project.rootIdentity, maxOutputBytes: SONNER_GIT_MAX_OUTPUT_BYTES + 1 }));

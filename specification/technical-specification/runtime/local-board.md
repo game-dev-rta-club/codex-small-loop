@@ -116,7 +116,7 @@ serialization; `/api/sonner` always returns those same JSON bytes for the same
 observation. The formatter records its Unicode data-file provenance beside its
 single pinned range table rather than depending on runtime ICU properties.
 
-The version-10 Sonner document has exactly four top-level keys in order:
+The version-11 Sonner document has exactly four top-level keys in order:
 numeric `version`, `workGraph`, `files`, and `runtime`. A valid `workGraph`
 contains `status: "valid"` and topologically
 ordered `works`; each Work exposes only `id`, `type`, `summary`, `nodePath`,
@@ -142,13 +142,20 @@ individual names and bodies are absent. Directories never expose Work metadata
 or graph status. At every level, directories sort before summarized files and
 the single compact count node; extensions use UTF-8 byte order.
 
+An observed legacy `WORK_NODE.xml` is omitted from file counts and represented
+instead by a non-openable `warning` node containing the fixed
+`legacy-work-node` code, its project-relative `path`, and the exact
+`.WORK_NODE.xml` `renameTo` target. Work discovery supplies these warnings even
+when Git ignores the legacy marker. Sonner does not read its contents or treat
+it as graph metadata.
+
 Sonner owns Work marker discovery, XML entity decoding, basename/ID matching,
 unique Work and input validation, single input-free Overview, existing input
 references, reachability, cycle rejection, and deterministic topological
 ordering. A second standalone mapper command or implementation does not coexist with
 this authority.
 
-The reader retains one verified Root handle across two protocol-v2 phases. Its
+The reader retains one verified Root handle across two protocol-v3 phases. Its
 first phase adopts fd 3, changes cwd to it, and `execve`s fixed `/usr/bin/git`
 with `--work-tree=.`, cached/other/deduplicated/exclude-standard selection,
 optional locks and fsmonitor disabled, and an allowlisted non-interactive

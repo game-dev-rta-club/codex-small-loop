@@ -1759,51 +1759,51 @@ test("current project Works form an Overview-rooted graph", async () => {
   );
   assert.equal(map.status, 0, map.stderr);
   const sonner = JSON.parse(map.stdout);
-  assert.equal(sonner.version, 10);
+  assert.equal(sonner.version, 11);
   assert.equal(sonner.workGraph.status, "valid");
   const works = sonner.workGraph.works;
   assert.equal(works.filter((work) => work.type === "Overview").length, 1);
   assert.deepEqual(
     works.map(({ id, nodePath }) => ({ id, nodePath })),
     [
-      { id: "overview", nodePath: "overview/WORK_NODE.xml" },
+      { id: "overview", nodePath: "overview/.WORK_NODE.xml" },
       {
         id: "product-concept",
-        nodePath: "product-concept/WORK_NODE.xml",
+        nodePath: "product-concept/.WORK_NODE.xml",
       },
       {
         id: "interaction-specification",
-        nodePath: "specification/interaction-specification/WORK_NODE.xml",
+        nodePath: "specification/interaction-specification/.WORK_NODE.xml",
       },
       {
         id: "system-specification",
-        nodePath: "specification/system-specification/WORK_NODE.xml",
+        nodePath: "specification/system-specification/.WORK_NODE.xml",
       },
       {
         id: "technical-specification",
-        nodePath: "specification/technical-specification/WORK_NODE.xml",
+        nodePath: "specification/technical-specification/.WORK_NODE.xml",
       },
       {
         id: "implementation",
-        nodePath: "implementation/WORK_NODE.xml",
+        nodePath: "implementation/.WORK_NODE.xml",
       },
       {
         id: "user-documentation",
-        nodePath: "user-documentation/WORK_NODE.xml",
+        nodePath: "user-documentation/.WORK_NODE.xml",
       },
     ],
   );
 
   assert.equal(await exists("docs"), false);
 
-  const overviewNode = await read("overview/WORK_NODE.xml");
+  const overviewNode = await read("overview/.WORK_NODE.xml");
   assert.match(overviewNode, /<work-node id="overview" type="Overview">/);
   assert.match(overviewNode, /<summary>[^<]+<\/summary>/);
   assert.match(overviewNode, /<inputs\s*\/>/);
-  assert.equal(await exists("WORK_NODE.xml"), false);
+  assert.equal(await exists(".WORK_NODE.xml"), false);
   assert.equal(await exists("works"), false);
 
-  const implementationNode = await read("implementation/WORK_NODE.xml");
+  const implementationNode = await read("implementation/.WORK_NODE.xml");
   assert.match(implementationNode, /<work-node id="implementation" type="Implementation">/);
   assert.match(implementationNode, /<summary>[^<]*seven Skills[^<]*Sonner project inspection[^<]*<\/summary>/);
   assert.doesNotMatch(implementationNode, /Work mapper/i);
@@ -1811,7 +1811,7 @@ test("current project Works form an Overview-rooted graph", async () => {
   assert.match(implementationNode, /<input ref="system-specification"\s*\/>/);
   assert.match(implementationNode, /<input ref="technical-specification"\s*\/>/);
 
-  const systemNode = await read("specification/system-specification/WORK_NODE.xml");
+  const systemNode = await read("specification/system-specification/.WORK_NODE.xml");
   assert.match(systemNode, /<summary>[^<]*five job roles[^<]*seven skills[^<]*<\/summary>/i);
   assert.doesNotMatch(systemNode, /eight skills/i);
 
@@ -1819,10 +1819,10 @@ test("current project Works form an Overview-rooted graph", async () => {
     path.join(repositoryRoot, "implementation"),
   );
   assert.deepEqual(implementationEntries.sort(), [
+    ".WORK_NODE.xml",
     ".codex-plugin",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
-    "WORK_NODE.xml",
     "assets",
     "components",
     "contents",
@@ -1883,7 +1883,7 @@ test("current project Works form an Overview-rooted graph", async () => {
     entry.isDirectory() ? `${entry.name}/` : entry.name,
   );
   assert.deepEqual(interactionNames.sort(), [
-    "WORK_NODE.xml",
+    ".WORK_NODE.xml",
     "activation/",
     "agreement/",
     "delivery/",
@@ -1897,7 +1897,7 @@ test("current project Works form an Overview-rooted graph", async () => {
     entry.isDirectory() ? `${entry.name}/` : entry.name,
   );
   assert.deepEqual(systemNames.sort(), [
-    "WORK_NODE.xml",
+    ".WORK_NODE.xml",
     "coordination/",
     "roles/",
     "skills/",
@@ -1912,7 +1912,7 @@ test("current project Works form an Overview-rooted graph", async () => {
     entry.isDirectory() ? `${entry.name}/` : entry.name,
   );
   assert.deepEqual(runtimeContractNames.sort(), [
-    "WORK_NODE.xml",
+    ".WORK_NODE.xml",
     "integrations/",
     "package/",
     "runtime/",
@@ -1971,15 +1971,15 @@ test("current project Works form an Overview-rooted graph", async () => {
 });
 
 test("repository Works and the installable plugin share the production structure", async () => {
-  assert.equal(await exists("WORK_NODE.xml"), false);
+  assert.equal(await exists(".WORK_NODE.xml"), false);
   assert.equal(await exists("works"), false);
-  assert.equal(await exists("overview/WORK_NODE.xml"), true);
-  assert.equal(await exists("product-concept/WORK_NODE.xml"), true);
-  assert.equal(await exists("specification/interaction-specification/WORK_NODE.xml"), true);
-  assert.equal(await exists("specification/system-specification/WORK_NODE.xml"), true);
-  assert.equal(await exists("specification/technical-specification/WORK_NODE.xml"), true);
-  assert.equal(await exists("implementation/WORK_NODE.xml"), true);
-  assert.equal(await exists("user-documentation/WORK_NODE.xml"), true);
+  assert.equal(await exists("overview/.WORK_NODE.xml"), true);
+  assert.equal(await exists("product-concept/.WORK_NODE.xml"), true);
+  assert.equal(await exists("specification/interaction-specification/.WORK_NODE.xml"), true);
+  assert.equal(await exists("specification/system-specification/.WORK_NODE.xml"), true);
+  assert.equal(await exists("specification/technical-specification/.WORK_NODE.xml"), true);
+  assert.equal(await exists("implementation/.WORK_NODE.xml"), true);
+  assert.equal(await exists("user-documentation/.WORK_NODE.xml"), true);
   assert.equal(await exists("implementation/.codex-plugin/plugin.json"), true);
   assert.equal(await exists("implementation/skills"), true);
   assert.equal(await exists("implementation/components"), true);
@@ -2530,7 +2530,7 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   const command = await read("implementation/components/commands/sonner.mjs");
   const view = await read("implementation/components/board/public/sonner-view.js");
   const provenance = await read("implementation/components/sonner/native/BUILD.md");
-  assert.match(source, /PROTOCOL_VERSION 2/);
+  assert.match(source, /PROTOCOL_VERSION 3/);
   assert.match(source, /openat\(/);
   assert.match(source, /AT_SYMLINK_NOFOLLOW/);
   assert.match(source, /F_DUPFD_CLOEXEC/);
@@ -2542,7 +2542,7 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   assert.match(portable, /shell:\s*false/);
   assert.match(portable, /revalidateAncestors/);
   assert.doesNotMatch(portable, /\.\.\.environment/);
-  assert.match(projection, /SONNER_SCHEMA_VERSION = 10/);
+  assert.match(projection, /SONNER_SCHEMA_VERSION = 11/);
   assert.match(projection, /version: SONNER_SCHEMA_VERSION,[\s\S]*workGraph:[\s\S]*files:[\s\S]*runtime,/);
   assert.match(projection, /outputs:/);
   assert.match(projection, /options\.json \? serializeSonner\(projection\) : formatSonnerText\(projection\)/);
@@ -2613,7 +2613,7 @@ test("Sonner packages descriptor-anchored Runtime and history readers", async ()
   assert.doesNotMatch(historySource, /CODEX_HOME|archived_sessions|\/Users\//);
 });
 
-test("Sonner closure keeps schema v10 and flat active Runtime surfaces free of retired contracts", async () => {
+test("Sonner closure keeps schema v11 and flat active Runtime surfaces free of retired contracts", async () => {
   const creating = await read("implementation/skills/creating-and-maintaining-works/SKILL.md");
   const lifecycleTests = await read("implementation/components/sonner/tests/sonner-lifecycle.test.mjs");
   const serverTests = await read("implementation/components/board/tests/board-server.test.mjs");

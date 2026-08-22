@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define PROTOCOL_VERSION 2
+#define PROTOCOL_VERSION 3
 #define MAX_REQUEST_BYTES (8U * 1024U * 1024U)
 #define MAX_PATHS 100000U
 #define MAX_PATH_BYTES 4096U
@@ -25,6 +25,7 @@
 #define FRAME_WORK 3
 #define FRAME_WORK_UNSAFE 4
 #define FRAME_FINAL 5
+#define FRAME_LEGACY_WORK 6
 #define TYPE_FILE 1
 #define TYPE_SYMLINK 2
 
@@ -43,6 +44,7 @@ struct output_state {
   uint32_t bytes;
   uint32_t paths;
   uint32_t works;
+  uint32_t legacy_works;
   uint32_t max_bytes;
   int work_unsafe;
 };
@@ -196,14 +198,27 @@ static int emit_work(struct output_state *output, const char *project_path,
   if (result == 0) output->works += 1;
   return result;
 }
+static int emit_legacy_work(struct output_state *output, const char *project_path) {
+  size_t path_length = strlen(project_path);
+  if (path_length > UINT16_MAX) return -1;
+  uint32_t length = (uint32_t)(1 + 2 + path_length);
+  unsigned char *payload = malloc(length); if (!payload) return -1;
+  size_t offset = 0; payload[offset++] = FRAME_LEGACY_WORK;
+  write_u16(payload + offset, (uint16_t)path_length); offset += 2;
+  memcpy(payload + offset, project_path, path_length);
+  int result = emit_frame(output, payload, length); free(payload);
+  if (result == 0) output->legacy_works += 1;
+  return result;
+}
 static int emit_final(struct output_state *output) {
   if (output->work_unsafe) {
     unsigned char unsafe[] = { FRAME_WORK_UNSAFE };
     if (emit_frame(output, unsafe, sizeof(unsafe)) != 0) return -1;
   }
-  unsigned char payload[10]; payload[0] = FRAME_FINAL;
+  unsigned char payload[14]; payload[0] = FRAME_FINAL;
   write_u32(payload + 1, output->paths); write_u32(payload + 5, output->works);
-  payload[9] = output->work_unsafe ? 1 : 0;
+  write_u32(payload + 9, output->legacy_works);
+  payload[13] = output->work_unsafe ? 1 : 0;
   return emit_frame(output, payload, sizeof(payload));
 }
 
@@ -229,7 +244,7 @@ static int list_directory_names(int directory_fd, struct strings *names) {
   qsort(names->items, names->count, sizeof(char *), compare_strings); return 0;
 }
 static int discover_works(int directory_fd, const char *relative, const struct request *request,
-    struct strings *works, int *unsafe) {
+    struct strings *works, struct strings *legacy_works, int *unsafe) {
   struct strings names = {0};
   if (list_directory_names(directory_fd, &names) != 0) { *unsafe = 1; return 0; }
   for (size_t index = 0; index < names.count; index++) {
@@ -246,10 +261,12 @@ static int discover_works(int directory_fd, const char *relative, const struct r
       if (child < 0 || fstat(child, &opened) != 0 || !same_file(&before, &opened)) {
         if (child >= 0) close(child); *unsafe = 1; continue;
       }
-      if (discover_works(child, project_path, request, works, unsafe) != 0) { close(child); free_strings(&names); return -1; }
+      if (discover_works(child, project_path, request, works, legacy_works, unsafe) != 0) { close(child); free_strings(&names); return -1; }
       close(child);
-    } else if (strcmp(name, "WORK_NODE.xml") == 0) {
+    } else if (strcmp(name, ".WORK_NODE.xml") == 0) {
       if (!S_ISREG(before.st_mode) || add_string(works, project_path, request->max_works) != 0) *unsafe = 1;
+    } else if (strcmp(name, "WORK_NODE.xml") == 0) {
+      if (add_string(legacy_works, project_path, request->max_works) != 0) *unsafe = 1;
     }
   }
   free_strings(&names); return 0;
@@ -430,12 +447,14 @@ int main(int argc, char **argv) {
   if (emit_hello(&output) != 0) { close(root); free_request(&request); return 70; }
   int result = 0;
   for (uint32_t index = 0; index < request.path_count && result == 0; index++) result = inspect_requested_path(root, &request.paths[index], &output);
-  struct strings works = {0}; int unsafe = 0;
-  if (result == 0 && discover_works(root, "", &request, &works, &unsafe) != 0) result = -1;
+  struct strings works = {0}; struct strings legacy_works = {0}; int unsafe = 0;
+  if (result == 0 && discover_works(root, "", &request, &works, &legacy_works, &unsafe) != 0) result = -1;
   qsort(works.items, works.count, sizeof(char *), compare_strings);
+  qsort(legacy_works.items, legacy_works.count, sizeof(char *), compare_strings);
   output.work_unsafe = unsafe;
   for (size_t index = 0; index < works.count && result == 0; index++) result = inspect_work(root, works.items[index], &request, &output);
+  for (size_t index = 0; index < legacy_works.count && result == 0; index++) result = emit_legacy_work(&output, legacy_works.items[index]);
   if (result == 0) result = emit_final(&output);
-  free_strings(&works); close(root); free_request(&request);
+  free_strings(&works); free_strings(&legacy_works); close(root); free_request(&request);
   return result == 0 ? 0 : 70;
 }

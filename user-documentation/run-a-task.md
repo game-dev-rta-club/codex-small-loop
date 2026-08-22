@@ -156,6 +156,10 @@ Only displayed summarized regular files can be opened. Sonner passes an identity
 reference to the selected original file rather than reopening a pathname. Use
 **Refresh** in the Sonner view to retry a loading error or update the index.
 
+If a folder still contains the former `WORK_NODE.xml` marker, Files shows a
+warning asking you to rename it to `.WORK_NODE.xml`. The old marker is not read
+as part of the Work Graph.
+
 Agents can retrieve the same versioned projection in one command from the
 installed plugin:
 

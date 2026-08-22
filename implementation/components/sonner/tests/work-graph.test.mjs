@@ -15,7 +15,7 @@ async function fixture(t) {
 async function writeWork(root, folder, { id = folder, type, summary, inputs = [] }) {
   const directory = path.join(root, folder);
   await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, "WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
+  await writeFile(path.join(directory, ".WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
 <work-node id="${id}" type="${type}">
   <summary>${summary}</summary>
   <inputs>
@@ -45,11 +45,11 @@ test("orders an Overview-rooted graph deterministically across branches and merg
   const second = await loadWorkGraph(root);
   assert.deepEqual(first, second);
   assert.deepEqual(first.map(({ id, nodePath }) => ({ id, nodePath })), [
-    { id: "overview", nodePath: "overview/WORK_NODE.xml" },
-    { id: "implementation", nodePath: "implementation/WORK_NODE.xml" },
-    { id: "guide", nodePath: "guide/WORK_NODE.xml" },
-    { id: "verification", nodePath: "verification/WORK_NODE.xml" },
-    { id: "distribution", nodePath: "distribution/WORK_NODE.xml" },
+    { id: "overview", nodePath: "overview/.WORK_NODE.xml" },
+    { id: "implementation", nodePath: "implementation/.WORK_NODE.xml" },
+    { id: "guide", nodePath: "guide/.WORK_NODE.xml" },
+    { id: "verification", nodePath: "verification/.WORK_NODE.xml" },
+    { id: "distribution", nodePath: "distribution/.WORK_NODE.xml" },
   ]);
 });
 
@@ -60,16 +60,16 @@ test("discovers nested Works, ignores generated roots, and decodes XML entities"
   await writeWork(root, "components/implementation", { id: "implementation", type: "Implementation", summary: "Realizes &#x41;.", inputs: ["overview"] });
   const works = await loadWorkGraph(root);
   assert.deepEqual(works.map(({ id, summary, nodePath }) => ({ id, summary, nodePath })), [
-    { id: "overview", summary: "Defines & constrains.", nodePath: "overview/WORK_NODE.xml" },
-    { id: "implementation", summary: "Realizes A.", nodePath: "components/implementation/WORK_NODE.xml" },
+    { id: "overview", summary: "Defines & constrains.", nodePath: "overview/.WORK_NODE.xml" },
+    { id: "implementation", summary: "Realizes A.", nodePath: "components/implementation/.WORK_NODE.xml" },
   ]);
 });
 
 test("rejects malformed metadata and allows Work IDs independent of directory names", async (t) => {
   const root = await fixture(t);
   await mkdir(path.join(root, "overview"));
-  await writeFile(path.join(root, "overview", "WORK_NODE.xml"), "<work-node><summary>Broken</summary></work-node>\n");
-  await rejection(root, /overview\/WORK_NODE\.xml.*id.*attribute/i);
+  await writeFile(path.join(root, "overview", ".WORK_NODE.xml"), "<work-node><summary>Broken</summary></work-node>\n");
+  await rejection(root, /overview\/\.WORK_NODE\.xml.*id.*attribute/i);
 
   await rm(path.join(root, "overview"), { recursive: true });
   await writeWork(root, "system", {
@@ -83,8 +83,8 @@ test("rejects malformed metadata and allows Work IDs independent of directory na
   assert.deepEqual(
     works.map(({ id, nodePath }) => ({ id, nodePath })),
     [
-      { id: "overview", nodePath: "overview/WORK_NODE.xml" },
-      { id: "system-specification", nodePath: "system/WORK_NODE.xml" },
+      { id: "overview", nodePath: "overview/.WORK_NODE.xml" },
+      { id: "system-specification", nodePath: "system/.WORK_NODE.xml" },
     ],
   );
 });

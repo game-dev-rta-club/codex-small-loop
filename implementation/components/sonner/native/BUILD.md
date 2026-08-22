@@ -3,8 +3,8 @@
 `sonner-project-reader` is Sonner's packaged, read-only macOS helper. It
 receives the already verified project Root as fd 3, walks descendants only with
 descriptor-relative no-follow operations, and returns bounded file-prefix and
-`WORK_NODE.xml` bytes. Neither its request nor its arguments contain the Root
-pathname. Protocol v2 first runs the exact `git-ls-files` mode from the retained
+`.WORK_NODE.xml` bytes. Neither its request nor its arguments contain the Root
+pathname. Protocol v3 first runs the exact `git-ls-files` mode from the retained
 Root cwd, then uses the same Root handle for framed content and Work reads. The
 installed plugin does not compile this helper at runtime.
 
@@ -22,7 +22,7 @@ chmod 755 sonner-project-reader
 
 The packaged output is ad-hoc signed and contains arm64 and x86_64 slices.
 Its SHA-256 is
-`e630cfe77acb94ed5fc3f583516877a10c96db0cc610f472b5cd00ee476afe62`.
+`22b9bfee6847aded34b83105418c4cf935570725f40d191f92e3d5649f6a77f3`.
 Tests compile a temporary current-architecture helper with
 `SONNER_PROJECT_READER_TEST_HOOKS`; its control fd 4 pauses descriptor
 transitions so replacement and mutation races can be exercised without adding

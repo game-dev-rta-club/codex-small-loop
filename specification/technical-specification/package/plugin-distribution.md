@@ -59,7 +59,7 @@ inspecting or spawning this macOS-only helper.
 The manifest version identifies every byte in the complete installable
 `implementation/` distribution. It is assigned only after packaged bytes are
 final, and any later package change requires a newly assigned version. This
-identity includes the Sonner schema v10 command and implementation, its default Agent
+identity includes the Sonner schema v11 command and implementation, its default Agent
 plaintext formatter and hostile-input tests, the explicit canonical `--json`
 serializer shared with the Browser API, and the formatter's pinned Unicode 16.0
 display-boundary table and source provenance. It also includes the static Work

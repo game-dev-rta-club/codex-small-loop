@@ -76,9 +76,9 @@ test("valid graph preserves every directory, lists summarized files, and groups 
   const root = await repository(t);
   await write(root, ".gitignore", "ignored/\nnode_modules/\n");
   await write(root, "README.md", "---\nsummary: Project summary.\n---\n# Project\nsecret body\n");
-  await write(root, "overview/WORK_NODE.xml", work("overview", "Overview", "Project overview."));
+  await write(root, "overview/.WORK_NODE.xml", work("overview", "Overview", "Project overview."));
   await write(root, "overview/index.md", "---\nsummary: >-\n  Overview\n  document.\n---\n# Overview\n");
-  await write(root, "spec/work/WORK_NODE.xml", work("work", "Specification", "Maintained specification.", ["overview"]));
+  await write(root, "spec/work/.WORK_NODE.xml", work("work", "Specification", "Maintained specification.", ["overview"]));
   await write(root, "spec/work/detail.md", "---\nsummary: Detailed contract.\n---\n# Detail\nDO NOT RETURN THIS BODY\n");
   await write(root, "spec/unrelated/private.md", "---\nsummary: Visible outside the Work Graph.\n---\n");
   await write(root, "misc/note.md", "No frontmatter.\nsummary: body only\n");
@@ -98,14 +98,14 @@ test("valid graph preserves every directory, lists summarized files, and groups 
   assert.deepEqual(first, second, "projection ordering is deterministic");
   assert.deepEqual(Object.keys(first), ["version", "workGraph", "files", "runtime"]);
   assert.equal(first.version, SONNER_SCHEMA_VERSION);
-  assert.equal(first.version, 10);
+  assert.equal(first.version, 11);
   assert.deepEqual(Object.keys(first.workGraph), ["status", "works"]);
   assert.deepEqual(first.workGraph.works, [
     {
       id: "overview",
       type: "Overview",
       summary: "Project overview.",
-      nodePath: "overview/WORK_NODE.xml",
+      nodePath: "overview/.WORK_NODE.xml",
       inputs: [],
       outputs: ["work"],
     },
@@ -113,7 +113,7 @@ test("valid graph preserves every directory, lists summarized files, and groups 
       id: "work",
       type: "Specification",
       summary: "Maintained specification.",
-      nodePath: "spec/work/WORK_NODE.xml",
+      nodePath: "spec/work/.WORK_NODE.xml",
       inputs: ["overview"],
       outputs: [],
     },
@@ -166,7 +166,7 @@ test("missing and invalid graphs still expose complete directories and summarize
       if (graph === "invalid") {
         await write(
           root,
-          "broken/WORK_NODE.xml",
+          "broken/.WORK_NODE.xml",
           work("different-id", "Overview", "Broken.", ["missing-input"]),
         );
       }
@@ -184,6 +184,24 @@ test("missing and invalid graphs still expose complete directories and summarize
   }
 });
 
+test("legacy WORK_NODE.xml is not loaded and appears as an actionable Files warning", async (t) => {
+  const root = await repository(t);
+  await write(root, ".gitignore", "legacy/\n");
+  await write(root, "legacy/WORK_NODE.xml", work("legacy", "Overview", "Old graph."));
+  await git(root, "add", ".gitignore");
+
+  const result = await buildSonner(root);
+
+  assert.deepEqual(result.workGraph, { status: "missing" });
+  assert.deepEqual(find(result.files.root, "legacy").children, [{
+    path: "legacy/WORK_NODE.xml",
+    name: "WORK_NODE.xml",
+    type: "warning",
+    code: "legacy-work-node",
+    renameTo: "legacy/.WORK_NODE.xml",
+  }]);
+});
+
 test("the public CLI defaults to deterministic Agent text and --json remains canonical", async (t) => {
   const root = await repository(t);
   const hostileSummary = "CLI project ‮TXT ‍ ️";
@@ -194,7 +212,7 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   const secondText = await execFileAsync(process.execPath, [command, "--project-root", root], { encoding: "utf8" });
   assert.equal(firstText.stderr, "");
   assert.equal(firstText.stdout, secondText.stdout);
-  assert.match(firstText.stdout, /^Sonner v10\nWork Graph: missing\nFiles:\n/);
+  assert.match(firstText.stdout, /^Sonner v11\nWork Graph: missing\nFiles:\n/);
   assert.match(firstText.stdout, /Directory path="docs"\n\s+1 md/);
   assert.match(firstText.stdout, /File path="README\.md" summary="CLI project \\u202eTXT \\u200d \\ufe0f"/);
   assert.equal(firstText.stdout.includes("\u202e"), false);
@@ -209,7 +227,7 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   assert.equal(firstJson.stdout.trim().split("\n").length, 1);
   const result = JSON.parse(firstJson.stdout);
   assert.deepEqual(Object.keys(result), ["version", "workGraph", "files", "runtime"]);
-  assert.equal(result.version, 10);
+  assert.equal(result.version, 11);
   assert.deepEqual(result.workGraph, { status: "missing" });
   assert.deepEqual(result.runtime, { status: "missing" });
   assert.deepEqual(result.files.root.children.map((node) => node.path), ["docs", "README.md"], "directories sort before files");

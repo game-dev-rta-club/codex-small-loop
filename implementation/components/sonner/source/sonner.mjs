@@ -9,7 +9,7 @@ import {
 import { buildRuntimeProjection } from "./runtime.mjs";
 import { formatSonnerText } from "./sonner-text.mjs";
 
-export const SONNER_SCHEMA_VERSION = 10;
+export const SONNER_SCHEMA_VERSION = 11;
 export const MAX_MARKDOWN_FRONTMATTER_BYTES = 64 * 1024;
 export const SONNER_TEXT_DETECTION_BYTES = SONNER_READER_TEXT_DETECTION_BYTES;
 
@@ -201,8 +201,8 @@ export function validateAndOrderWorks(works) {
 }
 
 export function loadWorkGraphRecords(records, { workUnsafe = false, directory = "project" } = {}) {
-  if (workUnsafe) graphFail(`Unsafe or changed WORK_NODE.xml metadata: ${directory}`);
-  if (records.length === 0) graphFail(`No WORK_NODE.xml files found: ${directory}`, "NO_GRAPH");
+  if (workUnsafe) graphFail(`Unsafe or changed .WORK_NODE.xml metadata: ${directory}`);
+  if (records.length === 0) graphFail(`No .WORK_NODE.xml files found: ${directory}`, "NO_GRAPH");
   return validateAndOrderWorks(records.map(({ relativePath, xml }) => parseWorkNode(xml, relativePath)));
 }
 
@@ -283,10 +283,10 @@ function publicWorkGraph(graph) {
   };
 }
 
-function directoryIndex(files) {
+function directoryIndex(entries) {
   const directories = new Set(["."]);
-  for (const file of files) {
-    const parts = file.path.split("/");
+  for (const entry of entries) {
+    const parts = entry.path.split("/");
     for (let length = 1; length < parts.length; length += 1) {
       directories.add(parts.slice(0, length).join("/"));
     }
@@ -305,15 +305,29 @@ function fileExtension(name) {
   return extension.length > 1 ? extension.slice(1).toLowerCase() : null;
 }
 
-function tree(files) {
-  const directories = directoryIndex(files);
+function legacyWarning(projectPath) {
+  const parent = parentOf(projectPath);
+  return {
+    path: projectPath,
+    name: "WORK_NODE.xml",
+    type: "warning",
+    code: "legacy-work-node",
+    renameTo: parent === null || parent === "." ? ".WORK_NODE.xml" : `${parent}/.WORK_NODE.xml`,
+  };
+}
+
+function tree(files, legacyWorkNodes = []) {
+  const warnings = legacyWorkNodes.map(legacyWarning);
+  const directories = directoryIndex([...files, ...warnings]);
   const childDirectories = new Map(directories.map((directory) => [directory, []]));
   const childFiles = new Map(directories.map((directory) => [directory, []]));
+  const childWarnings = new Map(directories.map((directory) => [directory, []]));
   for (const directory of directories) {
     const parent = parentOf(directory);
     if (parent) childDirectories.get(parent)?.push(directory);
   }
   for (const file of files) childFiles.get(parentOf(file.path) ?? ".")?.push(file);
+  for (const warning of warnings) childWarnings.get(parentOf(warning.path) ?? ".")?.push(warning);
 
   function directoryNode(directory, root = false) {
     const node = {
@@ -337,6 +351,8 @@ function tree(files) {
     const children = [
       ...(childDirectories.get(directory) ?? [])
         .map((child) => directoryNode(child))
+        .sort((left, right) => compareText(left.path, right.path)),
+      ...(childWarnings.get(directory) ?? [])
         .sort((left, right) => compareText(left.path, right.path)),
       ...filesHere
         .filter((file) => file.type === "file" && file.summary !== null)
@@ -387,13 +403,15 @@ export async function buildSonnerProject(project, {
     if (failed) throw failed.reason;
     session.throwIfAborted();
     const [reader, runtime] = settled.map((result) => result.value);
-    const files = collectFiles(reader.entries);
+    const legacyWorkNodes = reader.legacyWorkNodes ?? [];
+    const legacyPaths = new Set(legacyWorkNodes);
+    const files = collectFiles(reader.entries).filter((entry) => !legacyPaths.has(entry.path));
     const graph = graphState(reader, project.root);
     const projection = {
       version: SONNER_SCHEMA_VERSION,
       workGraph: publicWorkGraph(graph),
       files: {
-        root: tree(files),
+        root: tree(files, legacyWorkNodes),
       },
       runtime,
     };

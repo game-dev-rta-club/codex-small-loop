@@ -165,15 +165,15 @@ test("Sonner opens indexed files and Work directories and propagates opener reva
   await execFileAsync("git", ["-C", projectRoot, "init", "-q"]);
   await writeFile(path.join(projectRoot, "README.md"), "---\nsummary: Open me.\n---\n", "utf8");
   await mkdir(path.join(projectRoot, "overview"));
-  await writeFile(path.join(projectRoot, "overview/WORK_NODE.xml"),
+  await writeFile(path.join(projectRoot, "overview/.WORK_NODE.xml"),
     '<work-node id="overview" type="Overview"><summary>Overview.</summary><inputs /></work-node>\n', "utf8");
-  await execFileAsync("git", ["-C", projectRoot, "add", "README.md", "overview/WORK_NODE.xml"]);
+  await execFileAsync("git", ["-C", projectRoot, "add", "README.md", "overview/.WORK_NODE.xml"]);
   const project = await resolveProject(projectRoot);
   const calls = [];
   const nativeOpener = async (...args) => { calls.push(args); };
   await openSonnerFile(project, "README.md", { nativeOpener });
   assert.deepEqual(calls[0], [project, "README.md"]);
-  await assert.rejects(openSonnerFile(project, "overview/WORK_NODE.xml", { nativeOpener }),
+  await assert.rejects(openSonnerFile(project, "overview/.WORK_NODE.xml", { nativeOpener }),
     (error) => error.code === "SONNER_FILE_NOT_INDEXED");
   await openSonnerFile(project, "overview", { nativeOpener });
   assert.deepEqual(calls[1], [project, "overview"]);

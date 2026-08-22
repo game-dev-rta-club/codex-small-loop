@@ -216,6 +216,8 @@ button.file-row:disabled { cursor: wait; opacity: .6; }
 .file-name { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .type-file .file-name { color: #245fa8; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .type-file-counts .file-name { color: #66768a; }
+.type-warning .file-marker,
+.type-warning .file-name { color: #a15c00; }
 .file-summary { grid-column: 3; min-width: 0; padding-left: 18px; overflow: hidden; color: var(--muted); font: 12px/1.35 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 
 @media(max-width: 720px) {

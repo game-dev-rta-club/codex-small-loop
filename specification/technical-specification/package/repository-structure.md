@@ -49,7 +49,8 @@ codex-small-loop/
   .gitignore
 ```
 
-Every Work directory contains `WORK_NODE.xml`. Its stable Work ID may differ
+Every Work directory contains `.WORK_NODE.xml`. The leading dot distinguishes
+the marker as project configuration while `.xml` retains editor support. Its stable Work ID may differ
 from the directory basename, so physical organization can follow the host
 project while graph edges retain durable semantic identities. The
 `specification/` parent classifies related Works and intentionally has no
@@ -78,7 +79,7 @@ plugin rather than to one Role or Skill.
 
 ## Work Graph
 
-Every Work directory contains `WORK_NODE.xml`. Use the installed
+Every Work directory contains `.WORK_NODE.xml`. Use the installed
 [Understanding Works Skill](/implementation/skills/understanding-works/SKILL.md)
 and its one Sonner command's default Agent text to inspect current nodes, directory names,
 filenames, summaries, and traces instead of maintaining a second handwritten

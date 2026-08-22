@@ -9,7 +9,7 @@ summary: >-
 
 ## Work Contract
 
-Every Work is a meaningful project directory containing `WORK_NODE.xml`. Work
+Every Work is a meaningful project directory containing `.WORK_NODE.xml`. Work
 directories may live anywhere beneath the project root. A generic `works/`
 bucket is not part of the graph contract and should not be created merely to
 collect nodes:
@@ -39,13 +39,19 @@ collect nodes:
 - Each `input.ref` identifies a direct input Work Node used to produce the
   current output Work Node.
 
-The presence of `WORK_NODE.xml` marks a Work entry point. It does not claim
+The presence of `.WORK_NODE.xml` marks a Work entry point. It does not claim
 exclusive ownership of every descendant or require every maintained project
 file to belong to a Work. Mapping starts at the project root and discovers Work
 markers recursively while excluding generated and local-state directories. The
 marker path identifies where the Work lives; the XML ID identifies it in graph
 edges. Agents read both instead of inferring identity from the directory
 basename.
+
+The leading dot identifies the marker as project configuration while the XML
+suffix preserves editor and tooling support. The former `WORK_NODE.xml` name is
+not a graph marker. Sonner reports each occurrence as an actionable Files
+warning so its owner can rename it to `.WORK_NODE.xml`; it never silently loads
+the legacy file or mutates the project.
 
 Work directories do not require README files. Agents inspect the selected
 directory after mapping the graph. Create a README only for an external host or
@@ -56,11 +62,11 @@ instead of duplicating inventories or current state.
 
 The formal graph includes approved future Works as soon as their production
 form and causal inputs are agreed. A future Work may begin as a directory with
-only `WORK_NODE.xml`; its marker reserves neither implementation ownership nor
+only `.WORK_NODE.xml`; its marker reserves neither implementation ownership nor
 claims that the output has been produced.
 
 Graph membership expresses approved production structure. It does not express
-completion, progress, schedule, or readiness, and `WORK_NODE.xml` does not carry
+completion, progress, schedule, or readiness, and `.WORK_NODE.xml` does not carry
 a status field. Those concerns belong to project-management state outside the
 Work Graph. Changes to the approved production structure may revise the graph
 as production reveals better boundaries or causal relationships.
