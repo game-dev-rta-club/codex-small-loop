@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <work-node id="technical-specification" type="TechnicalSpecification">
-  <summary>Defines the plugin package and stable local runtime capabilities for project state, task coordination, conversations, review records, lifecycle, recovery, Desktop transport, and integrations.</summary>
+  <keyPoints>The complete plugin package automatically initializes a private project runtime for managed Tasks, Conversations, Review evidence, lifecycle recovery, Desktop transport, Board and Sonner inspection, and optional notification integrations.</keyPoints>
   <inputs>
     <input ref="interaction-specification" />
     <input ref="system-specification" />

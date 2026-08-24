@@ -7,7 +7,7 @@ description: Use from Controller before assigning a project-change Milestone, wh
 
 Build a sufficient project model for Controller before it assigns a Milestone.
 Use the Work Graph to choose context, then use the repository structure,
-atomic summaries, links, backlinks, and related names to reach the authoritative
+atomic key points, links, backlinks, and related names to reach the authoritative
 sources.
 
 Controller includes the resulting Work context in the Primary assignment.
@@ -35,7 +35,7 @@ node "<plugin-root>/components/commands/sonner.mjs" \
 
 Read the `Work Graph`, `Files`, and `Runtime` sections from the deterministic
 Agent text. A valid graph supplies every Work in deterministic topological order
-together with its summary, node path, direct inputs, and outputs. The adjacent
+together with its key points, node path, direct inputs, and outputs. The adjacent
 Files records are the shared project index; they are not
 a claim that every file belongs to a Work. Host-required configuration may live
 outside a Work without creating a graph defect.
@@ -69,14 +69,15 @@ the current request and accepted plan authorize project mutation.
 Within relevant Work directories, inspect in this order:
 
 1. directory names;
-2. filenames for summarized atomic documents;
-3. the Work summary in `.WORK_NODE.xml`;
-4. available atomic document summaries or native-format summaries;
-5. only the files whose names and summaries indicate that their bodies matter.
+2. filenames for atomic documents with `keyPoints`;
+3. the Work `keyPoints` in `.WORK_NODE.xml`;
+4. available atomic-document key points or native-format equivalents;
+5. only the files whose names and key points indicate that their bodies matter.
 
 The directory is a live information map. Prefer it to a handwritten inventory.
-An atomic summary should let an agent decide whether to open the full document.
-Only files with an extracted atomic summary retain their names. Every other
+The collected key points should provide the main current model without opening
+full bodies; open a body when the decision needs its supporting detail. Only
+files with extracted atomic `keyPoints` retain their names. Every other
 file appears only in its direct directory's compact extension/count line and
 relies on directory placement and surrounding Work context.
 

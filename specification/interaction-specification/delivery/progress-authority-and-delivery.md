@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define the user-visible distinction among progress, blockers, authority
-  requests, and final evidence-backed delivery.
+keyPoints: >-
+  Controller is the only user interaction boundary during execution. Routine
+  progress stays internal, external attention is reserved for an unrecoverable
+  stop, verified completion, or critical information, and final delivery names
+  the exact result with material changes, review evidence, checks, and limits.
 ---
 
 # Progress, Authority, And Delivery

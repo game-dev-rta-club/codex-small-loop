@@ -122,7 +122,7 @@ function formatWorkGraph(workGraph, lines) {
     lines.push(
       `  Work id=${quoted(work.id)} type=${quoted(work.type)} node=${quoted(work.nodePath)}`
       + ` inputs=${stringList(work.inputs)} outputs=${stringList(work.outputs)}`
-      + ` summary=${quoted(work.summary)}`,
+      + ` keyPoints=${quoted(work.keyPoints)}`,
     );
   }
 }
@@ -136,8 +136,8 @@ function formatFileNode(node, lines, depth) {
     return;
   }
   if (type === "file") {
-    if (typeof node.summary !== "string" || node.summary.length === 0) throw new TypeError("Invalid file summary");
-    lines.push(`${indentation}File path=${quoted(node.path)} summary=${quoted(node.summary)}`);
+    if (typeof node.keyPoints !== "string" || node.keyPoints.length === 0) throw new TypeError("Invalid file keyPoints");
+    lines.push(`${indentation}File path=${quoted(node.path)} keyPoints=${quoted(node.keyPoints)}`);
     return;
   }
   if (type === "warning") {

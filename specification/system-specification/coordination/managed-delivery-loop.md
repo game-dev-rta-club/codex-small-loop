@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   The Managed Delivery Loop composes user handling, project ownership,
   implementation, independent review, and finding clarification into one
   retained trajectory from agreement to verified delivery.

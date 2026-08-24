@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Install Codex Small Loop as a Codex plugin, then start it explicitly from the
   Codex Desktop + menu or with a direct natural-language instruction. Refresh
   an inactive installed copy by upgrading its Git marketplace, removing and

@@ -1,6 +1,8 @@
 ---
-summary: >-
-  Define the local Board shell and its Activity and Sonner views.
+keyPoints: >-
+  Controller opens the project Board after plan agreement. Activity preserves
+  the selected execution history while Sonner presents the current Work Graph,
+  key-point Files index, and Runtime state in separate read-only views.
 ---
 
 # Local Board
@@ -45,7 +47,7 @@ the orthogonal routes without changing their placement. The graph region owns bo
 scroll axes and consumes the available panel height; the detail row stays
 visible below it instead of extending the page. Every compact card shows only
 its one-line Work ID. Click or keyboard activation selects it and updates the detail region;
-the card coordinates and connections do not move. The detail reveals summary, node path,
+the card coordinates and connections do not move. The detail reveals key points, node path,
 direct inputs, and outputs without opening a path. An empty relationship is
 shown as `—`; each named input or output is a keyboard-operable link that
 selects and reveals that Work without re-running layout. Compact minus,
@@ -62,10 +64,12 @@ The Files tab contains one collapsible tree. Root entries are visible
 immediately, folders sort before files, and every
 child directory starts collapsed. Folder disclosure toggles and file icons make
 their types distinct without badges or graph-status labels. Only files with a
-Markdown summary appear by name, with that summary in a single aligned column
+Markdown `keyPoints` appear by name, with those key points in a single aligned column
 that truncates when space is tight. Every other file is absent by name and its
-direct parent contains one compact count row such as `53 png, 53 meta`. File
-bodies and unsummarized filenames are never exposed.
+direct parent contains one extension count per line, without a leading aggregate
+symbol. The same projection retains those counts as separate JSON array entries;
+only the plain-text CLI joins them with commas, such as `53 png, 53 meta`. File
+bodies and filenames without key points are never exposed.
 
 Clicking a folder toggles it. Clicking a file once asks the local Host to open
 that indexed regular-file object with the operating system's default

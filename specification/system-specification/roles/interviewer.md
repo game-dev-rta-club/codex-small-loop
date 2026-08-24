@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   interviewer discusses one required-Signal problem context with one originating
   Reviewer and records actionable guidance before Execute.
 ---

@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Verified delivery defines completion as agreement among the deliverable,
   independent review, required corrections, and relevant execution evidence.
 ---

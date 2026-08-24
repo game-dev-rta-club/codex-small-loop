@@ -1,7 +1,7 @@
 ---
-summary: >-
+keyPoints: >-
   The repository marketplace points to implementation/, which is the complete
-  installable Codex plugin and the project's Implementation Work.
+  installable Codex plugin and the project's Plugin Output Work.
 ---
 
 # Plugin Distribution
@@ -15,7 +15,7 @@ Codex discovers Skills from `skills/`; `handling-user-requests` renders initial
 setup and then resolves Controller, while the other Skills support later Role
 work and CLI commands beneath `components/`. Shared Welcome Board material
 lives in `contents/welcome/`, independent of any Role or Skill. Assets, third-party
-sources, notices, and tests remain in the same Implementation Work. Installation
+sources, notices, and tests remain in the same Plugin Output Work. Installation
 therefore needs no copied root-level entry points or generated projection.
 
 The packaged command surface includes `components/commands/sonner.mjs` as the
@@ -28,7 +28,7 @@ schemas. The same Sonner distribution packages portable Windows readers alongsid
 ad-hoc-signed universal macOS helper
 that receives the verified project Root as fd 3. Protocol v2 runs fixed
 standard-Git admission from that Root cwd and then performs bounded,
-descriptor-relative no-follow reads for Markdown summaries and Work markers;
+descriptor-relative no-follow reads for Markdown key points and Work markers;
 the installed plugin never compiles it at runtime. Windows selects the portable
 reader before any Mach-O inspection, runs Git directly without a shell, and
 uses bounded no-link reads with Root, ancestor, and final identity
@@ -59,7 +59,7 @@ inspecting or spawning this macOS-only helper.
 The manifest version identifies every byte in the complete installable
 `implementation/` distribution. It is assigned only after packaged bytes are
 final, and any later package change requires a newly assigned version. This
-identity includes the Sonner schema v11 command and implementation, its default Agent
+identity includes the Sonner schema v12 command and implementation, its default Agent
 plaintext formatter and hostile-input tests, the explicit canonical `--json`
 serializer shared with the Browser API, and the formatter's pinned Unicode 16.0
 display-boundary table and source provenance. It also includes the static Work

@@ -107,7 +107,7 @@ test("Sonner API authorizes the canonical project and returns the CLI projection
   const projectRoot = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-board-sonner-"));
   t.after(() => rm(projectRoot, { recursive: true, force: true }));
   await execFileAsync("git", ["-C", projectRoot, "init", "-q"]);
-  await writeFile(path.join(projectRoot, "README.md"), "---\nsummary: Shared projection.\n---\n# Project\n", "utf8");
+  await writeFile(path.join(projectRoot, "README.md"), "---\nkeyPoints: Shared projection.\n---\n# Project\n", "utf8");
   await execFileAsync("git", ["-C", projectRoot, "add", "README.md"]);
   const expected = await buildSonner(projectRoot);
   const project = await resolveProject(projectRoot);
@@ -163,10 +163,10 @@ test("Sonner opens indexed files and Work directories and propagates opener reva
   const projectRoot = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-board-open-file-"));
   t.after(() => rm(projectRoot, { recursive: true, force: true }));
   await execFileAsync("git", ["-C", projectRoot, "init", "-q"]);
-  await writeFile(path.join(projectRoot, "README.md"), "---\nsummary: Open me.\n---\n", "utf8");
+  await writeFile(path.join(projectRoot, "README.md"), "---\nkeyPoints: Open me.\n---\n", "utf8");
   await mkdir(path.join(projectRoot, "overview"));
   await writeFile(path.join(projectRoot, "overview/.WORK_NODE.xml"),
-    '<work-node id="overview" type="Overview"><summary>Overview.</summary><inputs /></work-node>\n', "utf8");
+    '<work-node id="overview" type="Overview"><keyPoints>The project begins from this Overview.</keyPoints><inputs /></work-node>\n', "utf8");
   await execFileAsync("git", ["-C", projectRoot, "add", "README.md", "overview/.WORK_NODE.xml"]);
   const project = await resolveProject(projectRoot);
   const calls = [];
@@ -182,8 +182,8 @@ test("Sonner opens indexed files and Work directories and propagates opener reva
   await assert.rejects(openSonnerFile(project, "missing.md", { nativeOpener }),
     (error) => error.code === "SONNER_FILE_NOT_INDEXED");
 
-  const indexedProjection = { version: 10, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory",
-    children: [{ path: "README.md", name: "README.md", type: "file", summary: "Open me." }] } }, runtime: { status: "missing" } };
+  const indexedProjection = { version: 12, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory",
+    children: [{ path: "README.md", name: "README.md", type: "file", keyPoints: "Open me." }] } }, runtime: { status: "missing" } };
   await assert.rejects(openSonnerFile(project, "README.md", {
     sonnerLoader: async () => indexedProjection,
     nativeOpener: async () => { const error = new Error("changed"); error.code = "SONNER_FILE_INVALID"; throw error; },
@@ -221,8 +221,8 @@ test("Host verification followed by permanent Root replacement returns bounded S
   t.after(() => rm(parent, { recursive: true, force: true }));
   const projectRoot = path.join(parent, "project"); const moved = path.join(parent, "authorized"); const replacement = path.join(parent, "replacement");
   for (const directory of [projectRoot, replacement]) { await mkdir(directory); await execFileAsync("git", ["-C", directory, "init", "-q"]); }
-  await writeFile(path.join(projectRoot, "README.md"), "---\nsummary: Authorized.\n---\n"); await execFileAsync("git", ["-C", projectRoot, "add", "README.md"]);
-  await writeFile(path.join(replacement, "README.md"), "---\nsummary: REPLACEMENT_CROSSED_AUTH\n---\n"); await execFileAsync("git", ["-C", replacement, "add", "README.md"]);
+  await writeFile(path.join(projectRoot, "README.md"), "---\nkeyPoints: Authorized.\n---\n"); await execFileAsync("git", ["-C", projectRoot, "add", "README.md"]);
+  await writeFile(path.join(replacement, "README.md"), "---\nkeyPoints: REPLACEMENT_CROSSED_AUTH\n---\n"); await execFileAsync("git", ["-C", replacement, "add", "README.md"]);
   const project = await resolveProject(projectRoot); let replaced = false;
   const { server, url } = await listenBoard({ projectResolver: async (key) => {
     if (key !== project.key) return null;
@@ -261,7 +261,7 @@ test("resolver key mismatch and downgraded pathname authority never reach loader
 test("Sonner shares project single-flight and the exact response-byte bound", async (t) => {
   const projectRoot = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-board-sonner-bound-"));
   t.after(() => rm(projectRoot, { recursive: true, force: true }));
-  const projection = { version: 10, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory", children: [] } }, runtime: { status: "missing" } };
+  const projection = { version: 12, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory", children: [] } }, runtime: { status: "missing" } };
   const exactBytes = Buffer.byteLength(serializeSonner(projection));
   const gate = deferred();
   const started = deferred();
@@ -301,7 +301,7 @@ test("failed Sonner response keeps 429 admission until loader cleanup settles", 
   const cleanupStarted = deferred();
   const cleanup = deferred();
   let calls = 0;
-  const projection = { version: 10, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory", children: [] } }, runtime: { status: "missing" } };
+  const projection = { version: 12, workGraph: { status: "missing" }, files: { root: { path: ".", name: ".", type: "directory", children: [] } }, runtime: { status: "missing" } };
   const { server, url } = await listenBoard({
     projectRoot,
     sonnerLoader: async () => {

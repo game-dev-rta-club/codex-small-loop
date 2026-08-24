@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   codex-small-loop:sending-user-notifications lets Controller send one-way user
   attention for unrecoverable stop, verified completion, or information that
   absolutely must not be missed.

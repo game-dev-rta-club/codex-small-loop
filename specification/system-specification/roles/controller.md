@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Controller advances Codex Small Loop to completion and reports progress,
   decisions, and completion to the user.
 ---

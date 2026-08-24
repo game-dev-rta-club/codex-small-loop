@@ -84,7 +84,7 @@ test("one shared document owns Review Signal evaluation", async () => {
     "implementation/contents/review/signal-evaluation.md",
   );
 
-  assert.match(evaluation, /^---\nsummary:/);
+  assert.match(evaluation, /^---\nkeyPoints:/);
   assert.match(evaluation, /Development Efficiency/i);
   assert.match(evaluation, /User Experience/i);
   assert.match(evaluation, /environment[\s\S]*documentation[\s\S]*rules/i);
@@ -227,7 +227,7 @@ test("Primary judgment and delegated detail work use resolved separate profiles"
 test("controller mediates every user-facing exchange without implementing", async () => {
   const controller = await read("implementation/components/roles/controller/role.md");
 
-  assert.match(controller, /^---\nsummary:/);
+  assert.match(controller, /^---\nkeyPoints:/);
   assert.match(controller, /Controller Job Role/i);
   assert.match(controller, /user intent/i);
   assert.match(controller, /interview/i);
@@ -881,7 +881,7 @@ test("Sonner ships the pinned EPL-2.0 ELK browser layout artifact", async () => 
 test("primary role is explicitly installed", async () => {
   const primary = await read("implementation/components/roles/primary/role.md");
 
-  assert.match(primary, /^---\nsummary:/);
+  assert.match(primary, /^---\nkeyPoints:/);
   assert.doesNotMatch(primary, /default job role|no (explicit )?job role|unspecified/i);
   assert.match(primary, /Milestone trajectory/i);
   assert.match(primary, /one delegated Milestone/i);
@@ -1034,7 +1034,7 @@ test("execute and review roles are explicitly installed", async () => {
     "implementation/components/roles/review/role.md",
   );
 
-  assert.match(execute, /^---\nsummary:/);
+  assert.match(execute, /^---\nkeyPoints:/);
   assert.match(execute, /Job Role/i);
   assert.match(execute, /modify/i);
   assert.match(execute, /assignment/i);
@@ -1061,7 +1061,7 @@ test("execute and review roles are explicitly installed", async () => {
   assert.match(execute, /working-with-codex-tasks[\s\S]*reply/is);
   assert.doesNotMatch(execute, /correction uses a fresh Execute/i);
 
-  assert.match(review, /^---\nsummary:/);
+  assert.match(review, /^---\nkeyPoints:/);
   assert.match(review, /Job Role/i);
   assert.match(review, /read-only/i);
   assert.match(review, /must not modify|does not modify/i);
@@ -1113,7 +1113,7 @@ test("interviewer turns required Review Signals into implementation guidance", a
     "implementation/components/runtime/templates/signals/review-signal.md",
   );
 
-  assert.match(interviewer, /^---\nsummary:/);
+  assert.match(interviewer, /^---\nkeyPoints:/);
   assert.match(interviewer, /Interviewer Job Role/i);
   assert.match(interviewer, /existing Reviewer Task/i);
   assert.match(
@@ -1759,7 +1759,7 @@ test("current project Works form an Overview-rooted graph", async () => {
   );
   assert.equal(map.status, 0, map.stderr);
   const sonner = JSON.parse(map.stdout);
-  assert.equal(sonner.version, 11);
+  assert.equal(sonner.version, 12);
   assert.equal(sonner.workGraph.status, "valid");
   const works = sonner.workGraph.works;
   assert.equal(works.filter((work) => work.type === "Overview").length, 1);
@@ -1798,21 +1798,21 @@ test("current project Works form an Overview-rooted graph", async () => {
 
   const overviewNode = await read("overview/.WORK_NODE.xml");
   assert.match(overviewNode, /<work-node id="overview" type="Overview">/);
-  assert.match(overviewNode, /<summary>[^<]+<\/summary>/);
+  assert.match(overviewNode, /<keyPoints>[^<]+<\/keyPoints>/);
   assert.match(overviewNode, /<inputs\s*\/>/);
   assert.equal(await exists(".WORK_NODE.xml"), false);
   assert.equal(await exists("works"), false);
 
   const implementationNode = await read("implementation/.WORK_NODE.xml");
-  assert.match(implementationNode, /<work-node id="implementation" type="Implementation">/);
-  assert.match(implementationNode, /<summary>[^<]*seven Skills[^<]*Sonner project inspection[^<]*<\/summary>/);
+  assert.match(implementationNode, /<work-node id="implementation" type="PluginOutput">/);
+  assert.match(implementationNode, /<keyPoints>[^<]*seven skills[^<]*Board and Sonner[^<]*<\/keyPoints>/i);
   assert.doesNotMatch(implementationNode, /Work mapper/i);
   assert.match(implementationNode, /<input ref="interaction-specification"\s*\/>/);
   assert.match(implementationNode, /<input ref="system-specification"\s*\/>/);
   assert.match(implementationNode, /<input ref="technical-specification"\s*\/>/);
 
   const systemNode = await read("specification/system-specification/.WORK_NODE.xml");
-  assert.match(systemNode, /<summary>[^<]*five job roles[^<]*seven skills[^<]*<\/summary>/i);
+  assert.match(systemNode, /<keyPoints>[^<]*Controller[^<]*Primary[^<]*four independent Reviews[^<]*<\/keyPoints>/i);
   assert.doesNotMatch(systemNode, /eight skills/i);
 
   const implementationEntries = await readdir(
@@ -1836,15 +1836,22 @@ test("current project Works form an Overview-rooted graph", async () => {
   const repositoryStructure = await read(
     "specification/technical-specification/package/repository-structure.md",
   );
-  assert.match(repositoryStructure, /^---\nsummary:/);
+  assert.match(repositoryStructure, /^---\nkeyPoints:/);
   assert.match(repositoryStructure, /plugin/i);
-  assert.match(repositoryStructure, /skills\/\s+# Complete six-Skill specification inventory/);
-  assert.doesNotMatch(repositoryStructure, /seven-Skill specification inventory/i);
+  assert.match(repositoryStructure, /skills\/\s+# Complete seven-Skill specification inventory/);
+  assert.doesNotMatch(repositoryStructure, /six-Skill specification inventory/i);
+
+  const userDocumentationNode = await read("user-documentation/.WORK_NODE.xml");
+  assert.match(
+    userDocumentationNode,
+    /<work-node id="user-documentation" type="UserDocumentationOutput">/,
+  );
+  assert.match(userDocumentationNode, /<input ref="implementation"\s*\/>/);
 
   const testing = await read(
     "implementation/testing.md",
   );
-  assert.match(testing, /^---\nsummary:/);
+  assert.match(testing, /^---\nkeyPoints:/);
   assert.match(testing, /Do not build automated E2E tests/i);
   assert.match(testing, /each part can be tested independently/i);
   assert.match(testing, /final end-to-end check manually/i);
@@ -1852,7 +1859,7 @@ test("current project Works form an Overview-rooted graph", async () => {
   const deliveryLoop = await read(
     "specification/system-specification/coordination/managed-delivery-loop.md",
   );
-  assert.match(deliveryLoop, /^---\nsummary:/);
+  assert.match(deliveryLoop, /^---\nkeyPoints:/);
   assert.match(deliveryLoop, /job role/i);
   assert.match(deliveryLoop, /fresh Execute owns each Milestone/i);
   assert.match(deliveryLoop, /four Review\s+responsibilities/i);
@@ -1860,13 +1867,13 @@ test("current project Works form an Overview-rooted graph", async () => {
   const authority = await read(
     "product-concept/authority-gated-autonomy.md",
   );
-  assert.match(authority, /^---\nsummary:/);
+  assert.match(authority, /^---\nkeyPoints:/);
   assert.match(authority, /authority-gated autonomy/i);
 
   const taskAutomation = await read(
     "specification/system-specification/coordination/task-coordination.md",
   );
-  assert.match(taskAutomation, /^---\nsummary:/);
+  assert.match(taskAutomation, /^---\nkeyPoints:/);
   assert.match(taskAutomation, /Task Coordination/i);
   assert.match(taskAutomation, /managed Task/i);
   assert.match(taskAutomation, /Conversation/i);
@@ -2126,7 +2133,7 @@ test("public task flow replaces the first-task-only page", async () => {
   assert.match(install, /Slack/i);
   assert.match(install, /required/i);
   assert.match(install, /reminder/i);
-  assert.match(runTask, /^---\nsummary:/);
+  assert.match(runTask, /^---\nkeyPoints:/);
   assert.match(runTask, /interview/i);
   assert.match(runTask, /plan/i);
   assert.match(runTask, /agreement|agree/i);
@@ -2293,7 +2300,7 @@ test("skill UI identifiers and invocations use the plugin namespace", async () =
   }
 });
 
-test("plugin marketplace installs the Implementation Work", async () => {
+test("plugin marketplace installs the Plugin Output Work", async () => {
   const marketplace = JSON.parse(
     await read(".agents/plugins/marketplace.json"),
   );
@@ -2314,7 +2321,7 @@ test("Obsidian vault state stays outside version control", async () => {
   assert.match(gitignore, /^\.obsidian\/$/m);
 });
 
-test("host-constrained skills remain at the Implementation plugin root", async () => {
+test("host-constrained skills remain at the Plugin Output root", async () => {
   const skillEntries = await readdir(
     path.join(repositoryRoot, "implementation", "skills"),
     { withFileTypes: true },
@@ -2542,7 +2549,7 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   assert.match(portable, /shell:\s*false/);
   assert.match(portable, /revalidateAncestors/);
   assert.doesNotMatch(portable, /\.\.\.environment/);
-  assert.match(projection, /SONNER_SCHEMA_VERSION = 11/);
+  assert.match(projection, /SONNER_SCHEMA_VERSION = 12/);
   assert.match(projection, /version: SONNER_SCHEMA_VERSION,[\s\S]*workGraph:[\s\S]*files:[\s\S]*runtime,/);
   assert.match(projection, /outputs:/);
   assert.match(projection, /options\.json \? serializeSonner\(projection\) : formatSonnerText\(projection\)/);
@@ -2613,7 +2620,7 @@ test("Sonner packages descriptor-anchored Runtime and history readers", async ()
   assert.doesNotMatch(historySource, /CODEX_HOME|archived_sessions|\/Users\//);
 });
 
-test("Sonner closure keeps schema v11 and flat active Runtime surfaces free of retired contracts", async () => {
+test("Sonner closure keeps schema v12 and flat active Runtime surfaces free of retired contracts", async () => {
   const creating = await read("implementation/skills/creating-and-maintaining-works/SKILL.md");
   const lifecycleTests = await read("implementation/components/sonner/tests/sonner-lifecycle.test.mjs");
   const serverTests = await read("implementation/components/board/tests/board-server.test.mjs");
@@ -2624,7 +2631,7 @@ test("Sonner closure keeps schema v11 and flat active Runtime surfaces free of r
   assert.match(creating, /does not automatically load `understanding-works`, run\s+Sonner/i);
   assert.doesNotMatch(creating, /Work Graph mapper/i);
   assert.doesNotMatch(serverTests, /\bversion:\s*6\b/);
-  assert.match(serverTests, /\bversion:\s*10\b/);
+  assert.match(serverTests, /\bversion:\s*12\b/);
   assert.match(lifecycleTests, /health:\s*"unknown", reasons:\s*\["observation_failed"\], tasks:\s*\[\]/);
   assert.doesNotMatch(lifecycleTests, /health:\s*"unknown", settled:|counts:\s*\{\}, roots:/);
   assert.match(html, /id="runtime-task-list"[^>]*class="runtime-task-list"/);
@@ -2777,7 +2784,7 @@ test("Work skills separate project understanding from mutation", async () => {
   assert.match(understanding, /Primary, Execute, Review, and Interviewer do not invoke this skill again/i);
   assert.match(understanding, /Work Graph/i);
   assert.match(understanding, /WORK_NODE\.xml/i);
-  assert.match(understanding, /directory names[\s\S]*filenames[\s\S]*summar/is);
+  assert.match(understanding, /directory names[\s\S]*filenames[\s\S]*key points/is);
   assert.match(understanding, /explicit repository-root-relative Markdown links/i);
   assert.match(understanding, /backlinks/i);
   assert.match(understanding, /same or clearly shared descriptive name/i);
@@ -2800,7 +2807,7 @@ test("Work skills separate project understanding from mutation", async () => {
   assert.match(creating, /user agreement/i);
   assert.match(creating, /does not require perfect[\s\S]*file-level traceability/i);
   assert.match(creating, /force every file into a Work/i);
-  assert.match(creating, /parallel binding database/i);
+  assert.match(creating, /parallel binding\s+database/i);
 
   assert.equal(await exists("implementation/skills/reading-docs"), false);
   assert.equal(await exists("implementation/skills/writing-docs"), false);
@@ -2811,7 +2818,7 @@ test("Work Graph knowledge supports media-independent project grounding", async 
     "implementation/skills/understanding-works/references/work-graph.md",
   );
 
-  assert.match(graph, /^---\nsummary:/);
+  assert.match(graph, /^---\nkeyPoints:/);
   assert.match(graph, /maintained production output/i);
   assert.match(graph, /exactly one `Overview`/i);
   assert.match(
@@ -2834,18 +2841,20 @@ test("Atomic Documentation is designed backward from fast reading", async () => 
     "implementation/skills/creating-and-maintaining-works/references/atomic-documentation.md",
   );
 
-  assert.match(atomic, /^---\nsummary:/);
+  assert.match(atomic, /^---\nkeyPoints:/);
   assert.match(atomic, /write-side contract for fast project grounding/i);
   assert.match(atomic, /one independently nameable knowledge responsibility/i);
-  assert.match(atomic, /filename[\s\S]*and summar(?:y|ies) distinguish it/i);
+  assert.match(atomic, /filename[\s\S]*and key points distinguish it/i);
   assert.match(atomic, /independent reasons to change/i);
   assert.match(atomic, /different downstream consumers/i);
   assert.match(atomic, /not the smallest possible file/i);
-  assert.match(atomic, /directory structure, filenames, and summaries[\s\S]*project map/i);
+  assert.match(atomic, /directory structure, filenames, and key points[\s\S]*project map/i);
   assert.match(atomic, /README, index, or directory-named document/i);
   assert.match(atomic, /duplicates that map and can become stale/i);
   assert.match(atomic, /distinct audience/i);
-  assert.match(atomic, /native summaries[\s\S]*when they are natural/i);
+  assert.match(atomic, /native key-point metadata[\s\S]*when it is natural/i);
+  assert.match(atomic, /current main specification, decisions, behavior/i);
+  assert.match(atomic, /Write the content itself/i);
   assert.match(atomic, /one canonical document/i);
 });
 
@@ -2878,21 +2887,21 @@ test("reference docs record the detailed runtime contracts", async () => {
     "specification/system-specification/skills/working-with-codex-tasks.md",
   );
 
-  assert.match(activation, /^---\nsummary:/);
+  assert.match(activation, /^---\nkeyPoints:/);
   assert.match(activation, /handling-user-requests/i);
   assert.match(activation, /Markdown guide[\s\S]*Controller Role/i);
   assert.match(activation, /no project.*investigation[\s\S]*before the guide/i);
-  assert.match(handling, /^---\nsummary:/);
+  assert.match(handling, /^---\nkeyPoints:/);
   assert.match(handling, /entry point/i);
   assert.match(handling, /welcome/i);
   assert.match(handling, /components\/commands\/role\.mjs controller/i);
   assert.match(handling, /Controller[\s\S]*interview/i);
-  assert.match(loadingRole, /^---\nsummary:/);
+  assert.match(loadingRole, /^---\nkeyPoints:/);
   assert.match(
     loadingRole,
     /components\/roles\/(?:primary|<role>)\/role\.md/i,
   );
-  assert.match(primary, /^---\nsummary:/);
+  assert.match(primary, /^---\nkeyPoints:/);
   assert.match(primary, /primary trajectory/i);
   assert.match(primary, /direct parent/i);
   assert.match(primary, /Conversation Initiator evaluates each reply/i);
@@ -2901,13 +2910,13 @@ test("reference docs record the detailed runtime contracts", async () => {
     primary,
     /https:\/\/github\.com\/lopopolo\/harness-engineering\/blob\/226c8d35fb6ea3ed55467753dba6dea2b5fd5778\/docs\/whole-job\/README\.md/,
   );
-  assert.match(handlingRole, /^---\nsummary:/);
+  assert.match(handlingRole, /^---\nkeyPoints:/);
   assert.match(handlingRole, /Controller[\s\S]*verification/i);
   assert.match(
     handlingRole,
     /Controller does not modify project files or directly operate Primary's[\s\S]*children/is,
   );
-  assert.match(messageRouting, /^---\nsummary:/);
+  assert.match(messageRouting, /^---\nkeyPoints:/);
   assert.match(messageRouting, /turn\/steer/i);
   assert.match(messageRouting, /Fail-Closed Rules/i);
   assert.match(messageRouting, /managed exchanges/i);
@@ -2950,7 +2959,7 @@ test("reference docs record the detailed runtime contracts", async () => {
   assert.doesNotMatch(messageRouting, /supplies the sender's explicit Agent name/i);
   assert.match(messageRouting, /32 MiB/i);
   assert.match(messageRouting, /exact Conversation ID and `conversation reply` command/is);
-  assert.match(coordination, /^---\nsummary:/);
+  assert.match(coordination, /^---\nkeyPoints:/);
   assert.match(coordination, /working-with-codex-tasks/i);
   assert.match(coordination, /Parent[\s\S]*Task ID/i);
   assert.match(coordination, /owns Agent-facing mechanics/i);
@@ -2959,7 +2968,7 @@ test("reference docs record the detailed runtime contracts", async () => {
     /Initiator starts an exchange[\s\S]*reply[\s\S]*continues or accepts/i,
   );
   assert.doesNotMatch(coordination, /task\.mjs accept|task accept/i);
-  assert.match(notifications, /^---\nsummary:/);
+  assert.match(notifications, /^---\nkeyPoints:/);
   assert.match(notifications, /parent/i);
   assert.match(notifications, /Controller/i);
   assert.match(notifications, /Slack/i);
@@ -2983,7 +2992,7 @@ test("authority-gated autonomy keeps work moving and escalates only authority", 
     "product-concept/authority-gated-autonomy.md",
   );
 
-  assert.match(concept, /^---\nsummary:/);
+  assert.match(concept, /^---\nkeyPoints:/);
   assert.match(concept, /authority-gated autonomy/i);
   assert.match(concept, /explicit authority/i);
   assert.match(concept, /consequential/i);
@@ -3009,7 +3018,7 @@ test("Work Graph documents expose distributed markers without Task coupling", as
     "specification/system-specification/work-graph/contract.md",
   );
 
-  assert.match(concept, /^---\nsummary:/);
+  assert.match(concept, /^---\nkeyPoints:/);
   assert.match(concept, /WORK_NODE\.xml/i);
   assert.match(concept, /meaningful project directory/i);
   assert.match(concept, /Work ID is independent of the containing directory/i);
@@ -3017,13 +3026,13 @@ test("Work Graph documents expose distributed markers without Task coupling", as
   assert.match(concept, /does not mean.*complete|does not indicate.*completion/is);
   assert.doesNotMatch(concept, /\bTask\b/);
 
-  assert.match(contract, /^---\nsummary:/);
+  assert.match(contract, /^---\nkeyPoints:/);
   assert.match(contract, /WORK_NODE\.xml/i);
   assert.match(contract, /id.*independent of the containing directory name/is);
   assert.match(contract, /do not require README files/i);
   assert.match(contract, /project root/i);
   assert.match(contract, /does not claim[\s\S]*every maintained project[\s\S]*file to belong to a Work/i);
-  assert.match(contract, /atomic[\s\S]*summaries/i);
+  assert.match(contract, /atomic key[\s\S]*points/i);
   assert.match(contract, /backlinks/i);
   assert.match(contract, /shared names/i);
   assert.match(contract, /approved future Works/i);
@@ -3042,11 +3051,11 @@ test("easy grounding routes Controller context to every milestone agent", async 
     "implementation/skills/creating-and-maintaining-works/SKILL.md",
   );
 
-  assert.match(concept, /^---\nsummary:/);
+  assert.match(concept, /^---\nkeyPoints:/);
   assert.match(concept, /grounding/i);
   assert.match(concept, /working model|working context/i);
   assert.match(concept, /before.*(decid|act)/is);
-  assert.match(concept, /summary/i);
+  assert.match(concept, /key points/i);
   assert.match(concept, /one command|single command/i);
   assert.match(concept, /sonner\.mjs/i);
   assert.match(concept, /link/i);

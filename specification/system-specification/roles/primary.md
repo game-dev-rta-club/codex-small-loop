@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Primary stores one delegated Milestone's knowledge, coordinates execution and
   four complementary reviews, and returns its exact accepted state to Controller.
 ---

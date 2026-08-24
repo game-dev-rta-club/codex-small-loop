@@ -42,8 +42,8 @@ async function git(root, ...arguments_) {
   return exec("git", ["-C", root, ...arguments_]);
 }
 
-function marker(summary = "Original graph summary.") {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<work-node id="docs" type="Overview">\n  <summary>${summary}</summary>\n  <inputs></inputs>\n</work-node>\n`;
+function marker(keyPoints = "Original graph keyPoints.") {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<work-node id="docs" type="Overview">\n  <keyPoints>${keyPoints}</keyPoints>\n  <inputs></inputs>\n</work-node>\n`;
 }
 
 async function fixture(t) {
@@ -58,10 +58,10 @@ async function fixture(t) {
   await git(root, "init", "-q");
   await mkdir(path.join(root, "docs"), { recursive: true });
   await writeFile(path.join(root, "docs", ".WORK_NODE.xml"), marker());
-  await writeFile(path.join(root, "docs", "secret.md"), `---\nsummary: ${ORIGINAL}\n---\n# Original\n`);
+  await writeFile(path.join(root, "docs", "secret.md"), `---\nkeyPoints: ${ORIGINAL}\n---\n# Original\n`);
   await mkdir(path.join(external, "docs"), { recursive: true });
   await writeFile(path.join(external, "docs", ".WORK_NODE.xml"), marker(EXTERNAL));
-  await writeFile(path.join(external, "docs", "secret.md"), `---\nsummary: ${EXTERNAL}\n---\n`);
+  await writeFile(path.join(external, "docs", "secret.md"), `---\nkeyPoints: ${EXTERNAL}\n---\n`);
   await git(root, "add", "docs");
   return { root, external, movedRoot };
 }
@@ -91,7 +91,7 @@ test("packaged helper is executable, signed universal arm64/x86_64, and reads pr
   await exec("/usr/bin/codesign", ["--verify", "--strict", PACKAGED_SONNER_PROJECT_READER], { env: {} });
   const { root } = await fixture(t);
   const result = await buildSonner(root);
-  assert.equal(find(result.files.root, "docs/secret.md").summary, ORIGINAL);
+  assert.equal(find(result.files.root, "docs/secret.md").keyPoints, ORIGINAL);
 });
 
 test("request contains Root identity but never its pathname and rejects path/count/output over-bounds", async (t) => {
@@ -144,7 +144,7 @@ test("static final and ancestor symlinks never expose target bytes", async (t) =
     const result = await candidate(root);
     serialized(result);
     assert.deepEqual(result.workGraph, { status: "invalid" });
-    assert.equal(find(result.files.root, "docs/secret.md").summary, ORIGINAL);
+    assert.equal(find(result.files.root, "docs/secret.md").keyPoints, ORIGINAL);
   });
 });
 
@@ -174,7 +174,7 @@ test("Markdown Root, ancestor, final-open, opened-file, and in-place read transi
       } });
       serialized(result); assert.equal(changed, true);
       const file = find(result.files.root, "docs/secret.md");
-      if (expected === "original") assert.equal(file.summary, ORIGINAL);
+      if (expected === "original") assert.equal(file.keyPoints, ORIGINAL);
       else assert.equal(file, null);
     });
   }
@@ -185,11 +185,11 @@ test("Markdown Root, ancestor, final-open, opened-file, and in-place read transi
       if (!changed && value === "after-root-adopt") {
         changed = true; await rename(tree.root, tree.movedRoot); await mkdir(tree.root);
         await mkdir(path.join(tree.root, "docs"));
-        await writeFile(path.join(tree.root, "docs", "secret.md"), `---\nsummary: ${EXTERNAL}\n---\n`);
+        await writeFile(path.join(tree.root, "docs", "secret.md"), `---\nkeyPoints: ${EXTERNAL}\n---\n`);
       }
     } });
     serialized(result); assert.equal(changed, true);
-    assert.equal(find(result.files.root, "docs/secret.md").summary, ORIGINAL);
+    assert.equal(find(result.files.root, "docs/secret.md").keyPoints, ORIGINAL);
   });
 
   await t.test("Root replacement before descriptor open fails the whole projection", async (t) => {
@@ -197,7 +197,7 @@ test("Markdown Root, ancestor, final-open, opened-file, and in-place read transi
     await assert.rejects(candidate(tree.root, { openImpl: async (filename, flags) => {
       if (!changed) {
         changed = true; await rename(tree.root, tree.movedRoot); await mkdir(tree.root);
-        await writeFile(path.join(tree.root, "external.md"), `---\nsummary: ${EXTERNAL}\n---\n`);
+        await writeFile(path.join(tree.root, "external.md"), `---\nkeyPoints: ${EXTERNAL}\n---\n`);
       }
       return open(filename, flags);
     } }), { code: "SONNER_PROJECT_READER_UNAVAILABLE" });
@@ -232,7 +232,7 @@ test("unsafe Work discovery/open/read replacements invalidate Work without hidin
       serialized(result); assert.equal(changed, true);
       assert.equal(expected, "invalid");
       assert.deepEqual(result.workGraph, { status: "invalid" });
-      assert.equal(find(result.files.root, "docs/secret.md").summary, ORIGINAL);
+      assert.equal(find(result.files.root, "docs/secret.md").keyPoints, ORIGINAL);
     });
   }
 });
@@ -313,10 +313,10 @@ async function admissionFixture(t) {
     await git(directory, "init", "-q");
   }
   await writeFile(path.join(root, ".gitignore"), "secret.md\n");
-  await writeFile(path.join(root, "README.md"), `---\nsummary: ${ORIGINAL}\n---\n`);
-  await writeFile(path.join(root, "secret.md"), `---\nsummary: IGNORED_SECRET_CROSSED_INDEX\n---\n`);
+  await writeFile(path.join(root, "README.md"), `---\nkeyPoints: ${ORIGINAL}\n---\n`);
+  await writeFile(path.join(root, "secret.md"), `---\nkeyPoints: IGNORED_SECRET_CROSSED_INDEX\n---\n`);
   await git(root, "add", ".gitignore", "README.md");
-  await writeFile(path.join(external, "secret.md"), `---\nsummary: ${EXTERNAL}\n---\n`);
+  await writeFile(path.join(external, "secret.md"), `---\nkeyPoints: ${EXTERNAL}\n---\n`);
   await git(external, "add", "secret.md");
   return { parent, root, external, moved };
 }
@@ -346,7 +346,7 @@ test("Git admission ignores caller authority poisoning and the ignored-file ABA 
   const raw = serialized(result);
   assert.doesNotMatch(raw, /IGNORED_SECRET_CROSSED_INDEX/);
   assert.equal(find(result.files.root, "secret.md"), null);
-  assert.equal(find(result.files.root, "README.md").summary, ORIGINAL);
+  assert.equal(find(result.files.root, "README.md").keyPoints, ORIGINAL);
 });
 
 test("one retained Root capability survives every Git/content phase replacement and ABA", async (t) => {
@@ -359,7 +359,7 @@ test("one retained Root capability survives every Git/content phase replacement 
         }
       } });
       serialized(result); assert.equal(changed, true);
-      assert.equal(find(result.files.root, "README.md").summary, ORIGINAL);
+      assert.equal(find(result.files.root, "README.md").keyPoints, ORIGINAL);
       assert.equal(find(result.files.root, "secret.md"), null);
     });
   }
@@ -371,7 +371,7 @@ test("one retained Root capability survives every Git/content phase replacement 
       }
     } });
     serialized(result); assert.equal(changed, true);
-    assert.equal(find(result.files.root, "README.md").summary, ORIGINAL);
+    assert.equal(find(result.files.root, "README.md").keyPoints, ORIGINAL);
   });
   await t.test("ABA after retention", async (t) => {
     const tree = await admissionFixture(t); let changed = false;
@@ -381,7 +381,7 @@ test("one retained Root capability survives every Git/content phase replacement 
         await rename(tree.root, tree.external); await rename(tree.moved, tree.root);
       }
     } });
-    serialized(result); assert.equal(find(result.files.root, "README.md").summary, ORIGINAL);
+    serialized(result); assert.equal(find(result.files.root, "README.md").keyPoints, ORIGINAL);
   });
   await t.test("ABA before descriptor open", async (t) => {
     const tree = await admissionFixture(t); let changed = false;
@@ -392,7 +392,7 @@ test("one retained Root capability survives every Git/content phase replacement 
       }
       return open(filename, flags);
     } });
-    serialized(result); assert.equal(find(result.files.root, "README.md").summary, ORIGINAL);
+    serialized(result); assert.equal(find(result.files.root, "README.md").keyPoints, ORIGINAL);
   });
 });
 
@@ -401,7 +401,7 @@ test("fixed work-tree defeats repository core.worktree redirection", async (t) =
   await git(tree.root, "config", "core.worktree", tree.external);
   const result = await candidate(tree.root);
   serialized(result);
-  assert.equal(find(result.files.root, "README.md").summary, ORIGINAL);
+  assert.equal(find(result.files.root, "README.md").keyPoints, ORIGINAL);
   assert.equal(find(result.files.root, "secret.md"), null);
 });
 
@@ -411,17 +411,17 @@ test("linked worktrees and absolute HOME global excludes retain standard Git sem
   const main = path.join(parent, "main"); const linked = path.join(parent, "linked"); const home = path.join(parent, "home");
   await mkdir(main); await mkdir(home); await git(main, "init", "-q");
   await git(main, "config", "user.name", "Sonner Test"); await git(main, "config", "user.email", "sonner@example.invalid");
-  await writeFile(path.join(main, "README.md"), `---\nsummary: ${ORIGINAL}\n---\n`); await git(main, "add", "README.md"); await git(main, "commit", "-qm", "fixture");
+  await writeFile(path.join(main, "README.md"), `---\nkeyPoints: ${ORIGINAL}\n---\n`); await git(main, "add", "README.md"); await git(main, "commit", "-qm", "fixture");
   await git(main, "worktree", "add", "-qb", "linked-test", linked);
   const excludes = path.join(home, "global-excludes"); await writeFile(excludes, "global-secret.md\n");
   await writeFile(path.join(home, ".gitconfig"), `[core]\n\texcludesfile = ${excludes}\n`);
-  await writeFile(path.join(linked, "global-secret.md"), `---\nsummary: ${EXTERNAL}\n---\n`);
-  await writeFile(path.join(linked, "visible.md"), "---\nsummary: Visible untracked.\n---\n");
+  await writeFile(path.join(linked, "global-secret.md"), `---\nkeyPoints: ${EXTERNAL}\n---\n`);
+  await writeFile(path.join(linked, "visible.md"), "---\nkeyPoints: Visible untracked.\n---\n");
   const result = await candidate(linked, { environment: { ...process.env, HOME: home, XDG_CONFIG_HOME: path.join(home, "xdg") } });
   serialized(result);
-  assert.equal(find(result.files.root, "README.md").summary, ORIGINAL);
+  assert.equal(find(result.files.root, "README.md").keyPoints, ORIGINAL);
   assert.equal(find(result.files.root, "global-secret.md"), null);
-  assert.equal(find(result.files.root, "visible.md").summary, "Visible untracked.");
+  assert.equal(find(result.files.root, "visible.md").keyPoints, "Visible untracked.");
 });
 
 test("Git output protocol rejects malformed lists and normalizes Unicode by UTF-8 bytes", async (t) => {
@@ -441,8 +441,8 @@ test("Git output protocol rejects malformed lists and normalizes Unicode by UTF-
 
   const tree = await admissionFixture(t);
   const first = "\uE000.md"; const second = "\u{10000}.md";
-  await writeFile(path.join(tree.root, first), "---\nsummary: BMP.\n---\n");
-  await writeFile(path.join(tree.root, second), "---\nsummary: Astral.\n---\n");
+  await writeFile(path.join(tree.root, first), "---\nkeyPoints: BMP.\n---\n");
+  await writeFile(path.join(tree.root, second), "---\nkeyPoints: Astral.\n---\n");
   await git(tree.root, "add", first, second);
   const result = await candidate(tree.root);
   const names = result.files.root.children.map((entry) => entry.path);

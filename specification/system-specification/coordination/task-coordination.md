@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Keep delegated Codex work moving through durable conversations, explicit
   reply obligations, and bounded lifecycle state without turning task ancestry
   into a workflow.

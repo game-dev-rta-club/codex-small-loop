@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   execute performs one Milestone across its initial assignment and later Review
   corrections, preserving implementation context between incoming Conversations.
 ---

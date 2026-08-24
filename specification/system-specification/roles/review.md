@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   review is a read-only Child role that independently evaluates one of four
   required quality responsibilities, preserves the candidate, and records
   material findings as evidence without prescribing or applying fixes.

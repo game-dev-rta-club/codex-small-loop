@@ -9,7 +9,7 @@ import {
 import { buildRuntimeProjection } from "./runtime.mjs";
 import { formatSonnerText } from "./sonner-text.mjs";
 
-export const SONNER_SCHEMA_VERSION = 11;
+export const SONNER_SCHEMA_VERSION = 12;
 export const MAX_MARKDOWN_FRONTMATTER_BYTES = 64 * 1024;
 export const SONNER_TEXT_DETECTION_BYTES = SONNER_READER_TEXT_DETECTION_BYTES;
 
@@ -27,7 +27,7 @@ function scalar(value) {
   return trimmed;
 }
 
-export function parseMarkdownSummary(source) {
+export function parseMarkdownKeyPoints(source) {
   const normalized = source.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n");
   if (!normalized.startsWith("---\n")) return null;
   const closing = normalized.slice(4).match(/\n---(?:\n|$)/);
@@ -36,7 +36,7 @@ export function parseMarkdownSummary(source) {
   const frontmatter = normalized.slice(4, end).split("\n");
 
   for (let index = 0; index < frontmatter.length; index += 1) {
-    const match = frontmatter[index].match(/^summary\s*:\s*(.*)$/);
+    const match = frontmatter[index].match(/^keyPoints\s*:\s*(.*)$/);
     if (!match) continue;
     const value = match[1].trim();
     if (![">", ">-", ">+", "|", "|-", "|+"].includes(value)) return scalar(value);
@@ -107,9 +107,9 @@ export function parseWorkNode(xml, relativePath) {
   if (!root) graphFail(`${displayPath(relativePath)}: expected one <work-node> root element`);
   const id = readAttribute(root[1], "id", relativePath, "work-node");
   const type = readAttribute(root[1], "type", relativePath, "work-node");
-  const summaryMatch = root[2].match(/<summary>([\s\S]*?)<\/summary>/i);
-  if (!summaryMatch || summaryMatch[1].trim() === "") {
-    graphFail(`${displayPath(relativePath)}: summary must be a non-empty element`);
+  const keyPointsMatch = root[2].match(/<keyPoints>([\s\S]*?)<\/keyPoints>/i);
+  if (!keyPointsMatch || keyPointsMatch[1].trim() === "") {
+    graphFail(`${displayPath(relativePath)}: keyPoints must be a non-empty element`);
   }
   const inputsMatch = root[2].match(/<inputs\b[^>]*>([\s\S]*?)<\/inputs>|<inputs\s*\/>/i);
   if (!inputsMatch) graphFail(`${displayPath(relativePath)}: inputs element is required`);
@@ -118,7 +118,7 @@ export function parseWorkNode(xml, relativePath) {
   return {
     id,
     type,
-    summary: decodeXml(summaryMatch[1], relativePath).replace(/\s+/g, " ").trim(),
+    keyPoints: decodeXml(keyPointsMatch[1], relativePath).replace(/\s+/g, " ").trim(),
     nodePath: displayPath(relativePath),
     inputs,
     relativePath: displayPath(relativePath),
@@ -246,8 +246,8 @@ function collectFiles(entries) {
       name,
       type: "file",
       text,
-      summary: text && /\.md$/i.test(entry.path)
-        ? parseMarkdownSummary(entry.raw.toString("utf8"))
+      keyPoints: text && /\.md$/i.test(entry.path)
+        ? parseMarkdownKeyPoints(entry.raw.toString("utf8"))
         : null,
     };
   });
@@ -272,10 +272,10 @@ function publicWorkGraph(graph) {
   }
   return {
     status: "valid",
-    works: graph.works.map(({ id, type, summary, nodePath, inputs }) => ({
+    works: graph.works.map(({ id, type, keyPoints, nodePath, inputs }) => ({
       id,
       type,
-      summary,
+      keyPoints,
       nodePath,
       inputs,
       outputs: outputsById.get(id).sort(compareText),
@@ -339,7 +339,7 @@ function tree(files, legacyWorkNodes = []) {
     const filesHere = childFiles.get(directory) ?? [];
     const fileCounts = new Map();
     for (const file of filesHere) {
-      if (file.type === "file" && file.summary !== null) continue;
+      if (file.type === "file" && file.keyPoints !== null) continue;
       const extension = fileExtension(file.name);
       fileCounts.set(extension, (fileCounts.get(extension) ?? 0) + 1);
     }
@@ -355,7 +355,7 @@ function tree(files, legacyWorkNodes = []) {
       ...(childWarnings.get(directory) ?? [])
         .sort((left, right) => compareText(left.path, right.path)),
       ...filesHere
-        .filter((file) => file.type === "file" && file.summary !== null)
+        .filter((file) => file.type === "file" && file.keyPoints !== null)
         .map(({ text: _text, ...file }) => file)
         .sort((left, right) => compareText(left.path, right.path)),
       ...(counts.length === 0 ? [] : [{ type: "file-counts", counts }]),

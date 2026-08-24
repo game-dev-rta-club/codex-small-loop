@@ -1,8 +1,9 @@
 ---
-summary: >-
-  Define exact repository snapshots for Review passes and durable,
-  snapshot-scoped Signal records for material Reviewer findings and their
-  current severity.
+keyPoints: >-
+  Every Review pass gives all four Reviewers one immutable repository candidate.
+  Each material finding becomes a durable Signal scoped to that candidate, with
+  a current severity and complete explanation; corrections create a new shared
+  snapshot while preserving earlier Review evidence.
 ---
 
 # Review Snapshots And Signals

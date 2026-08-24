@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   interviewer discusses one implementation problem context with one originating
   Reviewer, refines that Reviewer's required Signals into actionable guidance,
   and reports the result to Primary.

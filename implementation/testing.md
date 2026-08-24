@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Keep automated tests fast by testing implementation parts independently and
   reserve real agent/browser workflows for final manual verification.
 ---
@@ -50,8 +50,8 @@ Focused Activity tests cover:
 
 Sonner focused tests cover Git tracked and non-ignored untracked discovery,
 dependency/generated/cache exclusions, symbolic-link non-following, leading
-Markdown summary extraction, complete Work Graph XML validation and topological
-ordering, version-10 valid/missing/invalid states, summary-only individual file
+Markdown `keyPoints` extraction, complete Work Graph XML validation and topological
+ordering, version-12 valid/missing/invalid states, key-points-only individual file
 projection, direct-parent compact extension counts, active-only Runtime
 health and bounded coarse reasons, deterministic default Agent text, JSON-string escaping,
 the pinned Unicode 16.0 unsafe-display boundary and ordinary-Unicode
@@ -80,7 +80,7 @@ exact/over bounds, descriptor cleanup, and the packaged helper's universal
 architecture and signature.
 
 Win32 simulation drives the portable Sonner reader through real Git admission,
-Work Graph parsing, Markdown summary extraction, Files projection, and Runtime
+Work Graph parsing, Markdown `keyPoints` extraction, Files projection, and Runtime
 fallback without executing a packaged Mach-O helper. Portable Signal tests
 exercise no-link reads, Root/ancestor/file identity revalidation, bounds, and
 typed partial behavior. Windows Open tests prove the API returns a bounded

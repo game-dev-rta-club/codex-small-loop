@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   The Work Graph contract uses one Overview-rooted acyclic graph of XML node
   files so production intent, current state, and change impact remain
   machine-readable without duplicate directory indexes.
@@ -17,7 +17,7 @@ collect nodes:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <work-node id="implementation" type="Implementation">
-  <summary>Realizes the maintained product specifications as working software.</summary>
+  <keyPoints>The plugin turns the maintained product specifications into installed skills, roles, runtime commands, Sonner, and Board.</keyPoints>
   <inputs>
     <input ref="interaction-specification" />
     <input ref="system-specification" />
@@ -26,8 +26,8 @@ collect nodes:
 </work-node>
 ```
 
-- `summary` describes the maintained or intended production output, not the
-  activity that creates it.
+- `keyPoints` state the maintained or intended production output itself,
+  including its main behavior, decisions, and important boundaries.
 - `id` is unique, stable, and readable by people and programs.
 - `id` is independent of the containing directory name. This lets an existing
   production path remain stable while the graph uses a durable semantic
@@ -109,8 +109,8 @@ inputs.
 
 The Work Graph records production causality rather than exhaustive physical
 ownership. Host-required configuration and support files may remain outside a
-Work. Inside relevant Works, directories, descriptive filenames, atomic
-summaries, explicit links, backlinks, and shared names provide progressively
+Work. Inside relevant Works, directories, descriptive filenames, atomic key
+points, explicit links, backlinks, and shared names provide progressively
 more detailed routes to maintained knowledge and outputs.
 
 ## Change Impact

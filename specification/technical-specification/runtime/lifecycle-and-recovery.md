@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define Conversation-aware stop and resume, bounded task-state observation,
-  mechanical heartbeat recovery, and the detached per-project supervisor.
+keyPoints: >-
+  Lifecycle authority follows the exact active Conversation and a versioned
+  per-Milestone Heartbeat state rather than Task ancestry or age. A detached
+  project supervisor performs only evidence-backed mechanical recovery; stale,
+  ambiguous, or incomplete observations grant no authority to advance.
 ---
 
 # Lifecycle And Recovery

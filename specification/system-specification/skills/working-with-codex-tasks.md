@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define the installed primitive Skill for creating, messaging, observing,
-  controlling, and recovering Codex Tasks without owning a development workflow.
+keyPoints: >-
+  The installed primitive creates or forks role-bound Tasks, delivers
+  Notifications and reply-bearing Conversations, observes exact Turns, operates
+  Task-owned schedules, and performs bounded lifecycle recovery. Calling Roles
+  retain every semantic workflow and acceptance decision.
 ---
 
 # Working With Codex Tasks

@@ -1,6 +1,6 @@
 interface:
   display_name: "codex-small-loop:understanding-works"
   short_description: "Understand project Works and trace their context"
-  default_prompt: "Use $codex-small-loop:understanding-works to ground this decision in the project's Works, links, summaries, and Work Graph."
+  default_prompt: "Use $codex-small-loop:understanding-works to ground this decision in the project's Works, links, key points, and Work Graph."
 policy:
   allow_implicit_invocation: false

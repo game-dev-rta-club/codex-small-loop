@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   primary owns one delegated Milestone as its implementation coordinator and
   evidence store while reporting questions, blockers, and results to Controller.
 ---

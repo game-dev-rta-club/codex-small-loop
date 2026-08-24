@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   controller takes responsibility for advancing Codex Small Loop to completion
   and reporting progress, decisions, and completion to the user while keeping
   implementation out of the user-facing Task.

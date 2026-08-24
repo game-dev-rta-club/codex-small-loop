@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   codex-small-loop:interview-me adapts the upstream interview-me procedure to
   clarify only explicitly active, interactive Codex Small Loop requests before
   planning.

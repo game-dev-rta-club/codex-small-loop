@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   A continuous delivery loop keeps planning, implementation, independent
   review, correction, re-review, and delivery in one Controller-owned request.
 ---

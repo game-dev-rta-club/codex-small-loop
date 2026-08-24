@@ -160,7 +160,7 @@ pre.raw { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font: 12px/
 .work-detail[hidden] { display: none; }
 .work-detail-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 7px; }
 .work-detail-heading h3 { margin: 0; overflow-wrap: anywhere; }
-.work-detail-summary { max-width: 90ch; margin-bottom: 9px; color: #34445a; }
+.work-detail-key-points { max-width: 90ch; margin-bottom: 9px; color: #34445a; }
 .work-detail dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0 0 10px; }
 .work-detail dt { color: var(--muted); font-size: 11px; font-weight: 700; }
 .work-detail dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
@@ -195,7 +195,7 @@ pre.raw { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font: 12px/
 .runtime-task-identity strong { min-width: 0; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .runtime-task-role { color: var(--muted); font-size: 10px; }
 .files-section-head > div { min-width: 0; }
-.files-tree { --tree-indent: 18px; --summary-column: clamp(250px, 36vw, 440px); height: 100%; min-height: 0; padding: 8px 10px 18px; overflow: auto; font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.files-tree { --tree-indent: 18px; --key-points-column: clamp(250px, 36vw, 440px); height: 100%; min-height: 0; padding: 8px 10px 18px; overflow: auto; font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .files-tree ul { list-style: none; margin: 0; padding: 0 0 0 var(--tree-indent); }
 .files-tree > ul { padding-left: 0; }
 .file-node { min-width: 0; }
@@ -204,7 +204,7 @@ pre.raw { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font: 12px/
 .file-node details > summary::before { grid-column: 1; color: #6f8094; content: "›"; font: 18px/1 ui-sans-serif, system-ui, sans-serif; text-align: center; transform-origin: center; transition: transform 80ms linear; }
 .file-node details[open] > summary::before { transform: rotate(90deg); }
 .file-node details > summary:hover, .file-node details > summary:focus-visible { background: #edf3f9; outline: 0; }
-.file-row { width: 100%; min-height: 25px; display: grid; grid-template-columns: 22px minmax(40px, calc(var(--summary-column) - 22px - (var(--tree-depth) * var(--tree-indent)))) minmax(0, 1fr); align-items: center; min-width: 0; padding: 3px 6px; border: 0; border-radius: 3px; background: transparent; color: inherit; font: inherit; text-align: left; }
+.file-row { width: 100%; min-height: 25px; display: grid; grid-template-columns: 22px minmax(40px, calc(var(--key-points-column) - 22px - (var(--tree-depth) * var(--tree-indent)))) minmax(0, 1fr); align-items: center; min-width: 0; padding: 3px 6px; border: 0; border-radius: 3px; background: transparent; color: inherit; font: inherit; text-align: left; }
 .file-node details > summary .file-row { display: block; min-height: 0; padding: 0; }
 button.file-row { cursor: pointer; }
 button.file-row:hover, button.file-row:focus-visible { background: #edf3f9; outline: 0; }
@@ -216,9 +216,10 @@ button.file-row:disabled { cursor: wait; opacity: .6; }
 .file-name { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .type-file .file-name { color: #245fa8; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .type-file-counts .file-name { color: #66768a; }
+.file-count-line { display: block; }
 .type-warning .file-marker,
 .type-warning .file-name { color: #a15c00; }
-.file-summary { grid-column: 3; min-width: 0; padding-left: 18px; overflow: hidden; color: var(--muted); font: 12px/1.35 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.file-key-points { grid-column: 3; min-width: 0; padding-left: 18px; overflow: hidden; color: var(--muted); font: 12px/1.35 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 
 @media(max-width: 720px) {
   :root { --activity-width: 46px; }
@@ -252,6 +253,6 @@ button.file-row:disabled { cursor: wait; opacity: .6; }
   .work-detail { padding: 12px; }
   .runtime-overall { min-height: 40px; padding-block: 6px; }
   .runtime-task-list { padding-inline: 8px; }
-  .files-tree { --tree-indent: 12px; --summary-column: clamp(160px, 48vw, 240px); padding-inline: 8px; }
-  .file-summary { padding-left: 10px; }
+  .files-tree { --tree-indent: 12px; --key-points-column: clamp(160px, 48vw, 240px); padding-inline: 8px; }
+  .file-key-points { padding-left: 10px; }
 }

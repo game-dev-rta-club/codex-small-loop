@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define one-way Notification and managed Conversation messaging while routing
-  daemon-managed and App-owned Tasks through explicit command paths.
+keyPoints: >-
+  Notifications deliver information without creating a reply obligation.
+  Conversations create one explicit Responder obligation that the Initiator
+  continues or accepts; competing incoming obligations and cycles are rejected,
+  while daemon-managed and App-owned Tasks use explicit delivery paths.
 ---
 
 # Conversations And Notifications

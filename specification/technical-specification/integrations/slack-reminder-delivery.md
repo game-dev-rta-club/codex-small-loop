@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Immediate Slack delivery uses the reminder tool with the fixed time literal
   "1 minute ago" because current timestamps and "now" are rejected.
 ---

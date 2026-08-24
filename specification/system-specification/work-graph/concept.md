@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   A Work Graph keeps each durable stage of a production connected to the earlier
   Work that gives it shape, beginning at one Overview and allowing branches and
   merges where production paths diverge and meet.
@@ -34,6 +34,51 @@ Specification can all join at Implementation. A project may split domain,
 behavior, or packaging into separate Works when they are independently
 maintained; otherwise they can remain Parts of the system or technical view.
 
+## Recommended Production Shape
+
+A useful starting point for a new Work Graph is:
+
+```text
+Overview
+-> Specifications
+-> Units
+-> Composites
+-> Outputs
+```
+
+This shape follows production as the whole idea becomes a small number of
+decision areas, branches into independently producible parts, converges into
+integrated results, and reaches the forms used from the project. A project uses
+the layers represented by its maintained Works. The graph itself follows
+production causality, so related Works may connect within one layer, branch,
+merge, or end at several places.
+
+- **Overview** is the entry point for understanding the project as a whole.
+- **Specifications** document the current product well enough for someone new
+  to understand its intended behavior and qualities. They support decisions
+  made before production and stay current as accepted decisions emerge during
+  production. Their medium may be prose, diagrams, images, sound, HTML,
+  prototypes, or whatever communicates the specification best. Divide them
+  into a small number of broad content areas, such as user interaction, system
+  structure, and technical realization.
+- **Units** are self-contained production packages prepared for convenient use
+  by Composites. A Unit may assemble several internal assets or technical
+  elements when they are selected, replaced, and evaluated together in later
+  production.
+- **Composites** combine Units or other Composites into maintained results that
+  can be produced and evaluated in a real usage context.
+- **Outputs** are maintained for an intended user, tool, or execution
+  environment to use in their current form. Outputs may shape other Works and
+  do not imply a graph endpoint.
+
+Projects adapt this starting shape to their scale, medium, and established
+structure. When a Work has several qualities, use the role that best explains
+why the project maintains it separately. An integrated Output is its own Work
+when the project maintains that combined result as a distinct production
+surface. Directory names can carry the role as a suffix when it improves
+readability, such as `GameplaySpecifications`, `BGMUnits`,
+`StageDataComposites`, or `SkillOutputs`.
+
 ## Input Relationships
 
 An input relationship means the downstream Work directly depends on the
@@ -62,7 +107,7 @@ maintained graph.
 ## Representation
 
 Each Work Node is represented by a meaningful project directory. Its
-`.WORK_NODE.xml` declares a stable `id`, a recognizable `type`, a summary, and
+`.WORK_NODE.xml` declares a stable `id`, a recognizable `type`, `keyPoints`, and
 its direct `inputs`. The Work ID is independent of the containing directory's
 basename: the path describes physical organization while the ID provides a
 stable semantic identity for graph edges. Parent directories may classify

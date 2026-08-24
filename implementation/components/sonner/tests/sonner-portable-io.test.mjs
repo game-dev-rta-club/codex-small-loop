@@ -49,20 +49,20 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
   await mkdir(path.join(root, "overview"));
   await writeFile(path.join(root, "overview", ".WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
 <work-node id="overview" type="Overview">
-  <summary>Defines the portable project.</summary>
+  <keyPoints>Defines the portable project.</keyPoints>
   <inputs>
   </inputs>
 </work-node>
 `);
   await writeFile(path.join(root, "overview", "WORK_NODE.xml"), "legacy marker contents are not read\n");
   await writeFile(path.join(root, ".gitignore"), "overview/.WORK_NODE.xml\noverview/WORK_NODE.xml\n");
-  await writeFile(path.join(root, "README.md"), "---\nsummary: Portable summary.\n---\n\nBody is never projected.\n");
+  await writeFile(path.join(root, "README.md"), "---\nkeyPoints: Portable keyPoints.\n---\n\nBody is never projected.\n");
   await writeFile(path.join(root, "image.unknown"), Buffer.concat([
     Buffer.from([1, 2, 0, 3]),
     Buffer.alloc(1024, 0xff),
   ]));
   await mkdir(path.join(root, "dist"));
-  await writeFile(path.join(root, "dist", "generated.md"), "---\nsummary: Generated output.\n---\n");
+  await writeFile(path.join(root, "dist", "generated.md"), "---\nkeyPoints: Generated output.\n---\n");
   await execFileAsync("git", ["-C", root, "add", ".gitignore", "README.md", "image.unknown", "dist/generated.md"]);
   const marker = path.join(root, "fsmonitor-ran");
   const fsmonitor = path.join(root, "fsmonitor.sh");
@@ -84,7 +84,7 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
     },
   });
 
-  assert.equal(projection.version, 11);
+  assert.equal(projection.version, 12);
   assert.equal(projection.workGraph.status, "valid");
   assert.deepEqual(projection.workGraph.works.map(({ id }) => id), ["overview"]);
   assert.deepEqual(projection.files.root.children.find(({ path: entryPath }) => entryPath === "overview").children, [{
@@ -97,7 +97,7 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
   assert.equal(projection.runtime.status, "missing");
   const readme = projection.files.root.children.find(({ path: entryPath }) => entryPath === "README.md");
   assert.equal(readme.type, "file");
-  assert.equal(readme.summary, "Portable summary.");
+  assert.equal(readme.keyPoints, "Portable keyPoints.");
   assert.deepEqual(projection.files.root.children.find(({ type }) => type === "file-counts"), {
     type: "file-counts",
     counts: [
@@ -116,7 +116,7 @@ test("Win32 portable Sonner discovers Work Graph without a Git repository", asyn
   await mkdir(path.join(root, "overview"));
   await writeFile(path.join(root, "overview", ".WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
 <work-node id="overview" type="Overview">
-  <summary>Defines a non-Git portable project.</summary>
+  <keyPoints>Defines a non-Git portable project.</keyPoints>
   <inputs>
   </inputs>
 </work-node>

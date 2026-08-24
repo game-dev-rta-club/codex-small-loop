@@ -1,7 +1,8 @@
 ---
-summary: >-
-  Define the Activity history projection, shared Board Host lifecycle, browser
-  leases, and loopback HTTP behavior.
+keyPoints: >-
+  Board serves bounded Activity details and the canonical Sonner projection
+  through one project-authorized loopback Host. Activity loads one selected
+  Primary subtree at a time, and browser leases keep the shared Host alive.
 ---
 
 # Local Board Runtime Contract
@@ -116,10 +117,10 @@ serialization; `/api/sonner` always returns those same JSON bytes for the same
 observation. The formatter records its Unicode data-file provenance beside its
 single pinned range table rather than depending on runtime ICU properties.
 
-The version-11 Sonner document has exactly four top-level keys in order:
+The version-12 Sonner document has exactly four top-level keys in order:
 numeric `version`, `workGraph`, `files`, and `runtime`. A valid `workGraph`
 contains `status: "valid"` and topologically
-ordered `works`; each Work exposes only `id`, `type`, `summary`, `nodePath`,
+ordered `works`; each Work exposes only `id`, `type`, `keyPoints`, `nodePath`,
 direct `inputs`, and direct `outputs`. Missing and invalid
 graphs expose only their stable status and never parser diagnostics.
 
@@ -133,14 +134,16 @@ between 0.5 and 2.0 without another ELK invocation; the stage dimensions expand
 with the transform so both native scroll axes remain accurate.
 
 `files` contains a deterministic root tree. Directory nodes have
-project-relative `path`, `name`, `type`, and `children`. Only files with a
-non-empty Markdown `summary` are projected individually with `path`, `name`,
-`type`, and `summary`. Every other regular file or symbolic link is represented
+project-relative `path`, `name`, `type`, and `children`. Only files with
+non-empty Markdown `keyPoints` are projected individually with `path`, `name`,
+`type`, and `keyPoints`. Every other regular file or symbolic link is represented
 in its direct parent by one `file-counts` node. Its ordered `counts` array holds
 a lowercase final `extension` (or `null`) and positive `count` for each group;
 individual names and bodies are absent. Directories never expose Work metadata
-or graph status. At every level, directories sort before summarized files and
-the single compact count node; extensions use UTF-8 byte order.
+or graph status. At every level, directories sort before files with key points and
+the single count node; extensions use UTF-8 byte order. The plain-text formatter
+joins the node's entries with commas. The Board renders each array entry on its
+own line without an aggregate symbol.
 
 An observed legacy `WORK_NODE.xml` is omitted from file counts and represented
 instead by a non-openable `warning` node containing the fixed
@@ -171,7 +174,7 @@ regular file contributes at most its first 512 bytes to VS Code-compatible text
 detection: BOM-marked UTF-8/UTF-16 is text; otherwise NUL-free content or a
 consistent UTF-16 NUL layout is text, and other NUL-bearing content is binary.
 Markdown files may contribute at most the first 64 KiB so a leading YAML
-frontmatter `summary` scalar or block value can be returned. No body fallback is
+frontmatter `keyPoints` scalar or block value can be returned. No body fallback is
 allowed.
 
 Sonner's internal Work-only loading mode skips Git but retains the same verified

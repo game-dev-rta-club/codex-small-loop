@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define when Codex Small Loop activates and how the first user-facing turn
-  presents setup, model, speed, and profile confirmation.
+keyPoints: >-
+  Codex Small Loop activates only when explicitly selected or requested. Its
+  first turn presents the complete setup guide and resolves one Primary model,
+  an optional shared Worker model, and 1x or explicitly selected 1.5x speed
+  before Controller begins project investigation.
 ---
 
 # Activation And Execution Profile

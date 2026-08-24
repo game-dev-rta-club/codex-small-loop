@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Whole-job ownership makes the agreed outcome, not coordination of individual
   agents, the unit of delegation returned to the user.
 ---

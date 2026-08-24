@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define managed Task identity, launch and fork, execution-profile inheritance,
-  topology queries, role loading, and durable assignment startup.
+keyPoints: >-
+  Task creation and fork bind one Child to an explicit Parent, Role, project,
+  closed-input assignment, and inherited or explicit execution profile before
+  starting its first durable Conversation. Launch ancestry, communication state,
+  and exact-Turn observation remain separate coordination records.
 ---
 
 # Task Coordination

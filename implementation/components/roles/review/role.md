@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   review independently evaluates one assigned quality responsibility of an
   implemented project change, preserves the candidate, and records each
   material finding as evidence for its direct Parent.

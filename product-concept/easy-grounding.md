@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Easy grounding lets Controller build an accurate working model once and route
   the relevant context to every agent in a Milestone.
 ---
@@ -24,14 +24,14 @@ same projection in the local Browser surface beside the Activity Board. Its
 shared document combines the maintained Work Graph, a Files index, and a small
 current Runtime snapshot. The
 graph answers which production outputs exist and how they depend on each other;
-paths, types, maintained file summaries, and a compact directory tree answer
-what is here and where deeper reading should begin. Runtime answers whether
+paths, types, maintained key points, and a compact directory tree provide the
+main current project model and show where deeper reading should begin. Runtime answers whether
 open execution currently contains active or mechanically uncertain Tasks
 without turning current state into historical analysis.
 
 Sonner does not copy file bodies, generate interpretations with AI, or hide an
 unknown project boundary behind a plausible-looking tree. It preserves admitted
-directory routes, lists only files with maintained summaries, and compresses
+directory routes, lists only files with maintained key points, and compresses
 every other file into direct-parent extension/count groups. Missing or invalid graphs remain
 explicit without hiding Files or exposing parser diagnostics. Runtime exposes
 only health, coarse reasons, and active or uncertain Task identities—not ended
@@ -61,18 +61,18 @@ for the current work.
 
    Machine consumers can add `--json`; the Browser API uses that same lossless
    versioned JSON while presenting a human interface.
-3. The graph, summaries, node paths, inputs, and outputs let Controller select
+3. The graph, key points, node paths, inputs, and outputs let Controller select
    relevant Works without opening every project file.
 4. The Overview-rooted relationships connect the Product Concept to the
    maintained Interaction, System, and Technical Specifications, then to the
-   Implementation and User Documentation.
-5. Controller reads directory names, filenames, and atomic summaries before full
+   Plugin Output and User Documentation Output.
+5. Controller reads directory names, filenames, and atomic key points before full
    bodies, then follows explicit links, backlinks, shared descriptive names,
    and Work Graph paths until it has the context needed for the current
    decision.
 
 Sonner is a routing surface, not a replacement for source reading. The actual
-directory structure, filenames, and summaries form a live information map.
+directory structure, filenames, and key points form a live information map.
 Handwritten README or index inventories are unnecessary when they only repeat
 that derived structure and can drift from it.
 
@@ -84,7 +84,7 @@ Primary routes the relevant parts through ordinary assignments. Execute,
 Review, and Interviewer do not rerun graph discovery, so every agent receives
 the useful project model without repeatedly paying for the same map and reading.
 
-The project improves easy grounding by keeping summaries accurate, preserving
+The project improves easy grounding by keeping key points accurate, preserving
 Work relationships, removing stale routes, and making the Sonner command and skills
 simple to invoke. The target is that a new agent can catch up immediately and
 accurately from its assignment without a bespoke walkthrough.

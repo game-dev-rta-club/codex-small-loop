@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Explicitly start Codex Small Loop from the Codex composer or by asking Codex to
   use Codex Small Loop for the requested outcome. Confirm or change its proposed
   model and speed, answer the interview, approve the execution plan, then
@@ -130,7 +130,7 @@ its current selection.
 Sonner starts on **Work Graph**. Works flow from Overview downward through
 automatically routed relationship lines. The graph scrolls inside its own
 region, while the selected Work information remains visible below it. Select a
-Work card to update that region with its summary, directory path, inputs, and
+Work card to update that region with its key points, directory path, inputs, and
 outputs. A `—` means that relationship is empty. Select a named input or output
 to move the selection to that Work. Use the minus and plus buttons to zoom in
 ten-percent steps from 50% to 200%, or select the percentage to return to 100%.
@@ -143,16 +143,17 @@ received the request. A missing or invalid
 graph is stated without diagnostics, and the Files tab remains available.
 
 The **Files** tab shows project-relative paths, file or directory types, and the
-`summary` from leading Markdown frontmatter when one exists. It does not show
+`keyPoints` from leading Markdown frontmatter when one exists. It does not show
 file bodies. Root entries appear immediately; every admitted folder remains in
-the hierarchy and starts collapsed. Only files with a summary appear by name.
+the hierarchy and starts collapsed. Only files with key points appear by name.
 All other files are grouped in their direct folder into one lowercase
-extension/count line, such as `53 png, 53 meta`; their individual names are
-omitted. Folders sort before summarized files at every level. File summaries
+extension/count group; the Board shows one count per line while the CLI uses a
+compact comma-separated line such as `53 png, 53 meta`. Their individual names
+are omitted. Folders sort before files with key points at every level. File key points
 appear in a single aligned column and shorten
 with an ellipsis when space is tight. Click a folder to toggle it, or click an
 underlined file once to open it with the operating system's default application.
-Only displayed summarized regular files can be opened. Sonner passes an identity-bound
+Only displayed regular files with key points can be opened. Sonner passes an identity-bound
 reference to the selected original file rather than reopening a pathname. Use
 **Refresh** in the Sonner view to retry a loading error or update the index.
 
@@ -178,10 +179,10 @@ letters, and combining marks remain readable. Missing, invalid, and empty
 states are written explicitly. Plaintext is not the lossless
 source format.
 
-Add `--json` for the lossless versioned document. Schema version 9 contains
+Add `--json` for the lossless versioned document. Schema version 12 contains
 `version`, `workGraph`, `files`, and `runtime` in that order and is byte-identical
 to the authenticated Browser API response at the same observation. Valid Works
-include ID, type, summary, node path, direct inputs, and outputs. Missing or
+include ID, type, key points, node path, direct inputs, and outputs. Missing or
 invalid graphs contain status only. Runtime contains mechanical health, coarse
 reason codes, and only active or uncertain Tasks admitted by open execution
 relationships. Each Task contains ID, name, role, and latest Turn state. A

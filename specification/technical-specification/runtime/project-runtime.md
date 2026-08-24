@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define the automatically initialized private runtime used by the local
-  Recovery Supervisor and task commands.
+keyPoints: >-
+  Runtime-dependent commands automatically create a private
+  `.codex-small-loop/` ledger bound to the exact canonical project root.
+  `doctor` verifies the host, `status` exposes bounded readiness and active-work
+  counts, and `repair` restores damaged coordination state without exposing raw content.
 ---
 
 # Project Runtime And Active-State Ledger

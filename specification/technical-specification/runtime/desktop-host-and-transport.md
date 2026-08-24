@@ -1,8 +1,9 @@
 ---
-summary: >-
-  Define how Codex Small Loop locates and verifies the installed Codex executable,
-  maintains a private shared app-server host, and routes direct task turns
-  without accepting an unrelated runtime.
+keyPoints: >-
+  Codex Small Loop accepts only an attested platform Codex installation, uses it
+  to maintain one private shared app-server Host, and routes bounded direct Task
+  turns through the verified transport. Provenance, authentication, or protocol
+  ambiguity fails closed instead of accepting an unrelated runtime.
 ---
 
 # Desktop Host And Transport

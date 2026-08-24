@@ -1,7 +1,7 @@
 ---
-summary: >-
-  Define Works as maintained production outputs connected from one Overview by
-  the direct inputs that shape each downstream result.
+keyPoints: >-
+  A Work Graph begins at one Overview and connects maintained production
+  outputs through the direct inputs that shape each downstream result.
 ---
 
 # Work Graph
@@ -29,6 +29,41 @@ The graph records production causality. It is not a schedule, task list,
 progress tracker, role hierarchy, document taxonomy, or inventory of every
 repository file. Graph membership does not mean that a Work is complete.
 
+## A Useful Starting Shape
+
+When designing a new graph, start by looking for this production flow:
+
+```text
+Overview
+-> Specifications
+-> Units
+-> Composites
+-> Outputs
+```
+
+- **Overview** explains the project as a whole.
+- **Specifications** make the current product understandable to someone new to
+  the project. Use them both to make decisions before production and to keep
+  accepted decisions current as production evolves. Choose the clearest
+  medium, including prose, diagrams, images, sound, HTML, or prototypes, and
+  group the material into a small number of broad subjects.
+- **Units** package self-contained production parts for convenient use by
+  Composites. Keep internal assets and technical elements together when later
+  production selects, replaces, and evaluates them as one part.
+- **Composites** integrate Units or other Composites into results that can be
+  produced and evaluated in a real usage context.
+- **Outputs** are maintained for an intended user, tool, or execution
+  environment to use in their current form. They may shape other Works and do
+  not imply a graph endpoint.
+
+Adapt this starting shape to the project's scale, medium, and established
+structure. Use only the layers represented by useful maintained Works, and use
+the role that best explains why each Work is maintained separately. Add a
+combined Output when the project maintains the integrated result as its own
+production surface. Names such as `GameplaySpecifications`, `BGMUnits`,
+`StageDataComposites`, and `SkillOutputs` can make each role easier to recognize
+when they fit the project naturally.
+
 ## Storage
 
 Every Work is a meaningful directory containing `.WORK_NODE.xml`. The marker's
@@ -42,7 +77,7 @@ Files warning with the exact `.WORK_NODE.xml` rename target.
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <work-node id="implementation" type="Implementation">
-  <summary>Realizes the maintained specifications as working software.</summary>
+  <keyPoints>The plugin turns the maintained specifications into the installed skills, roles, runtime, Sonner, and Board.</keyPoints>
   <inputs>
     <input ref="interaction-specification" />
     <input ref="system-specification" />
@@ -52,7 +87,8 @@ Files warning with the exact `.WORK_NODE.xml` rename target.
 ```
 
 The `id` is unique and stable. The `type` names the reusable production form.
-The `summary` describes the current or approved intended output. Each
+The `keyPoints` state the current or approved intended output itself, including
+its main behavior, decisions, and important boundaries. Each
 `input.ref` names one existing direct input Work. Store an edge only in the
 consumer and derive downstream relationships by reverse lookup.
 

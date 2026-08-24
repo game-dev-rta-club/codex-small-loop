@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   role.mjs reads one explicitly named installed Role in full without inferring
   identity from the current Task or changing runtime state.
 ---

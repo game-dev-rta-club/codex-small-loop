@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import {
   buildSonner,
   isSonnerTextBytes,
-  parseMarkdownSummary,
+  parseMarkdownKeyPoints,
   SONNER_SCHEMA_VERSION,
 } from "../source/sonner.mjs";
 
@@ -37,8 +37,8 @@ async function repository(t) {
   return root;
 }
 
-function work(id, type, summary, inputs = []) {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<work-node id="${id}" type="${type}">\n  <summary>${summary}</summary>\n  <inputs>${inputs.map((input) => `\n    <input ref="${input}" />`).join("")}\n  </inputs>\n</work-node>\n`;
+function work(id, type, keyPoints, inputs = []) {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<work-node id="${id}" type="${type}">\n  <keyPoints>${keyPoints}</keyPoints>\n  <inputs>${inputs.map((input) => `\n    <input ref="${input}" />`).join("")}\n  </inputs>\n</work-node>\n`;
 }
 
 function find(node, projectPath) {
@@ -50,13 +50,14 @@ function find(node, projectPath) {
   return null;
 }
 
-test("Markdown summaries come only from leading Atomic Documentation frontmatter", () => {
-  assert.equal(parseMarkdownSummary("# body\nsummary: body value"), null);
-  assert.equal(parseMarkdownSummary("---\ntitle: no summary\n---\nsummary: body"), null);
-  assert.equal(parseMarkdownSummary("---\nsummary: concise\n---\nbody"), "concise");
-  assert.equal(parseMarkdownSummary("---\nsummary: >-\n  First line\n  second line.\n---\nbody"), "First line second line.");
-  assert.equal(parseMarkdownSummary("---\nsummary: 'quoted value'\n---\n"), "quoted value");
-  assert.equal(parseMarkdownSummary("---\nsummary: incomplete\n---not-a-delimiter\n"), null);
+test("Markdown key points come only from leading Atomic Documentation frontmatter", () => {
+  assert.equal(parseMarkdownKeyPoints("# body\nkeyPoints: body value"), null);
+  assert.equal(parseMarkdownKeyPoints("---\nsummary: legacy metadata\n---\nbody"), null);
+  assert.equal(parseMarkdownKeyPoints("---\ntitle: no keyPoints\n---\nkeyPoints: body"), null);
+  assert.equal(parseMarkdownKeyPoints("---\nkeyPoints: concise\n---\nbody"), "concise");
+  assert.equal(parseMarkdownKeyPoints("---\nkeyPoints: >-\n  First line\n  second line.\n---\nbody"), "First line second line.");
+  assert.equal(parseMarkdownKeyPoints("---\nkeyPoints: 'quoted value'\n---\n"), "quoted value");
+  assert.equal(parseMarkdownKeyPoints("---\nkeyPoints: incomplete\n---not-a-delimiter\n"), null);
 });
 
 test("VS Code-compatible content detection recognizes text without relying on extensions", () => {
@@ -72,24 +73,24 @@ test("VS Code-compatible content detection recognizes text without relying on ex
     "only the first 512 bytes participate");
 });
 
-test("valid graph preserves every directory, lists summarized files, and groups everything else", async (t) => {
+test("valid graph preserves every directory, lists files with key points, and groups everything else", async (t) => {
   const root = await repository(t);
   await write(root, ".gitignore", "ignored/\nnode_modules/\n");
-  await write(root, "README.md", "---\nsummary: Project summary.\n---\n# Project\nsecret body\n");
+  await write(root, "README.md", "---\nkeyPoints: Project keyPoints.\n---\n# Project\nsecret body\n");
   await write(root, "overview/.WORK_NODE.xml", work("overview", "Overview", "Project overview."));
-  await write(root, "overview/index.md", "---\nsummary: >-\n  Overview\n  document.\n---\n# Overview\n");
+  await write(root, "overview/index.md", "---\nkeyPoints: >-\n  Overview\n  document.\n---\n# Overview\n");
   await write(root, "spec/work/.WORK_NODE.xml", work("work", "Specification", "Maintained specification.", ["overview"]));
-  await write(root, "spec/work/detail.md", "---\nsummary: Detailed contract.\n---\n# Detail\nDO NOT RETURN THIS BODY\n");
-  await write(root, "spec/unrelated/private.md", "---\nsummary: Visible outside the Work Graph.\n---\n");
-  await write(root, "misc/note.md", "No frontmatter.\nsummary: body only\n");
+  await write(root, "spec/work/detail.md", "---\nkeyPoints: Detailed contract.\n---\n# Detail\nDO NOT RETURN THIS BODY\n");
+  await write(root, "spec/unrelated/private.md", "---\nkeyPoints: Visible outside the Work Graph.\n---\n");
+  await write(root, "misc/note.md", "No frontmatter.\nkeyPoints: body only\n");
   await write(root, "assets/icon.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1]));
   await write(root, "assets/photo.PNG", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 2]));
   await write(root, "assets/blob", Buffer.from([1, 2, 0, 3]));
   await write(root, "assets/nested/config.unknown", "plain text\n");
-  await write(root, "ignored/ignored.md", "---\nsummary: ignored\n---\n");
+  await write(root, "ignored/ignored.md", "---\nkeyPoints: ignored\n---\n");
   await write(root, "node_modules/dependency.js", "dependency");
   await write(root, "dist/tracked-generated.js", "generated");
-  await write(root, "link-target/inside.md", "---\nsummary: target\n---\n");
+  await write(root, "link-target/inside.md", "---\nkeyPoints: target\n---\n");
   await symlink("link-target", path.join(root, "linked-directory"));
   await git(root, "add", ".gitignore", "README.md", "overview", "spec", "misc", "assets", "dist", "linked-directory");
 
@@ -98,13 +99,13 @@ test("valid graph preserves every directory, lists summarized files, and groups 
   assert.deepEqual(first, second, "projection ordering is deterministic");
   assert.deepEqual(Object.keys(first), ["version", "workGraph", "files", "runtime"]);
   assert.equal(first.version, SONNER_SCHEMA_VERSION);
-  assert.equal(first.version, 11);
+  assert.equal(first.version, 12);
   assert.deepEqual(Object.keys(first.workGraph), ["status", "works"]);
   assert.deepEqual(first.workGraph.works, [
     {
       id: "overview",
       type: "Overview",
-      summary: "Project overview.",
+      keyPoints: "Project overview.",
       nodePath: "overview/.WORK_NODE.xml",
       inputs: [],
       outputs: ["work"],
@@ -112,19 +113,19 @@ test("valid graph preserves every directory, lists summarized files, and groups 
     {
       id: "work",
       type: "Specification",
-      summary: "Maintained specification.",
+      keyPoints: "Maintained specification.",
       nodePath: "spec/work/.WORK_NODE.xml",
       inputs: ["overview"],
       outputs: [],
     },
   ]);
-  assert.deepEqual(Object.keys(first.workGraph.works[0]), ["id", "type", "summary", "nodePath", "inputs", "outputs"]);
+  assert.deepEqual(Object.keys(first.workGraph.works[0]), ["id", "type", "keyPoints", "nodePath", "inputs", "outputs"]);
   assert.doesNotMatch(JSON.stringify(first.workGraph), /relativePath|consumers/);
   assert.deepEqual(Object.keys(first.files), ["root"]);
   assert.deepEqual(first.runtime, { status: "missing" });
 
   const projected = first.files.root;
-  assert.equal(find(projected, "README.md").summary, "Project summary.");
+  assert.equal(find(projected, "README.md").keyPoints, "Project keyPoints.");
   assert.equal(find(projected, "misc/note.md"), null);
   assert.ok(Array.isArray(find(projected, "misc").children));
   assert.deepEqual(find(projected, "misc").children.find(({ type }) => type === "file-counts"), {
@@ -132,10 +133,10 @@ test("valid graph preserves every directory, lists summarized files, and groups 
     counts: [{ extension: "md", count: 1 }],
   });
   assert.ok(Array.isArray(find(projected, "spec").children), "Work ancestor remains visible");
-  assert.equal(find(projected, "spec/work").summary, undefined, "directory summaries are not projected");
+  assert.equal(find(projected, "spec/work").keyPoints, undefined, "directory key points are not projected");
   assert.equal(find(projected, "spec/work").work, undefined, "Work metadata stays internal");
-  assert.equal(find(projected, "spec/work/detail.md").summary, "Detailed contract.");
-  assert.equal(find(projected, "spec/unrelated/private.md").summary, "Visible outside the Work Graph.");
+  assert.equal(find(projected, "spec/work/detail.md").keyPoints, "Detailed contract.");
+  assert.equal(find(projected, "spec/unrelated/private.md").keyPoints, "Visible outside the Work Graph.");
   assert.ok(Array.isArray(find(projected, "spec/unrelated").children));
   assert.equal(find(projected, "assets/nested/config.unknown"), null);
   assert.deepEqual(find(projected, "assets").children.find(({ type }) => type === "file-counts"), {
@@ -148,8 +149,8 @@ test("valid graph preserves every directory, lists summarized files, and groups 
   assert.deepEqual(find(projected, "assets/nested").children, [
     { type: "file-counts", counts: [{ extension: "unknown", count: 1 }] },
   ]);
-  assert.equal(JSON.stringify(first.files).includes("icon.png"), false, "summary-less filenames are not projected");
-  assert.equal(JSON.stringify(first.files).includes("photo.PNG"), false, "summary-less filename case is not leaked");
+  assert.equal(JSON.stringify(first.files).includes("icon.png"), false, "keyPoints-less filenames are not projected");
+  assert.equal(JSON.stringify(first.files).includes("photo.PNG"), false, "keyPoints-less filename case is not leaked");
   assert.equal(JSON.stringify(first.files).includes("linked-directory"), false, "symlink filenames are not projected");
   assert.equal(find(projected, "ignored"), null);
   assert.equal(find(projected, "node_modules"), null);
@@ -157,12 +158,12 @@ test("valid graph preserves every directory, lists summarized files, and groups 
   assert.doesNotMatch(JSON.stringify(first), /DO NOT RETURN THIS BODY/);
 });
 
-test("missing and invalid graphs still expose complete directories and summarized files", async (t) => {
+test("missing and invalid graphs still expose complete directories and files with key points", async (t) => {
   for (const graph of ["missing", "invalid"]) {
     await t.test(graph, async (t) => {
       const root = await repository(t);
-      await write(root, "README.md", "---\nsummary: Root file.\n---\n# Root\n");
-      await write(root, "docs/guide.md", "---\nsummary: Nested file.\n---\n");
+      await write(root, "README.md", "---\nkeyPoints: Root file.\n---\n# Root\n");
+      await write(root, "docs/guide.md", "---\nkeyPoints: Nested file.\n---\n");
       if (graph === "invalid") {
         await write(
           root,
@@ -173,8 +174,8 @@ test("missing and invalid graphs still expose complete directories and summarize
       await git(root, "add", ".");
       const result = await buildSonner(root);
       assert.deepEqual(result.workGraph, { status: graph });
-      assert.equal(find(result.files.root, "README.md").summary, "Root file.");
-      assert.equal(find(result.files.root, "docs/guide.md").summary, "Nested file.");
+      assert.equal(find(result.files.root, "README.md").keyPoints, "Root file.");
+      assert.equal(find(result.files.root, "docs/guide.md").keyPoints, "Nested file.");
       if (graph === "invalid") {
         assert.deepEqual(find(result.files.root, "broken").children, [
           { type: "file-counts", counts: [{ extension: "xml", count: 1 }] },
@@ -204,17 +205,17 @@ test("legacy WORK_NODE.xml is not loaded and appears as an actionable Files warn
 
 test("the public CLI defaults to deterministic Agent text and --json remains canonical", async (t) => {
   const root = await repository(t);
-  const hostileSummary = "CLI project ‮TXT ‍ ️";
-  await write(root, "README.md", `---\nsummary: ${hostileSummary}\n---\n`);
+  const hostileKeyPoints = "CLI project ‮TXT ‍ ️";
+  await write(root, "README.md", `---\nkeyPoints: ${hostileKeyPoints}\n---\n`);
   await write(root, "docs/guide.md", "Guide.\n");
   await git(root, "add", "README.md", "docs");
   const firstText = await execFileAsync(process.execPath, [command, "--project-root", root], { encoding: "utf8" });
   const secondText = await execFileAsync(process.execPath, [command, "--project-root", root], { encoding: "utf8" });
   assert.equal(firstText.stderr, "");
   assert.equal(firstText.stdout, secondText.stdout);
-  assert.match(firstText.stdout, /^Sonner v11\nWork Graph: missing\nFiles:\n/);
+  assert.match(firstText.stdout, /^Sonner v12\nWork Graph: missing\nFiles:\n/);
   assert.match(firstText.stdout, /Directory path="docs"\n\s+1 md/);
-  assert.match(firstText.stdout, /File path="README\.md" summary="CLI project \\u202eTXT \\u200d \\ufe0f"/);
+  assert.match(firstText.stdout, /File path="README\.md" keyPoints="CLI project \\u202eTXT \\u200d \\ufe0f"/);
   assert.equal(firstText.stdout.includes("\u202e"), false);
   assert.equal(firstText.stdout.includes("\u200d"), false);
   assert.equal(firstText.stdout.includes("\ufe0f"), false);
@@ -227,11 +228,11 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   assert.equal(firstJson.stdout.trim().split("\n").length, 1);
   const result = JSON.parse(firstJson.stdout);
   assert.deepEqual(Object.keys(result), ["version", "workGraph", "files", "runtime"]);
-  assert.equal(result.version, 11);
+  assert.equal(result.version, 12);
   assert.deepEqual(result.workGraph, { status: "missing" });
   assert.deepEqual(result.runtime, { status: "missing" });
   assert.deepEqual(result.files.root.children.map((node) => node.path), ["docs", "README.md"], "directories sort before files");
-  assert.equal(result.files.root.children.find((node) => node.path === "README.md").summary, hostileSummary);
+  assert.equal(result.files.root.children.find((node) => node.path === "README.md").keyPoints, hostileKeyPoints);
   assert.deepEqual(result.files.root.children[0].children, [
     { type: "file-counts", counts: [{ extension: "md", count: 1 }] },
   ]);
