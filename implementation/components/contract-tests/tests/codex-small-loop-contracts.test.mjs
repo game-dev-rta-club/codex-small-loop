@@ -254,12 +254,12 @@ test("controller mediates every user-facing exchange without implementing", asyn
   assert.doesNotMatch(controller, /co-located.*primary/is);
 
   const primaryForkIndex = controller.indexOf("context-preserving `primary` fork");
-  const startupHeartbeatIndex = controller.indexOf(
-    "one-minute startup thread heartbeat",
+  const startupHeartbeatIndex = controller.search(
+    /one-minute\s+startup thread heartbeat/,
   );
   const executeProofIndex = controller.indexOf("Once Execute startup is proven");
   const steadyHeartbeatIndex = controller.indexOf("ten-minute steady-state heartbeat");
-  assert.ok(primaryForkIndex >= 0 && primaryForkIndex < startupHeartbeatIndex);
+  assert.ok(startupHeartbeatIndex >= 0 && startupHeartbeatIndex < primaryForkIndex);
   assert.ok(executeProofIndex >= 0 && executeProofIndex < steadyHeartbeatIndex);
 });
 
@@ -316,7 +316,7 @@ test("controller keeps Primary clarification live until execution becomes a Conv
     assert.match(source, /task wait/i);
     assert.doesNotMatch(source, /read_thread|wait_threads/i);
     assert.match(source, /no.*reply obligation|reply obligation.*none/is);
-    assert.match(source, /no.*heartbeat|without.*heartbeat/is);
+    assert.match(source, /PRIMARY_BOUND[\s\S]*(?:pre-execution|live preparation)/i);
     assert.match(source, /ready.*execution|execution.*ready/is);
     assert.match(source, /(?:first|current) Milestone[\s\S]*(?:managed )?Conversation[\s\S]*Role\s+reload/i);
 
@@ -325,9 +325,8 @@ test("controller keeps Primary clarification live until execution becomes a Conv
     const executionReady = source.search(
       /When execution is ready|After `READY_FOR_EXECUTION`/i,
     );
-    assert.ok(liveInterview >= 0 && liveInterview < startupHeartbeat);
+    assert.ok(startupHeartbeat >= 0 && startupHeartbeat < liveInterview);
     assert.ok(executionReady >= 0 && liveInterview < executionReady);
-    assert.ok(startupHeartbeat >= executionReady);
   }
 
   assert.match(primary, /pre-execution.*interview/i);
@@ -354,7 +353,7 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   assert.ok(machineBlock, "Controller Role must contain the normative state table");
   const machine = new Map();
   for (const line of machineBlock.split("\n")) {
-    if (!/^\| `(?:LIVE|START_PENDING|START_BOUND|STEADY|ADVANCE_STOP|ADVANCE_DELETE|TERMINAL_DELETE)` \|/.test(line)) continue;
+    if (!/^\| `(?:LIVE|PRIMARY_PENDING|PRIMARY_BOUND|START_PENDING|START_BOUND|STEADY|ADVANCE_STOP|ADVANCE_DELETE|TERMINAL_DELETE)` \|/.test(line)) continue;
     const [stateCell, bindingCell, actionsCell, nextCell] = line
       .split("|")
       .slice(1, -1)
@@ -402,6 +401,8 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
 
   const states = [
     "LIVE",
+    "PRIMARY_PENDING",
+    "PRIMARY_BOUND",
     "START_PENDING",
     "START_BOUND",
     "STEADY",
@@ -410,9 +411,14 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
     "TERMINAL_DELETE",
   ];
   assert.deepEqual([...machine.keys()], states);
-  assert.deepEqual([...machine.get("START_PENDING").next], ["START_BOUND", "LIVE"]);
+  assert.deepEqual([...machine.get("LIVE").next], ["PRIMARY_PENDING"]);
+  assert.deepEqual([...machine.get("PRIMARY_PENDING").next], ["PRIMARY_BOUND", "LIVE"]);
+  assert.deepEqual([...machine.get("PRIMARY_BOUND").next], ["START_PENDING"]);
+  assert.deepEqual([...machine.get("START_PENDING").next], ["START_BOUND", "PRIMARY_BOUND"]);
   assert.deepEqual([...machine.get("STEADY").next], ["ADVANCE_STOP", "TERMINAL_DELETE"]);
   assert.deepEqual([...machine.get("ADVANCE_DELETE").next], ["LIVE"]);
+  assert.match(machine.get("PRIMARY_PENDING").binding, /P=uncommitted/);
+  assert.match(machine.get("PRIMARY_BOUND").binding, /conversation=uncommitted/);
   assert.match(machine.get("START_PENDING").binding, /conversation=uncommitted/);
   assert.match(machine.get("START_BOUND").binding, /conversation=exact_CID/);
 
@@ -434,7 +440,7 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
     return machine.get(current.state)?.actions.has(action) === true;
   };
   const canDeletePending = (current, delivered, evidence) =>
-    canAct(current, delivered, "delete_pending_noncommit") &&
+    canAct(current, delivered, "restore_primary_bound_after_failed_start") &&
     [...deleteGate].every(([field, required]) => String(evidence?.[field]) === required);
   const canRebindPending = (current, delivered, evidence) =>
     canAct(current, delivered, "rebind_exact_conversation") &&
@@ -453,17 +459,21 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
     };
   };
 
-  const pending1 = {
-    C: "C", P: "P1", S: "S1", G: 1, R: 1,
-    state: "START_PENDING", conversation: "uncommitted",
-  };
-  const live1 = { C: "C", P: "P1", S: null, G: 1, R: 0, state: "LIVE", conversation: null };
+  const live1 = { C: "C", P: null, S: null, G: 1, R: 0, state: "LIVE", conversation: null };
+  const primaryPending1 = transition(live1, "PRIMARY_PENDING", {
+    P: "uncommitted", S: "S1", conversation: "uncommitted",
+  });
+  const primaryBound1 = transition(primaryPending1, "PRIMARY_BOUND", { P: "P1" });
+  const pending1 = transition(primaryBound1, "START_PENDING");
   const failedCreation = live1;
   assert.equal(machine.get(failedCreation.state).actions.has("start_execution_conversation"), false);
+  assert.equal(canAct(live1, live1, "arm_primary_pending"), true);
+  assert.equal(canAct(primaryPending1, primaryPending1, "continue_deferred_fork"), true);
+  assert.equal(canAct(primaryBound1, primaryBound1, "inspect_primary_preparation"), true);
   assert.equal(canAct(pending1, pending1, "inspect_start_evidence"), true);
   assert.equal(canAct(pending1, pending1, "recover_bound_execution"), false);
   assert.equal(canAct(pending1, pending1, "stop_handoff_primary"), false);
-  assert.equal(canAct(pending1, pending1, "bootstrap_primary"), false);
+  assert.equal(canAct(pending1, pending1, "continue_deferred_fork"), false);
   assert.equal(canDeletePending(pending1, pending1, {}), false);
   assert.equal(canDeletePending(pending1, pending1, { matchingConversations: "0" }), false);
 
@@ -527,14 +537,11 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   assert.equal(mayInvokeStart("START_PENDING", 0), true);
   assert.equal(mayInvokeStart("START_PENDING", 1), false);
   assert.equal(mayInvokeStart("START_PENDING", 2), false);
-  const noncommitLive1 = {
-    ...live1,
-    R: pending1.R + 1,
-  };
-  assert.equal(machine.get(pending1.state).next.has(noncommitLive1.state), true);
-  assert.equal(noncommitLive1.S, null);
-  const freshPendingAfterCleanup = { ...pending1, R: noncommitLive1.R + 1 };
-  assert.equal(mayInvokeStart(freshPendingAfterCleanup.state, 0), true);
+  const restoredPrimaryBound1 = transition(pending1, "PRIMARY_BOUND");
+  assert.equal(restoredPrimaryBound1.S, pending1.S);
+  assert.equal(restoredPrimaryBound1.P, pending1.P);
+  const freshPendingAfterRestore = transition(restoredPrimaryBound1, "START_PENDING");
+  assert.equal(mayInvokeStart(freshPendingAfterRestore.state, 0), true);
 
   assert.equal(canRebindPending(
     pending1,
@@ -589,18 +596,19 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   const advanceDelete1 = transition(advanceStop1, "ADVANCE_DELETE");
   assert.equal(canAct(advanceDelete1, advanceStop1, "delete_advance_schedule"), false);
   assert.equal(canAct(advanceDelete1, advanceDelete1, "delete_advance_schedule"), true);
-  assert.equal(canAct(advanceDelete1, advanceDelete1, "bootstrap_primary"), false);
+  assert.equal(canAct(advanceDelete1, advanceDelete1, "arm_primary_pending"), false);
   const failedDelete = advanceDelete1;
-  assert.equal(canAct(failedDelete, advanceDelete1, "bootstrap_primary"), false);
+  assert.equal(canAct(failedDelete, advanceDelete1, "arm_primary_pending"), false);
 
   // Exact S1 absence is the only point at which G2 may enter LIVE and create a
   // new schedule. No G1 revision or generation can authorize a G2 action.
-  const live2 = { C: "C", P: "P2", S: null, G: 2, R: 0, state: "LIVE", conversation: null };
-  const pending2 = {
-    C: "C", P: "P2", S: "S2", G: 2, R: 1,
-    state: "START_PENDING", conversation: "uncommitted",
-  };
-  assert.equal(machine.get(live2.state).actions.has("bootstrap_primary"), true);
+  const live2 = { C: "C", P: null, S: null, G: 2, R: 0, state: "LIVE", conversation: null };
+  const primaryPending2 = transition(live2, "PRIMARY_PENDING", {
+    P: "uncommitted", S: "S2", conversation: "uncommitted",
+  });
+  const primaryBound2 = transition(primaryPending2, "PRIMARY_BOUND", { P: "P2" });
+  const pending2 = transition(primaryBound2, "START_PENDING");
+  assert.equal(machine.get(live2.state).actions.has("arm_primary_pending"), true);
   for (const stale1 of [pending1, bound1, steady1, advanceStop1, advanceDelete1]) {
     assert.equal(canAct(pending2, stale1, "inspect_start_evidence"), false);
   }
@@ -614,13 +622,13 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   // action, so no two schedules or states become authoritative.
   assert.equal(canAct(steady1, steady1, "accept_handoff_conversation"), false);
   assert.equal(canAct(pending1, pending1, "recover_bound_execution"), false);
-  assert.equal(canAct(advanceDelete1, advanceDelete1, "bootstrap_primary"), false);
+  assert.equal(canAct(advanceDelete1, advanceDelete1, "arm_primary_pending"), false);
   assert.equal(new Set([pending2.S]).size, 1);
 
   const terminal2 = transition(steady2, "TERMINAL_DELETE");
   assert.equal(canAct(terminal2, terminal2, "delete_terminal_schedule"), true);
   assert.equal(canAct(terminal2, terminal2, "stop_handoff_primary"), false);
-  assert.equal(canAct(terminal2, terminal2, "bootstrap_primary"), false);
+  assert.equal(canAct(terminal2, terminal2, "arm_primary_pending"), false);
 
   assert.match(controller, /before recovery, supervision, or ending the Controller turn/i);
   assert.match(controller, /accepted CID observed in `START_BOUND` or `STEADY`[\s\S]*no Task action/i);
@@ -628,13 +636,14 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   assert.match(controller, /Deletion failure[\s\S]*forbids fork or schedule creation/i);
   assert.match(controller, /`TERMINAL_DELETE`[\s\S]*never forks/i);
   for (const source of [controllerSpec, lifecycle]) {
+    assert.match(source, /PRIMARY_PENDING[\s\S]*PRIMARY_BOUND[\s\S]*START_PENDING/);
     assert.match(source, /START_PENDING[\s\S]*START_BOUND[\s\S]*STEADY/);
     assert.match(source, /ADVANCE_STOP[\s\S]*ADVANCE_DELETE/);
     assert.match(source, /TERMINAL_DELETE/);
     assert.match(source, /revision|`R`/i);
     assert.match(source, /read.back/i);
   }
-  assert.doesNotMatch(deliveryLoop, /Immediately before forking Primary[\s\S]{0,120}one-minute heartbeat/i);
+  assert.match(deliveryLoop, /Immediately before forking Primary[\s\S]*one-minute[\s\S]*PRIMARY_PENDING/i);
   assert.match(deliveryLoop, /`START_PENDING`[\s\S]*uncommitted[\s\S]*`START_BOUND`/);
   assert.match(deliveryLoop, /`ADVANCE_STOP`[\s\S]*accepts[\s\S]*stops[\s\S]*`ADVANCE_DELETE`/);
 });

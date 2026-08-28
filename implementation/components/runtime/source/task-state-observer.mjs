@@ -1,5 +1,3 @@
-import { createReadStream } from "node:fs";
-
 import {
   locateTaskHistories,
   resolveCodexSessionRoots,
@@ -8,6 +6,7 @@ import {
   createTaskEventReducer,
   MAX_TURN_ID_LENGTH,
   scanCodexTaskEvents,
+  scanCodexTaskEventsFromEnd,
 } from "./codex-jsonl.mjs";
 
 const DEFAULT_CONCURRENCY = 8;
@@ -18,7 +17,6 @@ const MODES = new Set(["latest", "exact"]);
 const TERMINAL_TURN_STATES = new Set(["ended", "aborted"]);
 const JSONL_ERROR_CODES = new Set([
   "TASK_JSONL_MALFORMED",
-  "TASK_JSONL_LINE_TOO_LARGE",
   "TASK_EVENT_INVALID",
 ]);
 
@@ -119,10 +117,6 @@ function validateOpenHistory(openHistory) {
   return openHistory;
 }
 
-function defaultOpenHistory(historyFile) {
-  return createReadStream(historyFile);
-}
-
 function snapshotFromLocation(
   request,
   location,
@@ -152,6 +146,72 @@ function snapshotFromLocation(
     latestTurnId: result?.turnId ?? null,
     turnState: result?.turnState ?? "unknown",
     diagnostics: result?.diagnostics ?? [...location.diagnostics],
+  };
+}
+
+function createReverseTaskEventSelector(
+  request,
+  includeFinalAnswer = false,
+) {
+  let selected = null;
+
+  return {
+    accept(event) {
+      if (
+        selected !== null
+        || (request.mode === "exact" && event.turnId !== request.turnId)
+      ) {
+        return selected !== null;
+      }
+
+      selected = {
+        mode: request.mode,
+        turnId: event.turnId,
+        turnState: event.type === "task_started"
+          ? "in_progress"
+          : event.type === "task_complete"
+            ? "ended"
+            : "aborted",
+        ...(includeFinalAnswer
+          ? {
+            finalAnswer: event.type === "task_complete"
+              ? event.finalAnswer ?? null
+              : null,
+          }
+          : {}),
+        diagnostics: [],
+      };
+      return true;
+    },
+
+    get resolved() {
+      return selected !== null;
+    },
+
+    result() {
+      if (selected !== null) return selected;
+      if (request.mode === "latest") {
+        return {
+          mode: "latest",
+          turnId: null,
+          turnState: "not_started",
+          ...(includeFinalAnswer ? { finalAnswer: null } : {}),
+          diagnostics: [],
+        };
+      }
+      return {
+        mode: "exact",
+        turnId: request.turnId,
+        turnState: "unknown",
+        ...(includeFinalAnswer ? { finalAnswer: null } : {}),
+        diagnostics: [
+          diagnostic(
+            "TASK_TURN_NOT_FOUND",
+            `Codex history contains no event for Turn ID ${bounded(request.turnId, 256)}`,
+          ),
+        ],
+      };
+    },
   };
 }
 
@@ -196,9 +256,9 @@ export async function observeTasks(requests, options = {}) {
   }
   const includeFinalAnswer = options.includeFinalAnswer ?? false;
   const concurrency = validateConcurrency(options.concurrency);
-  const openHistory = validateOpenHistory(
-    options.openHistory ?? defaultOpenHistory,
-  );
+  const openHistory = options.openHistory === undefined
+    ? null
+    : validateOpenHistory(options.openHistory);
   const taskIds = [...new Set(
     normalizedRequests.map(({ taskId }) => taskId),
   )];
@@ -222,6 +282,10 @@ export async function observeTasks(requests, options = {}) {
             includeFinalAnswer,
           }
           : { mode: "latest", includeFinalAnswer },
+      ),
+      reverseSelector: createReverseTaskEventSelector(
+        request,
+        includeFinalAnswer,
       ),
     });
     groups.set(request.taskId, entries);
@@ -254,18 +318,35 @@ export async function observeTasks(requests, options = {}) {
 
   await runBounded(jobs, concurrency, async ({ entries, location }) => {
     try {
-      const readable = await openHistory(location.historyFile);
-      await scanCodexTaskEvents(readable, (event) => {
-        for (const entry of entries) {
-          entry.reducer.accept(event);
-        }
-      }, { includeFinalAnswer });
+      if (openHistory === null) {
+        await scanCodexTaskEventsFromEnd(
+          location.historyFile,
+          (event) => {
+            for (const entry of entries) {
+              entry.reverseSelector.accept(event);
+            }
+            return entries.every(({ reverseSelector }) =>
+              reverseSelector.resolved
+            );
+          },
+          { includeFinalAnswer },
+        );
+      } else {
+        const readable = await openHistory(location.historyFile);
+        await scanCodexTaskEvents(readable, (event) => {
+          for (const entry of entries) {
+            entry.reducer.accept(event);
+          }
+        }, { includeFinalAnswer });
+      }
 
       for (const entry of entries) {
         snapshots[entry.index] = snapshotFromLocation(
           entry.request,
           location,
-          entry.reducer.result(),
+          openHistory === null
+            ? entry.reverseSelector.result()
+            : entry.reducer.result(),
           includeFinalAnswer,
         );
       }

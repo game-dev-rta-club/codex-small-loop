@@ -97,7 +97,7 @@ Primary and its Children consume that supplied context; they do not rerun Work
 Graph discovery or validation. The outline may change when completed work
 reveals a better route.
 
-## 3. Open The Board And Start A Fresh Primary For Live Preparation
+## 3. Open The Board, Arm Monitoring, And Start A Fresh Primary
 
 The user interview and plan agreement remain real-time. After agreement, use
 the Board startup boundary before creating Primary:
@@ -123,7 +123,14 @@ and continue to create Primary rather than stopping delivery. Do not explicitly
 stop the Host during normal completion; closing the Board pages owns normal
 cleanup.
 
-After the Board opening attempt, use
+After the Board opening attempt, create and read back exactly one one-minute
+startup thread heartbeat before requesting the fork. Use
+`(C,P=uncommitted,S,G,R,PRIMARY_PENDING,conversation=uncommitted)` and
+`schedule apply --if-match absent`. The schedule exists first so an ended
+Controller turn, deferred fork, or interrupted bootstrap always has a recovery
+path. If creation or read-back fails, keep the fork unrequested.
+
+With `PRIMARY_PENDING` confirmed, use
 `$codex-small-loop:working-with-codex-tasks` to queue exactly one
 context-preserving `primary` fork directly from Controller for this Milestone.
 Never reuse a Primary from an earlier Milestone. Each Primary is one independent
@@ -153,16 +160,18 @@ complete conversation history while the explicit launch options apply the
 resolved Primary profile. Give Primary an explicit agent name. End the
 current turn when the command returns the required `end_turn`;
 do not poll after the fork. When the bootstrap reply arrives,
-inspect it and accept that launch Conversation.
+inspect it and accept that launch Conversation. As soon as the fork has one
+committed Child Task ID, update and read back the same schedule as
+`(C,P=<exact Primary>,S,G,R+1,PRIMARY_BOUND,conversation=uncommitted)`.
 
-Do not create a heartbeat before or during this bootstrap. Its one managed
-reply is the launch protocol boundary; the following interview creates no
-reply obligation. This is the **live preparation** phase for every Milestone:
-no Controller heartbeat exists. Before forking, confirm that no schedule from
-the preceding Milestone remains. A Primary fork, bootstrap, authentication, or
-exact-observation failure stays heartbeat-free; resume or retry the same known
-Primary or committed fork when safe, and never fork a duplicate or invent
-polling.
+The bootstrap reply is the launch protocol boundary; the following interview
+creates no reply obligation. `PRIMARY_PENDING` observes only the exact queued
+launch and may continue that same deferred fork, bind its one committed Primary,
+or delete the schedule only after bounded evidence proves that no Child was
+created and the launch failed without commitment. `PRIMARY_BOUND` observes the
+exact Primary through bootstrap and live preparation. Both states preserve the
+same launch and never fork a duplicate. Before arming `PRIMARY_PENDING`, confirm
+that no schedule from the preceding Milestone remains.
 
 ## 4. Run The Live Pre-Execution Interview
 
@@ -186,16 +195,17 @@ for a decision outside that authority. Primary must not start Execute, create
 implementation Children, or modify the project during this pre-execution
 interview.
 
-This live loop runs without a heartbeat, managed Conversation, reply obligation,
-or scheduled callback. If exact Codex Small Loop observation fails, keep
-execution unstarted instead of falling back to Codex App reads or replacing
-live observation with repeated delivery schedules.
+This live loop runs under the same confirmed `PRIMARY_BOUND` heartbeat, without
+a managed Conversation or reply obligation. If exact Codex Small Loop
+observation fails, keep execution unstarted and let that state recover the exact
+Primary instead of falling back to Codex App reads or creating another schedule.
 
 Every scheduled prompt carries the closed revisioned tuple
 `(C,P,S,G,R,STATE,conversation)`: Controller Task `C`, Primary Task `P`, exact
 schedule identity `S`, Milestone generation `G`, revision `R`, stable state
 `STATE`, and `conversation=uncommitted` or one exact Conversation ID. The
-literal `uncommitted` is not a wildcard. Use
+literal `uncommitted` is not a wildcard. Only `PRIMARY_PENDING` also uses the
+literal `P=uncommitted`; every later state binds one exact Primary. Use
 `$codex-small-loop:working-with-codex-tasks` and its `schedule apply/read/delete`
 commands for every heartbeat operation; never use Codex App
 `automation_update` or edit automation TOML. Creation uses `--if-match absent`.
@@ -220,8 +230,10 @@ state-specific, and disjoint; a callback may perform only its row's allowlist.
 <!-- HEARTBEAT_STATE_MACHINE_BEGIN -->
 | State | Binding | Allowed actions | Confirmed next state |
 | --- | --- | --- | --- |
-| `LIVE` | `S=none;conversation=none` | `bootstrap_primary,live_interview` | `START_PENDING` |
-| `START_PENDING` | `C,P,S,G,R;conversation=uncommitted` | `inspect_start_evidence,rebind_exact_conversation,delete_pending_noncommit` | `START_BOUND` or `LIVE` |
+| `LIVE` | `S=none;P=none;conversation=none` | `arm_primary_pending` | `PRIMARY_PENDING` |
+| `PRIMARY_PENDING` | `C,P=uncommitted,S,G,R;conversation=uncommitted` | `inspect_fork_evidence,continue_deferred_fork,rebind_exact_primary,delete_failed_fork` | `PRIMARY_BOUND` or `LIVE` |
+| `PRIMARY_BOUND` | `C,P,S,G,R;conversation=uncommitted` | `inspect_primary_preparation,recover_primary_preparation,arm_start_pending` | `START_PENDING` |
+| `START_PENDING` | `C,P,S,G,R;conversation=uncommitted` | `inspect_start_evidence,rebind_exact_conversation,restore_primary_bound_after_failed_start` | `START_BOUND` or `PRIMARY_BOUND` |
 | `START_BOUND` | `C,P,S,G,R;conversation=exact_CID` | `inspect_bound_execution,recover_bound_execution,prove_execute_started` | `STEADY` |
 | `STEADY` | `C,P,S,G,R;conversation=exact_CID` | `supervise_steady_execution,arm_advance_stop,arm_terminal_delete` | `ADVANCE_STOP` or `TERMINAL_DELETE` |
 | `ADVANCE_STOP` | `C,P,S,G,R;conversation=exact_CID` | `accept_handoff_conversation,stop_handoff_primary,recover_handoff_stop,arm_advance_delete` | `ADVANCE_DELETE` |
@@ -229,7 +241,7 @@ state-specific, and disjoint; a callback may perform only its row's allowlist.
 | `TERMINAL_DELETE` | `C,P,S,G,R;conversation=exact_CID` | `delete_terminal_schedule` | `TERMINAL` |
 <!-- HEARTBEAT_STATE_MACHINE_END -->
 
-`delete_pending_noncommit` has this additional complete evidence gate. Each row
+`restore_primary_bound_after_failed_start` has this additional complete evidence gate. Each row
 is required together; absence or contradiction fails closed.
 
 <!-- START_PENDING_DELETE_GATE_BEGIN -->
@@ -255,18 +267,18 @@ is required together; absence or contradiction fails closed.
 | `matchingConversations` | `0` |
 <!-- START_PENDING_DELETE_GATE_END -->
 
-`LIVE` has no schedule and therefore no callback; its two actions are ordinary
-Controller actions only. No two states or schedules are active in parallel.
+`LIVE` has no schedule and therefore no callback; arming `PRIMARY_PENDING` is
+an ordinary Controller action. No two states or schedules are active in parallel.
 Generation does not advance until exact `P` is stopped and exact `S` is
 confirmed absent. Any action not named in the current row is forbidden.
 
 ## 5. Start Execution And Enter Scheduled Supervision
 
-After `READY_FOR_EXECUTION`, create exactly one one-minute startup thread heartbeat
-(the Controller thread heartbeat) with `schedule apply --if-match absent` as
-`(C,P,S,G,R,START_PENDING,conversation=uncommitted)`. Read back and confirm the
-full tuple before invoking Conversation start. If creation or read-back fails,
-remain `LIVE`, keep execution unstarted, and do not substitute Codex App
+After `READY_FOR_EXECUTION`, update and read back the existing one-minute
+Controller heartbeat from `PRIMARY_BOUND` to
+`(C,P,S,G,R+1,START_PENDING,conversation=uncommitted)`. Confirm the full tuple
+before invoking Conversation start. If update or read-back fails, retain
+`PRIMARY_BOUND`, keep execution unstarted, and do not substitute Codex App
 schedule tools, raw automation TOML, a project cron job, or another scheduler.
 
 A `START_PENDING` callback may validate its tuple and boundedly inspect
@@ -275,16 +287,16 @@ always a no-op: this includes not-yet-invoked, in-flight, interrupted or lost
 result, timeout, malformed output, authentication or App-read ambiguity, and
 delayed visibility. Retain the tuple and cadence in all such cases.
 
-`delete_pending_noncommit` is authorized only when the complete gate above is
+`restore_primary_bound_after_failed_start` is authorized only when the complete gate above is
 proven: exactly one attributable post-read-back `conversation start` invocation
 for exact `P`, no later invocation, completed exit 1, one parseable bounded
 `{operation:"start",run:"failed",code,message}` result, no CID or partial,
 queued, delivery, or committed evidence, and bounded zero matching new
-Controller-to-`P` Conversations for `G`. Then and only then delete/confirm exact
-`S` and return to `LIVE`. Exit 2/partial, `ok`, any CID, failed-with-CID,
+Controller-to-`P` Conversations for `G`. Then and only then update and read back
+the same `S` as `R+1/PRIMARY_BOUND` for exact `P`. Exit 2/partial, `ok`, any CID, failed-with-CID,
 queued/committed delivery, stale `R/G`, wrong target, later attempt,
 missing/truncated/malformed/unattributable output, contradictory ledger CID, or
-multiple matches never permits deletion.
+multiple matches never permits restoration.
 
 Exactly one proven new Controller-to-`P` execution
 Conversation for `G` permits only same-`S`, `R+1` rebinding to
@@ -296,9 +308,10 @@ advance `G`, create another schedule, or touch another automation.
 
 Ordinary Controller invokes `conversation start` at most once for a confirmed
 `START_PENDING` tuple. Neither callback nor recovery retries it. A further start
-is permitted only after confirmed cleanup to `LIVE` creates a fresh pending
-tuple, or after the unique CID settles as `START_BOUND` and later lifecycle
-authority calls for a different operation.
+is permitted only after the exact failed-noncommit gate restores confirmed
+`PRIMARY_BOUND` and ordinary Controller arms a fresh `START_PENDING` revision,
+or after the unique CID settles as `START_BOUND` and later lifecycle authority
+calls for a different operation.
 
 Use `$codex-small-loop:working-with-codex-tasks` to start the current Milestone as
 a managed Conversation with the newly prepared Primary and request Role reload at
@@ -319,8 +332,8 @@ the Conversation, start a replacement, or create another schedule. If a turn
 was interrupted after commit but before rebind, only the `START_PENDING`
 callback may discover the unique committed ID and perform this rebind.
 
-If start proves the exact failed-noncommit gate, delete and confirm exact `S`
-and return to `LIVE`. A committed or partial result never permits recovery before confirmed
+If start proves the exact failed-noncommit gate, restore and confirm
+`PRIMARY_BOUND` on the same `S`. A committed or partial result never permits recovery before confirmed
 `START_BOUND`. Authentication or App-read ambiguity retains the current state
 and grants no authority. An exact already-present tuple is reusable; any
 mismatched tuple fails closed.
@@ -387,11 +400,13 @@ nonterminal transition:
    exact outgoing heartbeat N through etag-guarded `schedule delete` and
    confirm that schedule identity is absent;
 5. only then reassess the outline and Work context, boundedly ensure the Board
-   if its page is unavailable, and fork/bootstrap Primary N+1;
-6. complete heartbeat-free live preparation through `READY_FOR_EXECUTION`;
-7. create and confirm one startup heartbeat N+1, start execution Conversation
-   N+1, prove its initial Execute started, and update the same schedule identity
-   to steady cadence.
+   if its page is unavailable, create and confirm `PRIMARY_PENDING` for N+1,
+   and fork/bootstrap Primary N+1;
+6. bind the exact Primary as `PRIMARY_BOUND` and complete monitored live
+   preparation through `READY_FOR_EXECUTION`;
+7. update the same schedule to `START_PENDING`, start execution Conversation
+   N+1, prove its initial Execute started, and update that schedule identity to
+   steady cadence.
 
 `ADVANCE_STOP` has one idempotent chain: accept exact CID only while it is
 `replied`; when exact CID is accepted, stop exact `P`; retry or recover only that
@@ -407,7 +422,7 @@ or `STEADY` is stale and cannot finish the transition.
 `ADVANCE_DELETE` may only delete exact `S` and confirm absence. Deletion failure
 retains `ADVANCE_DELETE` and forbids fork or schedule creation. Once absence is
 confirmed its callback has no authority; ordinary Controller authority enters
-heartbeat-free `LIVE` at `G+1` and only then forks. A queued duplicate, older
+`LIVE` at `G+1`, arms a new `PRIMARY_PENDING` schedule, and only then forks. A queued duplicate, older
 revision, or prior generation is a no-op. Failure to fork in `LIVE` cannot
 resurrect old authority.
 
@@ -457,6 +472,6 @@ not be missed. Slack is a one-way attention signal; decisions remain in Codex.
 
 When the user requests rework or later work, resume the same Controller and
 treat the work as a new Milestone from zero schedules: supply fresh Work
-context, enter heartbeat-free live preparation, and fork a fresh Primary. Do
+context, arm `PRIMARY_PENDING`, and fork a fresh Primary under that schedule. Do
 not resume an earlier Primary or reuse its Execute or Review Tasks.
 Keep a stopped trajectory stopped while waiting for required user confirmation.

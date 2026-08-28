@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import test from "node:test";
@@ -11,6 +13,7 @@ import {
   MAX_TURN_ID_LENGTH,
   reduceTaskEvents,
   scanCodexTaskEvents,
+  scanCodexTaskEventsFromEnd,
 } from "../source/codex-jsonl.mjs";
 
 function envelope(type, turnId, extra = {}, timestamp) {
@@ -67,6 +70,17 @@ async function scan(chunks) {
   });
 
   return { events, readable, summary };
+}
+
+async function withHistory(contents, run) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "codex-jsonl-tail-"));
+  const historyFile = path.join(root, "history.jsonl");
+  await writeFile(historyFile, contents);
+  try {
+    await run(historyFile);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 }
 
 function expectDiagnostic(result, code) {
@@ -243,6 +257,41 @@ test("reads the applied service tier when turn context omits it", async () => {
   );
 });
 
+test("reads persisted Task settings across oversized unrelated tool output", async () => {
+  const oversizedOutput = "x".repeat(MAX_JSONL_LINE_LENGTH + 1_024);
+  const readable = Readable.from([
+    line({
+      type: "session_meta",
+      payload: { id: "task-a", cwd: "/project" },
+    }),
+    line({
+      type: "turn_context",
+      payload: {
+        cwd: "/project",
+        model: "gpt-5.6-sol",
+        effort: "medium",
+        approval_policy: "never",
+        sandbox_policy: { type: "danger-full-access" },
+        permission_profile: { type: "disabled" },
+      },
+    }),
+    '{"timestamp":"2026-08-28T00:00:00.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","output":"',
+    oversizedOutput,
+    '"}}\n',
+    line({
+      type: "event_msg",
+      payload: {
+        type: "thread_settings_applied",
+        thread_settings: { service_tier: "priority" },
+      },
+    }),
+  ]);
+
+  const result = await readCodexTaskRunSettings(readable, "task-a");
+  assert.equal(result.settings.model, "gpt-5.6-sol");
+  assert.equal(result.settings.serviceTier, "priority");
+});
+
 test("fails closed when persisted Task run settings cannot preserve authority", async () => {
   await assert.rejects(
     readCodexTaskRunSettings(Readable.from([
@@ -390,22 +439,127 @@ test("rejects a malformed complete line with bounded diagnostics", async () => {
   assert.equal(readable.destroyed, true);
 });
 
-test("rejects oversized complete lines and retained fragments", async () => {
-  const complete = Readable.from([`${"x".repeat(MAX_JSONL_LINE_LENGTH + 1)}\n`]);
-  await assert.rejects(
-    scanCodexTaskEvents(complete, () => {}),
-    (error) => error.code === "TASK_JSONL_LINE_TOO_LARGE",
-  );
+test("skips oversized complete lines and incomplete fragments", async () => {
+  const complete = await scan([
+    `${"x".repeat(MAX_JSONL_LINE_LENGTH + 1)}\n`,
+    line(envelope("task_started", "turn-a")),
+  ]);
+  assert.deepEqual(complete.events, [
+    { type: "task_started", turnId: "turn-a" },
+  ]);
+  assert.equal(complete.summary.lineCount, 2);
 
-  const fragment = Readable.from([
+  const fragment = await scan([
+    line(envelope("task_started", "turn-a")),
     "x".repeat(Math.floor(MAX_JSONL_LINE_LENGTH / 2)),
     "x".repeat(Math.ceil(MAX_JSONL_LINE_LENGTH / 2) + 1),
   ]);
-  await assert.rejects(
-    scanCodexTaskEvents(fragment, () => {}),
-    (error) => error.code === "TASK_JSONL_LINE_TOO_LARGE",
-  );
-  assert.equal(fragment.destroyed, true);
+  assert.deepEqual(fragment.events, [
+    { type: "task_started", turnId: "turn-a" },
+  ]);
+  assert.equal(fragment.summary.ignoredIncompleteTail, true);
+  assert.equal(fragment.readable.destroyed, true);
+});
+
+test("streams past oversized unrelated tool output and observes later events", async () => {
+  const oversizedOutput = "x".repeat(MAX_JSONL_LINE_LENGTH + 1_024);
+  const { events, summary } = await scan([
+    line(envelope("task_started", "turn-a")),
+    '{"timestamp":"2026-08-28T00:00:00.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","output":"',
+    oversizedOutput,
+    '"}}\n',
+    line(envelope("task_complete", "turn-a")),
+  ]);
+
+  assert.deepEqual(events, [
+    { type: "task_started", turnId: "turn-a" },
+    { type: "task_complete", turnId: "turn-a" },
+  ]);
+  assert.deepEqual(summary, {
+    eventCount: 2,
+    ignoredIncompleteTail: false,
+    lineCount: 3,
+  });
+});
+
+test("reverse scan stops after the newest lifecycle event without reading old history", async () => {
+  const unrelated = JSON.stringify({
+    type: "future_large_record",
+    payload: "x".repeat(MAX_JSONL_LINE_LENGTH + 1_024),
+  });
+  const contents = [
+    line(envelope("task_started", "turn-a")),
+    `${unrelated}\n`,
+    line(envelope("task_complete", "turn-a")),
+  ].join("");
+
+  await withHistory(contents, async (historyFile) => {
+    const events = [];
+    const summary = await scanCodexTaskEventsFromEnd(
+      historyFile,
+      (event) => {
+        events.push(event);
+        return true;
+      },
+    );
+
+    assert.deepEqual(events, [
+      { type: "task_complete", turnId: "turn-a" },
+    ]);
+    assert.ok(summary.bytesRead < summary.fileSize / 100);
+    assert.equal(summary.eventCount, 1);
+  });
+});
+
+test("reverse scan reconstructs one bounded lifecycle line across internal buffers", async () => {
+  const contents = line(envelope(
+    "task_complete",
+    "turn-buffered",
+    { ignored_padding: "x".repeat(256 * 1_024) },
+  ));
+
+  await withHistory(contents, async (historyFile) => {
+    const events = [];
+    await scanCodexTaskEventsFromEnd(historyFile, (event) => {
+      events.push(event);
+      return true;
+    });
+
+    assert.deepEqual(events, [
+      { type: "task_complete", turnId: "turn-buffered" },
+    ]);
+  });
+});
+
+test("reverse scan skips an oversized lifecycle record without inspecting its type", async () => {
+  const oversizedCompletion = JSON.stringify(envelope(
+    "task_complete",
+    "turn-current",
+    { last_agent_message: "x".repeat(MAX_JSONL_LINE_LENGTH + 1_024) },
+  ));
+  const contents = [
+    line(envelope("task_started", "turn-old")),
+    line(envelope("task_complete", "turn-old")),
+    line(envelope("task_started", "turn-current")),
+    `${oversizedCompletion}\n`,
+  ].join("");
+
+  await withHistory(contents, async (historyFile) => {
+    const events = [];
+    const summary = await scanCodexTaskEventsFromEnd(
+      historyFile,
+      (event) => {
+        events.push(event);
+        return true;
+      },
+    );
+
+    assert.deepEqual(events, [
+      { type: "task_started", turnId: "turn-current" },
+    ]);
+    assert.equal(summary.eventCount, 1);
+    assert.ok(summary.bytesRead <= summary.fileSize);
+  });
 });
 
 test("accepts only the three supported event envelopes", async () => {

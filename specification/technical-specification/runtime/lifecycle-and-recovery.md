@@ -20,8 +20,9 @@ Intent clarification and plan agreement stay in the active user conversation.
 Controller opens or boundedly attempts the Board before each fresh Primary;
 this page boundary remains separate from heartbeat authority.
 Every scheduled prompt embeds the closed tuple
-`(C,P,S,G,R,STATE,conversation)`. `C/P/S/G` are exact Controller, Primary,
-schedule, and Milestone generation; `R` is a monotonic schedule revision;
+`(C,P,S,G,R,STATE,conversation)`. `C/S/G` are exact Controller, schedule, and
+Milestone generation; `P` is literal `uncommitted` only while the Primary fork
+is pending and exact thereafter; `R` is a monotonic schedule revision;
 `STATE` is one token below; and Conversation is literal `uncommitted` or one
 exact ID. Every same-`S` `schedule apply` update consumes the opaque etag from
 an exact `schedule read`, increments `R`, and requires a full-definition and
@@ -32,21 +33,28 @@ callback enumerates or changes unrelated automations.
 
 | State | Exclusive authority | Transition after read-back |
 | --- | --- | --- |
-| `LIVE` | No schedule or callback; ordinary Controller may bootstrap and interview | create `START_PENDING` |
-| `START_PENDING` | Inspect bounded evidence; bind one exact CID; or delete only on the exact failed-start predicate below | `START_BOUND` or `LIVE` |
+| `LIVE` | No schedule or callback; ordinary Controller may arm the next Milestone | create `PRIMARY_PENDING` |
+| `PRIMARY_PENDING` | Inspect/recover one exact queued fork; bind its one committed Child; or delete only after proven failed noncommitment | `PRIMARY_BOUND` or `LIVE` |
+| `PRIMARY_BOUND` | Inspect/recover exact P through bootstrap and live interview; arm execution startup | `START_PENDING` |
+| `START_PENDING` | Inspect bounded evidence; bind one exact CID; or restore exact P preparation only on the exact failed-start predicate below | `START_BOUND` or `PRIMARY_BOUND` |
 | `START_BOUND` | Inspect/recover exact P/CID and prove Execute started | `STEADY` |
 | `STEADY` | Supervise exact P/CID; arm nonterminal or terminal handoff | `ADVANCE_STOP` or `TERMINAL_DELETE` |
 | `ADVANCE_STOP` | Accept exact replied CID; stop/recover exact P; arm deletion only after proven stop | `ADVANCE_DELETE` |
 | `ADVANCE_DELETE` | Delete and confirm exact S only | `LIVE` at G+1 |
 | `TERMINAL_DELETE` | Delete and confirm exact S; ordinary Controller may then stop exact P; never fork | terminal |
 
-`START_PENDING` is created after `READY_FOR_EXECUTION` as
-`conversation=uncommitted`. It cannot operate any Task or Conversation. Zero
+`PRIMARY_PENDING` is created and read back before the fork as
+`P=uncommitted,conversation=uncommitted`. It keeps the exact deferred launch
+recoverable after the Controller turn ends. One committed Child ID rebinds the
+same schedule as `PRIMARY_BOUND` before bootstrap or interview recovery.
+`START_PENDING` is then created from that same schedule after
+`READY_FOR_EXECUTION` as `conversation=uncommitted`. It cannot operate any Task
+or Conversation. Zero
 matching Conversations is always a no-op, including before invocation,
 in-flight, interrupted/lost result, timeout, missing/malformed output,
 authentication/App-read ambiguity, and delayed visibility.
 
-Deletion requires all evidence together: the exact current pending tuple;
+Restoring `PRIMARY_BOUND` requires all evidence together: the exact current pending tuple;
 exactly one attributable `conversation start` invocation for exact P after its
 read-back and no later invocation; completed exit 1; one bounded parseable
 result with `operation="start"`, `run="failed"`, and present `code`/`message`;
@@ -54,7 +62,7 @@ no CID, partial, queued, delivery, or committed evidence; and bounded zero
 matching Controller-to-P Conversations for G. Exit 2/partial, `ok`, any CID,
 failed-with-CID, stale R/G, wrong target, later attempt, missing/truncated/
 malformed/unattributable result, contradictory CID, or multiple matches retains
-pending and forbids deletion.
+pending and forbids restoration.
 
 One proven Controller-to-P commitment
 rebinds same `S` at `R+1` to `START_BOUND/<CID>`; ambiguous/multiple/mismatched
@@ -66,8 +74,9 @@ proof similarly requires a confirmed same-`S` `STEADY` revision. Accepted CID
 in `START_BOUND` or `STEADY` is stale and cannot act.
 
 There is exactly one ordinary Controller start invocation per pending tuple.
-Callbacks and recovery never retry it; only confirmed `LIVE` cleanup or
-`START_BOUND` settlement permits later action.
+Callbacks and recovery never retry it; only a confirmed same-schedule return to
+`PRIMARY_BOUND` followed by a new pending revision, or `START_BOUND` settlement,
+permits later action.
 
 For nonterminal advancement, independent verification is followed by confirmed
 same-`S` `ADVANCE_STOP` **before** acceptance. Arming failure forbids accept.
@@ -75,12 +84,14 @@ That state alone accepts exact replied CID, stops/retries/recover exact P, then
 after proven committed or partial stop confirms `ADVANCE_DELETE`. The latter
 only deletes/confirms exact S. Failure retains the current state; no next fork,
 new schedule, generation advance, Child action, or unrelated Conversation is
-allowed. Absence permits ordinary Controller to enter heartbeat-free `LIVE` at
-G+1. A queued older revision/generation is inert.
+allowed. Absence permits ordinary Controller to enter `LIVE` at G+1, arm a new
+`PRIMARY_PENDING` schedule, and then fork. A queued older revision/generation is inert.
 
 Terminal flow instead confirms `TERMINAL_DELETE`, deletes/confirms S, then
-ordinary Controller stops P; it never forks. Startup creation failure prevents
-start. Board/bootstrap/live-interview failures stay bounded and heartbeat-free.
+ordinary Controller stops P; it never forks. `PRIMARY_PENDING` creation failure
+prevents the fork, and `START_PENDING` transition failure prevents execution
+start. Board failure remains bounded; fork, bootstrap, and live-interview
+failures remain observable through the current one-minute schedule.
 Authentication/App-read ambiguity grants no authority. A failed same-S update
 or read-back retains the last confirmed tuple and cadence. Interrupted turns
 resume only that tuple. User cadence applies independently per Milestone; no
@@ -435,7 +446,7 @@ The scanner passes a minimal normalized event to its reducer:
 streaming use. Its `accept(event)` method consumes normalized events and its
 `result()` method returns the same result shape as `reduceTaskEvents`.
 
-### Streaming Parser
+### Streaming Parsers
 
 `scanCodexTaskEvents(readable, reducer)` reads bytes incrementally rather than
 loading a potentially long session into memory.
@@ -444,8 +455,8 @@ It:
 
 1. decodes UTF-8 across chunk boundaries;
 2. recognizes LF and CRLF line endings;
-3. parses every ended nonblank line as one JSON object;
-4. sends only supported task-event envelopes to the reducer;
+3. retains and parses lines up to the shared JSONL line limit;
+4. skips every larger line without inspecting its record type or contents;
 5. ignores a malformed final fragment only when end-of-file arrives without a
    line ending;
 6. rejects a malformed ended line with its line number;
@@ -456,8 +467,24 @@ Ignoring one incomplete tail is conservative. A terminal event that is still
 being appended remains invisible, so an active turn looks `in_progress` until a
 later observation. The parser never rewrites or truncates Codex history.
 
-An oversized line or final fragment is an error rather than an unbounded memory
-allocation.
+The size rule is uniform: every oversized physical line is skipped. A later
+bounded lifecycle event therefore remains observable after large image, tool,
+or future record types. If a lifecycle event itself exceeds the limit, the
+observer continues to the preceding event and remains conservative rather than
+treating that large record as termination evidence.
+
+`scanCodexTaskEventsFromEnd(historyFile, reducer)` is the normal Task-state
+observation path. It treats Codex history as an append-only log, reads one line
+at a time from EOF toward BOF, and emits bounded supported events newest-first.
+It stops as soon as every requested latest or exact Turn is resolved. If the
+required event is old or absent, the same scan continues safely to BOF.
+
+The reverse scan has no persisted cursor, cache revision, or sidecar index.
+Every observation is therefore independent, while recent Turns normally cost
+only the small suffix containing their newest lifecycle event. Its private
+buffer size affects throughput only and is not an option or behavior contract.
+Diagnostics use byte offsets because finding a source line number would require
+scanning the discarded prefix of the file.
 
 ### Event Reducer
 
@@ -501,6 +528,12 @@ terminal result.
 
 `ended` means one Codex turn ended normally. It is not the Task Ledger's
 `accepted` lifecycle and does not prove that a delegated outcome succeeded.
+
+The forward reducer remains the strict sequence-validation primitive for direct
+streaming callers. Task-state observation instead selects the newest supported
+event for each requested Turn while scanning backward. In an append-only Codex
+history, that event is the current persisted state and lets observation finish
+without replaying older lifecycle events.
 
 ### Observation API
 
@@ -562,10 +595,12 @@ An existing history with no started turn returns `not_started`. An exact Turn ID
 absent from an otherwise readable history returns `unknown` with
 `TASK_TURN_NOT_FOUND`.
 
-`observeTasks` indexes histories once, reads independent files with a bounded
-concurrency limit, and returns results in the same order as its requests. One
-unreadable task becomes a degraded snapshot without suppressing healthy
-siblings. Failure to resolve the configured roots is a batch-level error.
+`observeTasks` indexes histories once, scans each independent file suffix once
+with a bounded concurrency limit, and returns results in the same order as its
+requests. Multiple latest and exact requests for one Task share that reverse
+scan. One unreadable task becomes a degraded snapshot without suppressing
+healthy siblings. Failure to resolve the configured roots is a batch-level
+error.
 
 ### Consumers
 
@@ -659,7 +694,6 @@ TASK_HISTORY_MISSING
 TASK_HISTORY_AMBIGUOUS
 TASK_HISTORY_UNREADABLE
 TASK_JSONL_MALFORMED
-TASK_JSONL_LINE_TOO_LARGE
 TASK_EVENT_INVALID
 TASK_EVENT_CONTRADICTORY
 TASK_TURN_NOT_FOUND
@@ -687,8 +721,12 @@ prevents all trustworthy observation throws a bounded operation error.
 
 - LF, CRLF, UTF-8, and arbitrary chunk boundaries;
 - blank and unrelated records are ignored;
+- oversized lines are skipped uniformly while later events and persisted Task
+  settings remain observable;
+- reverse scanning stops after a recent lifecycle event without reading old
+  history and crosses oversized records without inspecting their type;
 - only one incomplete final fragment is ignored;
-- malformed ended lines and oversized fragments fail boundedly;
+- malformed ended lines fail boundedly and oversized fragments are skipped;
 - the three supported event envelopes and invalid Turn IDs;
 - latest and exact mode across multiple turns;
 - older terminal events do not finish the latest turn;
@@ -701,6 +739,8 @@ prevents all trustworthy observation throws a bounded operation error.
 
 - active, archived, missing, not-started, in-progress, ended, aborted, and
   unknown snapshots;
+- terminal Task state remains observable after oversized unrelated output;
+- normal observation reads from EOF and shares one suffix scan across requests;
 - exact assignment-turn observation after a newer turn exists;
 - batch output order and bounded concurrency;
 - one degraded task does not hide healthy sibling snapshots;
