@@ -32,8 +32,9 @@ record launch ancestry separately from communication state.
   Windows adapter verifies the standalone OpenAI executable.
 - [`codex-app-server-host.mjs`](/implementation/components/runtime/source/codex-app-server-host.mjs)
   starts the private shared app-server host from that executable and lets
-  detached Codex Small Loop processes either reuse the recorded verified host or
-  cold-start one through the same platform resolver.
+  detached Codex Small Loop processes resolve the current executable/version,
+  reuse its recorded verified host, or cold-start a separate host after an update
+  while existing connections continue on their original host.
 - [`codex-app-server-host-platform.mjs`](/implementation/components/runtime/source/codex-app-server-host-platform.mjs)
   selects the current host adapter. The Darwin adapter retains the Unix-socket
   host; the Win32 adapter owns the authenticated dynamic loopback host,

@@ -1,7 +1,7 @@
 ---
 keyPoints: >-
   Codex Small Loop accepts only an attested platform Codex installation, uses it
-  to maintain one private shared app-server Host, and routes bounded direct Task
+  to maintain one private shared app-server Host per executable/version, and routes bounded direct Task
   turns through the verified transport. Provenance, authentication, or protocol
   ambiguity fails closed instead of accepting an unrelated runtime.
 ---
@@ -29,8 +29,16 @@ advertise the transport required by the current platform: Unix sockets on
 macOS, or capability-token-authenticated loopback WebSockets on Windows. It
 emits bounded structured failures and does not return raw command output.
 
-The verified executable starts one Codex Small Loop-owned app-server host. A
-private endpoint, owner metadata, project-independent host manager, and bridge
+The verified executable starts one Codex Small Loop-owned app-server host per
+executable path and version. Every new connection resolves the installed runtime
+before choosing its host. A short hash of that pair selects a private
+`app-server-<hash>` directory, endpoint, and startup lock. Updating Codex in place
+therefore starts a current host without interrupting clients of the old process;
+concurrent callers of the same version still share one host. The legacy
+unversioned directory is no longer selected. Old live hosts are left running
+because they may still own active turns; this transition does not automatically
+terminate them. A plugin-only update with the same Codex runtime reuses the host.
+A private endpoint, owner metadata, project-independent host manager, and bridge
 allow later detached runtime processes to reuse that exact host. macOS retains
 its Unix socket with mode `0600`. Windows binds only an OS-selected port on
 `127.0.0.1`, requires a random capability token for every WebSocket upgrade,
@@ -59,8 +67,8 @@ to guess another transport.
 
 The adapter bounds messages and results, preserves exact Task and Turn
 identities, and reports stable cause codes without exposing raw session data.
-Detached callers repeat the same platform resolver when a verified host does
-not exist; they never select an unverified process.
+Detached callers repeat the same platform resolver before host selection,
+including when a previous host is still alive; they never select an unverified process.
 Execution-profile inheritance uses read-only `thread/read` plus the matching
 session's latest complete `turn_context`; it does not resume an App-owned source
 Task merely to discover model or authority settings.

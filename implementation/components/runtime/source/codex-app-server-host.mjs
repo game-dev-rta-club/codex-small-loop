@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 
@@ -178,6 +179,13 @@ function resultFromHost(host, reused) {
   });
 }
 
+export function codexAppServerHostDirectory(codexHome, runtime) {
+  const identity = createHash("sha256")
+    .update(JSON.stringify([runtime.executablePath, runtime.version]))
+    .digest("hex").slice(0, 16);
+  return path.join(codexHome, "codex-small-loop", `app-server-${identity}`);
+}
+
 export async function ensureCodexAppServerHost({
   codexHome = process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"),
   resolveRuntime = resolveCodexRuntime,
@@ -191,7 +199,10 @@ export async function ensureCodexAppServerHost({
   if (typeof codexHome !== "string" || !path.isAbsolute(codexHome)) {
     throw new TypeError("codexHome must be an absolute path");
   }
-  const directory = path.join(codexHome, "codex-small-loop", "app-server");
+  // Resolve even when a host is alive: Desktop can replace the binary in place.
+  // Separate endpoints preserve old clients while new clients use the new runtime.
+  const runtime = await resolveRuntime();
+  const directory = codexAppServerHostDirectory(codexHome, runtime);
   await mkdir(directory, { recursive: true, mode: 0o700 });
   await hostPlatform.prepareDirectory(directory);
 
@@ -211,6 +222,13 @@ export async function ensureCodexAppServerHost({
     const normalized = normalizeState(sourceState, { directory, hostPlatform });
     const state = normalized.state;
     if (state.host) {
+      if (state.host.executablePath !== runtime.executablePath
+        || state.host.executableVersion !== runtime.version) {
+        throw hostError(
+          "APP_SERVER_HOST_RUNTIME_MISMATCH",
+          "The recorded app-server does not match the selected Codex runtime.",
+        );
+      }
       const status = await inspectRecordedHost(state.host, {
         hostPlatform,
         processProbe,
@@ -229,7 +247,6 @@ export async function ensureCodexAppServerHost({
       await hostPlatform.cleanup(null, directory);
     }
 
-    const runtime = await resolveRuntime();
     const launched = await hostPlatform.launch({
       runtime,
       directory,
