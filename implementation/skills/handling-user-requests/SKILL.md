@@ -53,7 +53,7 @@ Resolve the execution profile in this entry exchange:
   user explicitly selects it.
 - Treat the ordinary model selection and the user-facing "thinking model" as
   the Primary model. If it is unknown,
-  propose Terra Medium with the JSON default summary and ask only for the model
+  propose Terra High with the JSON default summary and ask only for the model
   decision, meaning the Primary model. State that execution remains at 1x unless the user explicitly
   selects 1.5x.
 - Treat the user-facing "implementation model" as the optional Worker model;

@@ -664,32 +664,32 @@ test("handling-user-requests presents one task-scoped setup and execution profil
     "implementation/contents/welcome/welcome-loop.png",
   ));
 
-  assert.match(profileSource.recordedAt, /^2026-08-08T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/);
+  assert.match(profileSource.recordedAt, /^2026-09-08T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/);
   assert.deepEqual(profileSource.benchmark, {
     name: "Artificial Analysis Intelligence Index",
-    version: "v4.1.1",
-    sourceUrl: "https://artificialanalysis.ai/models/gpt-5-6-terra-medium",
+    version: "v4.3",
+    sourceUrl: "https://artificialanalysis.ai/models/gpt-5-6-terra-high",
   });
   assert.deepEqual(
     profileSource.models.map(({ id, recommendedPlan }) => [id, recommendedPlan]),
     [
       ["luna-max", "Plus"],
-      ["terra-medium", "Plus"],
-      ["sol-low", "Pro 5x"],
-      ["sol-medium", "Pro 20x"],
+      ["terra-high", "Plus"],
+      ["astra-low", "Pro 5x"],
+      ["astra-medium", "Pro 20x"],
     ],
   );
   assert.deepEqual(
     profileSource.models.map(({ aaScore }) => aaScore),
-    [52, 47, 51, 56],
+    [38, 34, 46, 50],
   );
   assert.deepEqual(
     profileSource.models.map(({ aaCostUsd }) => aaCostUsd),
-    [172, 192, 344, 580],
+    [0.18, 0.34, 0.82, 1.54],
   );
   assert.deepEqual(
     profileSource.models.map(({ aaTimeSeconds }) => aaTimeSeconds),
-    [108, 37, 46, 79],
+    [338, 117, 84, 174],
   );
   assert.ok(profileSource.models.every((model) => (
     !Object.hasOwn(model, "completionCostUsd")
@@ -700,9 +700,9 @@ test("handling-user-requests presents one task-scoped setup and execution profil
     profileSource.models.map(({ model, reasoningEffort }) => [model, reasoningEffort]),
     [
       ["gpt-5.6-luna", "max"],
-      ["gpt-5.6-terra", "medium"],
-      ["gpt-5.6-sol", "low"],
-      ["gpt-5.6-sol", "medium"],
+      ["gpt-5.6-terra", "high"],
+      ["gpt-6-astra", "low"],
+      ["gpt-6-astra", "medium"],
     ],
   );
   assert.deepEqual(
@@ -715,7 +715,7 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.equal(profileSource.speeds[1].speedMultiplier, 1.5);
   assert.equal(profileSource.speeds[1].tokenMultiplier, 2.5);
   assert.deepEqual(profileSource.defaultProfile, {
-    modelId: "terra-medium",
+    modelId: "terra-high",
     speedId: "normal",
     summary: "the standard profile",
   });
@@ -741,13 +741,13 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.match(guide, /The following tools make development easier\./i);
   assert.match(guide, /\{\{WELCOME_IMAGE_ABSOLUTE_PATH\}\}/);
   assert.match(guide, /Luna Max/i);
-  assert.match(guide, /Terra Medium/i);
-  assert.match(guide, /Sol Low/i);
-  assert.match(guide, /Sol Medium/i);
+  assert.match(guide, /Terra High/i);
+  assert.match(guide, /Astra Low/i);
+  assert.match(guide, /Astra Medium/i);
   assert.match(guide, /AA Score/i);
   assert.match(guide, /AA Cost/i);
   assert.match(guide, /AA Time/i);
-  assert.match(guide, /108 sec/i);
+  assert.match(guide, /338 sec/i);
   assert.match(guide, /\b1x\b/i);
   assert.match(guide, /1\.5/i);
   assert.match(guide, /Let's choose the Agent model\./i);
@@ -761,7 +761,7 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.doesNotMatch(guide, /About\s+(?:\d|1\.5x|2\.5x)/i);
   assert.match(
     guide,
-    /May I start with the standard Terra Medium model\?/i,
+    /May I start with the standard Terra High model\?/i,
   );
   assert.match(guide, /Unless you explicitly select 1\.5x, execution remains at 1x/i);
 
@@ -778,7 +778,7 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.match(skill, /no persistent|does not persist|without persisting/i);
   assert.match(skill, /welcome\s+(?:guide|Markdown)/i);
   assert.match(skill, /every.*Root Task|each.*Root Task/is);
-  assert.match(skill, /Terra Medium/i);
+  assert.match(skill, /Terra High/i);
   assert.match(skill, /latest\s+user-authored\s+message/i);
   assert.match(skill, /Speed defaults immediately to 1x/i);
   assert.match(skill, /Do not ask a speed-only follow-up/i);

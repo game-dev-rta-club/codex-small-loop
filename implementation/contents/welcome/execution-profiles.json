@@ -1,12 +1,12 @@
 {
-  "recordedAt": "2026-08-08T14:26:45+09:00",
+  "recordedAt": "2026-09-08T00:00:00+09:00",
   "benchmark": {
     "name": "Artificial Analysis Intelligence Index",
-    "version": "v4.1.1",
-    "sourceUrl": "https://artificialanalysis.ai/models/gpt-5-6-terra-medium"
+    "version": "v4.3",
+    "sourceUrl": "https://artificialanalysis.ai/models/gpt-5-6-terra-high"
   },
   "defaultProfile": {
-    "modelId": "terra-medium",
+    "modelId": "terra-high",
     "speedId": "normal",
     "summary": "the standard profile"
   },
@@ -18,42 +18,42 @@
       "model": "gpt-5.6-luna",
       "reasoningEffort": "max",
       "summary": "Keeping costs low",
-      "aaScore": 52,
-      "aaCostUsd": 172,
-      "aaTimeSeconds": 108
+      "aaScore": 38,
+      "aaCostUsd": 0.18,
+      "aaTimeSeconds": 338
     },
     {
-      "id": "terra-medium",
-      "label": "Terra Medium",
+      "id": "terra-high",
+      "label": "Terra High",
       "recommendedPlan": "Plus",
       "model": "gpt-5.6-terra",
-      "reasoningEffort": "medium",
+      "reasoningEffort": "high",
       "summary": "Finishing quickly",
-      "aaScore": 47,
-      "aaCostUsd": 192,
-      "aaTimeSeconds": 37
+      "aaScore": 34,
+      "aaCostUsd": 0.34,
+      "aaTimeSeconds": 117
     },
     {
-      "id": "sol-low",
-      "label": "Sol Low",
+      "id": "astra-low",
+      "label": "Astra Low",
       "recommendedPlan": "Pro 5x",
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6-astra",
       "reasoningEffort": "low",
       "summary": "Balancing cost, speed, and accuracy",
-      "aaScore": 51,
-      "aaCostUsd": 344,
-      "aaTimeSeconds": 46
+      "aaScore": 46,
+      "aaCostUsd": 0.82,
+      "aaTimeSeconds": 84
     },
     {
-      "id": "sol-medium",
-      "label": "Sol Medium",
+      "id": "astra-medium",
+      "label": "Astra Medium",
       "recommendedPlan": "Pro 20x",
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6-astra",
       "reasoningEffort": "medium",
       "summary": "Prioritizing accuracy",
-      "aaScore": 56,
-      "aaCostUsd": 580,
-      "aaTimeSeconds": 79
+      "aaScore": 50,
+      "aaCostUsd": 1.54,
+      "aaTimeSeconds": 174
     }
   ],
   "speeds": [

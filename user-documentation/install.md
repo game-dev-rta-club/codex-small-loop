@@ -91,7 +91,7 @@ Task's first Codex Small Loop turn, it shows one complete inline Welcome guide i
 the user's language before investigating the project or requested deliverable.
 The guide contains the complete model and speed comparison and always includes
 the optional Slack and Obsidian recommendations. When no model was supplied, a
-plain-text line proposes Terra Medium and asks for explicit agreement. Speed
+plain-text line proposes Terra High and asks for explicit agreement. Speed
 defaults to 1x without a separate follow-up and changes to 1.5x only when the
 user explicitly selects it. When a model was supplied, the Skill records it
 with the explicit or default speed without asking again. On the next

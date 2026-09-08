@@ -43,7 +43,7 @@ recommendations always appear in the same guide.
 When the request does not specify a model, Codex proposes the default and
 explains the speed behavior:
 
-> Start with Terra Medium? Unless you explicitly select 1.5x, execution remains at 1x.
+> Start with Terra High? Unless you explicitly select 1.5x, execution remains at 1x.
 
 Speed defaults to 1x and does not cause a separate follow-up question. Codex
 uses 1.5x only when you explicitly select it. If the request supplied a model,
