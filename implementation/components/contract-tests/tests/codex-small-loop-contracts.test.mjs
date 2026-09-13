@@ -2797,7 +2797,7 @@ test("Work skills separate project understanding from mutation", async () => {
   assert.match(understanding, /explicit repository-root-relative Markdown links/i);
   assert.match(understanding, /backlinks/i);
   assert.match(understanding, /same or clearly shared descriptive name/i);
-  assert.match(understanding, /components\/commands\/sonner\.mjs/);
+  assert.match(understanding, /components\/commands\/small-loop\.mjs" sonner --runtime/);
   assert.match(understanding, /--project-root <project-root>/);
   assert.match(understanding, /`outputs` for[\s\S]*downstream impact/i);
   assert.match(understanding, /workGraph\.status[\s\S]*missing[\s\S]*invalid/i);
@@ -3066,7 +3066,7 @@ test("easy grounding routes Controller context to every milestone agent", async 
   assert.match(concept, /before.*(decid|act)/is);
   assert.match(concept, /key points/i);
   assert.match(concept, /one command|single command/i);
-  assert.match(concept, /sonner\.mjs/i);
+  assert.match(concept, /small-loop\.mjs" sonner --runtime/i);
   assert.match(concept, /link/i);
   assert.match(concept, /new agent|newly started agent/i);
   assert.match(concept, /accurate|correct/i);

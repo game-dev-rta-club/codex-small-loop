@@ -1,0 +1,52 @@
+{
+  "name": "@game-dev-rta-club/small-loop",
+  "version": "1.0.0",
+  "description": "Small Loop CLI: inspect project structure with Sonner without installing a Codex plugin.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/game-dev-rta-club/codex-small-loop.git"
+  },
+  "bin": {
+    "small-loop": "implementation/components/commands/small-loop.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "os": [
+    "darwin",
+    "win32"
+  ],
+  "files": [
+    "implementation/components/commands/small-loop.mjs",
+    "implementation/components/runtime/source/atomic-json-store.mjs",
+    "implementation/components/runtime/source/codex-jsonl.mjs",
+    "implementation/components/runtime/source/codex-session-locator.mjs",
+    "implementation/components/runtime/source/conversation.mjs",
+    "implementation/components/runtime/source/path-identity.mjs",
+    "implementation/components/runtime/source/portable-path-type.mjs",
+    "implementation/components/runtime/source/private-directory.mjs",
+    "implementation/components/runtime/source/project.mjs",
+    "implementation/components/runtime/source/recovery-supervisor-diagnostic.mjs",
+    "implementation/components/runtime/source/task-forest.mjs",
+    "implementation/components/runtime/source/task-ledger.mjs",
+    "implementation/components/sonner/source/runtime.mjs",
+    "implementation/components/sonner/source/sonner-path-policy.mjs",
+    "implementation/components/sonner/source/sonner-portable-io.mjs",
+    "implementation/components/sonner/source/sonner-project-reader.mjs",
+    "implementation/components/sonner/source/sonner-runtime-reader.mjs",
+    "implementation/components/sonner/source/sonner-task-history-reader.mjs",
+    "implementation/components/sonner/source/sonner-text.mjs",
+    "implementation/components/sonner/source/sonner.mjs",
+    "implementation/components/sonner/native/",
+    "implementation/components/cli/bootstrap.mjs",
+    "user-documentation/cli.md"
+  ],
+  "scripts": {
+    "test": "node implementation/testing/test-runner.mjs shared",
+    "test:cli": "node --test implementation/components/cli/tests/*.test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

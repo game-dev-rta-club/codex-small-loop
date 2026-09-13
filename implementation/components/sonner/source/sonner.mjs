@@ -373,6 +373,7 @@ function validProject(project) {
 }
 
 export async function buildSonnerProject(project, {
+  includeRuntime = true,
   readerOptions = {},
   runtimeOptions = {},
   openSession = openSonnerProjectReadSession,
@@ -393,7 +394,9 @@ export async function buildSonnerProject(project, {
         includeFiles: true,
         ...readerOptions,
       })),
-      Promise.resolve().then(() => runtimeBuilder(project, { ...runtimeOptions, projectSession: session })),
+      Promise.resolve().then(() => includeRuntime
+        ? runtimeBuilder(project, { ...runtimeOptions, projectSession: session })
+        : undefined),
     ].map((branch) => branch.catch((error) => {
       session.abort(error);
       throw error;
@@ -415,6 +418,7 @@ export async function buildSonnerProject(project, {
       },
       runtime,
     };
+    if (!includeRuntime) delete projection.runtime;
     session.throwIfAborted();
     return projection;
   } finally {
@@ -430,9 +434,11 @@ export function serializeSonner(value) {
   return `${JSON.stringify(value)}\n`;
 }
 
-function parseArguments(argv) {
-  let projectRoot = null;
+function parseArguments(argv, defaults) {
+  let projectRoot = defaults.projectRoot ?? null;
   let json = false;
+  let includeRuntime = defaults.includeRuntime ?? true;
+  let timeoutMs = 5_000;
   const seen = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const option = argv[index];
@@ -443,9 +449,16 @@ function parseArguments(argv) {
       projectRoot = argv[index + 1];
       index += 1;
     } else if (option === "--json") json = true;
+    else if (option === "--runtime") includeRuntime = true;
+    else if (option === "--timeout-ms") {
+      const value = argv[++index];
+      if (!/^[1-9][0-9]*$/.test(value ?? "")) return null;
+      timeoutMs = Number(value);
+      if (!Number.isSafeInteger(timeoutMs) || timeoutMs > 300_000) return null;
+    }
     else return null;
   }
-  return projectRoot ? { projectRoot, json } : null;
+  return projectRoot ? { projectRoot, json, includeRuntime, timeoutMs } : null;
 }
 
 function publicError(error, message) {
@@ -461,19 +474,28 @@ function renderError(value, json) {
     : `Sonner error code=${JSON.stringify(value.error.code)} message=${JSON.stringify(value.error.message)}\n`;
 }
 
-export async function runSonnerCli(argv = process.argv.slice(2)) {
-  const options = parseArguments(argv);
+export const SONNER_CLI_USAGE = "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--timeout-ms <1..300000>]";
+
+export async function runSonnerCli(argv = process.argv.slice(2), defaults = {}) {
+  if (argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
+    process.stdout.write(`${SONNER_CLI_USAGE}\n`);
+    return;
+  }
+  const options = parseArguments(argv, defaults);
   if (!options) {
     const json = argv.includes("--json");
     process.stderr.write(renderError(
-      publicError({ code: "SONNER_CLI_USAGE" }, "Usage: node sonner.mjs --project-root <path> [--json]"),
+      publicError({ code: "SONNER_CLI_USAGE" }, SONNER_CLI_USAGE),
       json,
     ));
     process.exitCode = 1;
     return;
   }
   try {
-    const projection = await buildSonner(options.projectRoot);
+    const projection = await buildSonner(options.projectRoot, {
+      includeRuntime: options.includeRuntime,
+      readerOptions: { timeoutMs: options.timeoutMs },
+    });
     process.stdout.write(options.json ? serializeSonner(projection) : formatSonnerText(projection));
   } catch (error) {
     process.stderr.write(renderError(

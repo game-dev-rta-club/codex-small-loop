@@ -36,5 +36,5 @@ explicit canonical `--json` form instead.
 - [Runtime Skill](/implementation/skills/understanding-works/SKILL.md)
 - [Work Graph knowledge](/implementation/skills/understanding-works/references/work-graph.md)
 - [Codex UI metadata](/implementation/skills/understanding-works/agents/openai.yaml)
-- [Sonner command](/implementation/components/commands/sonner.mjs)
+- [Sonner command](/implementation/components/commands/small-loop.mjs)
 - [Sonner Work Graph tests](/implementation/components/sonner/tests/work-graph.test.mjs)

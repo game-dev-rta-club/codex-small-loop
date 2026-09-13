@@ -203,6 +203,6 @@ export function formatSonnerText(value) {
   const lines = [`Sonner v${value.version}`];
   formatWorkGraph(value.workGraph, lines);
   formatFiles(value.files, lines);
-  formatRuntime(value.runtime, lines);
+  if (Object.hasOwn(value, "runtime")) formatRuntime(value.runtime, lines);
   return `${lines.join("\n")}\n`;
 }

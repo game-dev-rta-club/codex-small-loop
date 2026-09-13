@@ -87,10 +87,14 @@ Codex Small Loop includes a local **Board** with two views:
 Agents can read the same project projection as deterministic text:
 
 ```sh
-node <plugin-root>/components/commands/sonner.mjs --project-root "$PWD"
+node <plugin-root>/components/commands/small-loop.mjs sonner --runtime --project-root "$PWD"
 ```
 
 Add `--json` for the canonical machine-readable schema used by the local API.
+
+Sonner also runs independently as `small-loop sonner`, without installing Codex
+or a Plugin. The [standalone CLI guide](user-documentation/cli.md) covers npm,
+auto-updating project skills, and release setup.
 
 ## Platform support
 

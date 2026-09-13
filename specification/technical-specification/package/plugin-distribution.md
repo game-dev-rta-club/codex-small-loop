@@ -8,7 +8,8 @@ keyPoints: >-
 
 `.agents/plugins/marketplace.json` is repository-level marketplace metadata.
 Its local source is `./implementation`, making that directory the plugin
-distribution boundary.
+distribution boundary. The root npm manifest defines a separate CLI distribution
+from the same source files; see [CLI Distribution](/specification/technical-specification/package/cli-distribution.md).
 
 Inside `implementation/`, `.codex-plugin/plugin.json` identifies the plugin.
 Codex discovers Skills from `skills/`; `handling-user-requests` renders initial
@@ -18,8 +19,11 @@ lives in `contents/welcome/`, independent of any Role or Skill. Assets, third-pa
 sources, notices, and tests remain in the same Plugin Output Work. Installation
 therefore needs no copied root-level entry points or generated projection.
 
-The packaged command surface includes `components/commands/sonner.mjs` as the
-only Work Graph, Files, and Runtime inspection command. It emits deterministic
+The shared command surface is `small-loop sonner`, dispatched by
+`components/commands/small-loop.mjs`. Project inspection is the default;
+`--runtime` adds local Codex records. The former `commands/sonner.mjs` remains
+only as a compatibility adapter for existing consumers (explicit project Root,
+Runtime included). New consumers use the shared dispatcher. It emits deterministic
 Agent text by default and accepts explicit `--json` for the canonical versioned
 document shared with the Browser API. Its
 implementation lives in `components/sonner/` and is imported by the packaged

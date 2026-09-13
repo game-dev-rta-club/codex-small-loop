@@ -266,7 +266,7 @@ test("the CLI rejects duplicate, missing, positional, and unknown options in the
   assert.deepEqual(JSON.parse(json.stderr), {
     error: {
       code: "SONNER_CLI_USAGE",
-      message: "Usage: node sonner.mjs --project-root <path> [--json]",
+      message: "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--timeout-ms <1..300000>]",
     },
   });
 });

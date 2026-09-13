@@ -36,7 +36,8 @@ codex-small-loop/
     contents/
       welcome/                # Shared Welcome Board template, profile data, and image
     components/
-      commands/               # Small Agent-facing CLI entry points
+      commands/               # Shared small-loop dispatcher and compatibility entries
+      cli/                    # Copyable auto-update bootstrap and package tests
       board/                  # Board UI/shared Host plus shared Node Signal reader
       roles/
       runtime/
@@ -45,6 +46,7 @@ codex-small-loop/
     assets/
     third_party/
   user-documentation/         # User Documentation Output Work
+  package.json                # Standalone CLI package and explicit file allowlist
   README.md                   # Stable public entry page
   .gitignore
 ```

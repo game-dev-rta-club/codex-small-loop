@@ -165,7 +165,7 @@ Agents can retrieve the same versioned projection in one command from the
 installed plugin:
 
 ```sh
-node <plugin-root>/components/commands/sonner.mjs \
+node <plugin-root>/components/commands/small-loop.mjs sonner --runtime \
   --project-root "$PWD"
 ```
 

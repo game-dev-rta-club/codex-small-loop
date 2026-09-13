@@ -137,6 +137,17 @@ projects when changing lifecycle behavior to confirm one shared PID and distinct
 project URLs. A real Windows Browser run remains an explicit environment LIMIT
 when no Windows machine is available.
 
+## Standalone CLI
+
+The CLI package tests pack and extract the actual npm tarball outside the
+checkout, then inspect a separate Git project with an empty Codex location.
+They cover the shared dispatcher, hidden Work markers, project-only and explicit
+Runtime output, portable-reader parity, and invalid arguments. Bootstrap tests
+cover initial acquisition, refresh, offline fallback, broken/incompatible
+updates, retry delays, and concurrent publication without registry access.
+The normal macOS and Windows suites include these tests. Before a release,
+manually install the tarball and invoke its `small-loop sonner` executable.
+
 ## Completion commands
 
 Tests under `tests/shared/`, and legacy tests directly under `tests/`, form the

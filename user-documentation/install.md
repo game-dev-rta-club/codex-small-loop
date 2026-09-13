@@ -25,7 +25,9 @@ Then install Codex Small Loop:
 codex plugin add codex-small-loop@codex-small-loop
 ```
 
-The Codex plugin is the distribution boundary. It installs the skills together
+The Codex plugin is the distribution boundary for managed agent work. For
+Sonner without a Plugin or Codex installation, see [Standalone CLI](/user-documentation/cli.md).
+The plugin installs the skills together
 with the role definitions and shared runtime scripts they use.
 
 ## Desktop Runtime Requirements

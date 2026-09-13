@@ -29,7 +29,7 @@ are identified by `.WORK_NODE.xml`.
 Resolve the installed Codex Small Loop plugin root from this `SKILL.md`, then run:
 
 ```sh
-node "<plugin-root>/components/commands/sonner.mjs" \
+node "<plugin-root>/components/commands/small-loop.mjs" sonner --runtime \
   --project-root <project-root>
 ```
 

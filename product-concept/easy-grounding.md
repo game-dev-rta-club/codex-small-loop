@@ -55,7 +55,7 @@ for the current work.
    snapshot:
 
    ```sh
-   node "<plugin-root>/components/commands/sonner.mjs" \
+   node "<plugin-root>/components/commands/small-loop.mjs" sonner --runtime \
      --project-root <project-root>
    ```
 
