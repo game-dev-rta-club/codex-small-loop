@@ -68,6 +68,12 @@ function responseAuthority(params) {
           : params.sandbox === "workspace-write"
             ? "workspaceWrite"
             : "dangerFullAccess",
+        ...(params.config?.sandbox_workspace_write ? {
+          writableRoots: params.config.sandbox_workspace_write.writable_roots,
+          networkAccess: params.config.sandbox_workspace_write.network_access,
+          excludeSlashTmp: params.config.sandbox_workspace_write.exclude_slash_tmp,
+          excludeTmpdirEnvVar: params.config.sandbox_workspace_write.exclude_tmpdir_env_var,
+        } : {}),
       },
       activePermissionProfile: null,
     };
@@ -858,6 +864,7 @@ test("fails before creation when sandbox authority would lose details", async ()
             policy: {
               type: "workspaceWrite",
               writableRoots: ["/project"],
+              customRestriction: true,
             },
           },
         }),
@@ -1641,4 +1648,18 @@ test("bridge reports client requests above 1 MiB with structured size details", 
     await server.close();
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("fork sends detailed workspace config and validates the returned authority", async () => {
+  await withMock("success", async ({ client, transcript }) => {
+    const context = sandboxRunContext(HIGH_PROFILE, { permission: { type: "sandbox", policy: {
+      type: "workspaceWrite", writableRoots: [], networkAccess: false, excludeSlashTmp: true, excludeTmpdirEnvVar: true,
+    } } });
+    const result = await client.forkTask({ taskId: "parent-task", cwd: "/project", runContext: context });
+    assert.deepEqual(result.runContext.permission, context.permission);
+    const request = (await readTranscript(transcript)).find((x) => x.method === "thread/fork");
+    assert.deepEqual(request.params.config.sandbox_workspace_write, {
+      writable_roots: [], network_access: false, exclude_slash_tmp: true, exclude_tmpdir_env_var: true,
+    });
+  });
 });

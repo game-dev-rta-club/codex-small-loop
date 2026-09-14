@@ -1,3 +1,4 @@
+import { exhaustedOperations, retryExhausted } from "./retry-budget.mjs";
 import {
   lstat,
   mkdir,
@@ -181,6 +182,12 @@ export async function inspectProjectRuntime(projectRoot, options = {}) {
   const store = options.store ?? new AtomicJsonStore(project.stateFile);
   try {
     const ledger = await readTaskLedger(store, project);
+    const exhausted = exhaustedOperations(ledger);
+    if (exhausted.length) return {
+      run: "degraded", configured: true, readiness: "repair_required",
+      projectRoot: project.root, projectKey: project.key, work: summarizeWork(ledger),
+      issues: [{ code: "RETRY_LIMIT_REACHED", message: "Operations reached the automatic attempt limit; explicit retry is required.", details: { operations: exhausted } }],
+    };
     const readDiagnostic = options.readRecoverySupervisorDiagnostic
       ?? readRecoverySupervisorDiagnostic;
     let diagnostic;
@@ -289,4 +296,23 @@ export async function repairProjectRuntime(projectRoot, options = {}) {
     issues: inspection.issues,
     inspection,
   };
+}
+
+export async function retryProjectOperation(projectRoot, operationId) {
+  const project = await resolveProject(projectRoot);
+  const store = new AtomicJsonStore(project.stateFile);
+  await transactTaskLedger(store, project, (state) => {
+    const matches = ["pendingLaunches", "deliveries", "appMessages"].flatMap((key) =>
+      state[key].filter((item) => item.id === operationId).map((item) => ({ key, item })));
+    if (matches.length !== 1 || !retryExhausted(matches[0].item)) {
+      throw Object.assign(new Error("Choose one exhausted operation ID from runtime status."), { code: "RETRY_OPERATION_INVALID" });
+    }
+    const { key, item } = matches[0];
+    const expiredLease = item.status === "leased" && Date.parse(item.leaseExpiresAt) <= Date.now();
+    if ((item.status && item.status !== "ready" && !expiredLease) || (key === "pendingLaunches" && !["fork_queued", "role_started", "fork_role_started"].includes(item.phase))) {
+      throw Object.assign(new Error("This operation requires reconciliation before retry."), { code: "RETRY_OPERATION_UNSAFE" });
+    }
+    return { state: { ...state, [key]: state[key].map((x) => x.id === operationId ? { ...x, attemptCount: 0, lastError: null, ...(expiredLease ? { status: "ready", leaseOwner: null, leaseExpiresAt: null } : {}) } : x) }, result: null };
+  }, { now: new Date().toISOString() });
+  return { run: "ok", operation: "retry", operationId, state: "ready" };
 }

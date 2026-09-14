@@ -98,7 +98,10 @@ resume only that tuple. User cadence applies independently per Milestone; no
 states or schedules run in parallel. This uses Codex Small Loop
 `schedule apply/read/delete`, not Codex App `automation_update`, raw TOML, or
 project cron. Create uses `if-match=absent`; update and delete consume a read
-etag, and deletion is confirmed by a final absent read. There is no timeout.
+etag, and deletion is confirmed by a final absent read. The delete CLI queues
+a project-local request for the runtime; `deletion_queued` does not permit a
+transition requiring absence. Preserve the current state until the runtime has
+processed it, including when that runtime must be restarted. There is no timeout.
 An inherited App scheduling failure loads
 `$codex-small-loop:recover-unavailable-thread-schedules`, which returns the
 request to this same exact-Task, etag-guarded boundary without adding a raw
@@ -1016,3 +1019,35 @@ another Codex Small Loop command to invoke it.
 - [Supervisor diagnostic implementation](/implementation/components/runtime/source/recovery-supervisor-diagnostic.mjs)
 - [Heartbeat](/specification/technical-specification/runtime/lifecycle-and-recovery.md)
 - [Abnormal Recovery](/specification/technical-specification/runtime/lifecycle-and-recovery.md)
+
+## Anonymous heartbeat permissions and bounded retries
+
+Desktop heartbeat turns may persist an anonymous `managed` permission profile
+with filesystem entries and network restrictions instead of a profile ID.
+The runtime reads the latest turn context, validates the complete standard
+workspace permission shape, and passes workspace-write details through the
+App Server configuration override. Custom filesystem exceptions are rejected
+rather than dropped. The returned execution authority must still match before
+a child starts work. An unsupported older context does not invalidate a later
+valid context; an unsupported latest context never falls back to older rights.
+
+Automatic launch failures and delivery attempts are bounded to 50 attempts
+including the initial attempt. Launch counters are an optional, validated field
+in the current ledger format; older launches start at zero because they did
+not persist a count. Delivery counters already persisted by older runtimes are
+honored, including counts already above the limit. Counters survive restart.
+Exhausted operations remain in the ledger and appear in heartbeat events and
+`runtime status` with `RETRY_LIMIT_REACHED`; healthy operations and schedule
+deletion requests continue independently. The schedule-deletion queue retains
+its separate three-attempt limit.
+
+After correcting the cause, explicitly rearm one eligible operation:
+
+```text
+node <plugin-root>/components/commands/runtime.mjs retry --operation <id> --project-root <path>
+```
+
+This resets only that operation's counter; it does not recreate a Child or
+start another Conversation. An ambiguous creation/assignment phase still
+requires reconciliation. A stopped runtime must be started separately before
+queued work proceeds. Ordinary `runtime repair` does not reset attempt budgets.

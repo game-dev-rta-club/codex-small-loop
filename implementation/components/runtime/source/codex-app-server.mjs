@@ -312,6 +312,7 @@ export class CodexAppServerClient {
         model: settings.model,
         config: {
           model_reasoning_effort: settings.reasoningEffort,
+          ...settings.config,
         },
         serviceTier: settings.serviceTier,
         approvalPolicy: settings.approvalPolicy,
@@ -359,6 +360,7 @@ export class CodexAppServerClient {
         model: settings.model,
         config: {
           model_reasoning_effort: settings.reasoningEffort,
+          ...settings.config,
         },
         serviceTier: settings.serviceTier,
         approvalPolicy: settings.approvalPolicy,
@@ -717,6 +719,7 @@ export class CodexAppServerClient {
             model: expected.settings.model,
             config: {
               model_reasoning_effort: expected.settings.reasoningEffort,
+                ...expected.settings.config,
             },
             serviceTier: expected.settings.serviceTier,
             approvalPolicy: expected.settings.approvalPolicy,

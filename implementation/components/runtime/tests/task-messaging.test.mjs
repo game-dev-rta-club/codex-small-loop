@@ -150,9 +150,10 @@ test("renders all supported actions through one Next Actions contract", () => {
       },
     ]),
     `=== Next Actions ===
-1. Delete this delivery schedule before continuing.
+1. Request deletion of this delivery schedule before continuing.
    First run Codex Small Loop \`schedule read --schedule codex-small-loop-message-notification --task task-controller\`.
    Then run \`schedule delete --schedule codex-small-loop-message-notification --task task-controller --if-match <returned-etag>\`.
+   Run from the project root. If deletion_queued is returned, continue with this message; the runtime handles deletion. Do not wait or repeatedly retry in this turn.
 
 2. Reply to this Conversation after completing the requested work.
    Conversation ID: conversation-1
@@ -207,7 +208,7 @@ test("renders scheduled messages with schedule deletion in the same action list"
     text: "The E2E run completed.",
   });
   assert.equal(notification.match(/^=== Next Actions ===$/gm)?.length, 1);
-  assert.match(notification, /1\. Delete this delivery schedule/);
+  assert.match(notification, /1\. Request deletion of this delivery schedule/);
   assert.doesNotMatch(notification, /Reply to this Conversation/);
   assert.doesNotMatch(notification, /resume the currently loaded Role/);
 });

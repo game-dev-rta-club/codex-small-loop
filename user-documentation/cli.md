@@ -123,3 +123,24 @@ suites and publishes that exact version through GitHub Actions OIDC. No npm
 publication occurs on ordinary pushes or pull requests. Compatible releases
 are picked up by project bootstraps automatically. The package and Plugin
 continue to use one source tree; a second repository is unnecessary.
+
+## Text layout
+
+The default text output uses directory/file names within the indented tree and
+places extension counts on the directory's line. Each Work lists its summary,
+project-relative node directory, inputs, and outputs:
+
+```text
+Work Graph: valid
+  overview
+    Project overview.
+    nodeDir: Docs/Overview/
+    input: none
+    output: gameplay-specification, art-specification
+Files:
+  ./
+    Assets/ 53 meta, 53 png
+```
+
+Control characters and ambiguous labels remain escaped. Use `--json` for the
+full structured fields, including Work types and complete file paths.

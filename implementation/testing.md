@@ -170,3 +170,34 @@ ordinary iteration remains fast and deterministic.
 
 - [Implementation contracts](/implementation/components/contract-tests/tests/codex-small-loop-contracts.test.mjs)
 - [Board server](/implementation/components/board/server.mjs)
+
+## Schedule deletion requests
+
+Focused tests cover project-local atomic request publication, deduplication,
+etag and target checks at processing time, bounded retries, restart after an
+already completed deletion, and deletion without creator-runtime membership.
+Heartbeat tests check draining before lifecycle observation and retaining work
+while deletion retries are pending. Manual validation uses isolated schedule
+files with writes denied to the receiver and allowed to the runtime; no live
+notification is resumed for testing.
+
+## Heartbeat permissions and retry budgets
+
+Regression tests cover anonymous managed workspace permissions, preservation
+of network/tmp/root settings in fork requests, rejection of custom filesystem
+exceptions, latest-context selection without fallback to older authority,
+50-attempt boundaries, persistent counters, healthy siblings, early preflight
+failures, and explicit rearming of one exhausted operation. The standalone npm
+package includes the new shared runtime dependencies.
+
+On 2026-09-14, the previously failing Primary rollout parsed successfully and
+produced restricted workspace-write settings. An isolated App Server
+thread/start returned matching sandbox details without starting an AI turn.
+An initial standalone CLI 0.145.0 probe returned
+`-32601: paginated_threads is not supported yet`. That probe did not use the
+production transport. Repeating the check through the actual
+`CodexAppServerClient` and its shared WebSocket bridge selected the Desktop
+bundled runtime 0.154.0-alpha.6.2 and successfully forked the same Primary with
+matching workspace/network/tmp authority. No AI turn was started in the test
+Child, and the existing E2E was not resumed. Use the production runtime resolver
+and bridge for future live protocol checks rather than spawning PATH Codex.

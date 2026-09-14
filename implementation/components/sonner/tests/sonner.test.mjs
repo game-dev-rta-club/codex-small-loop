@@ -214,8 +214,8 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   assert.equal(firstText.stderr, "");
   assert.equal(firstText.stdout, secondText.stdout);
   assert.match(firstText.stdout, /^Sonner v12\nWork Graph: missing\nFiles:\n/);
-  assert.match(firstText.stdout, /Directory path="docs"\n\s+1 md/);
-  assert.match(firstText.stdout, /File path="README\.md" keyPoints="CLI project \\u202eTXT \\u200d \\ufe0f"/);
+  assert.match(firstText.stdout, /docs\/ 1 md/);
+  assert.match(firstText.stdout, /README\.md keyPoints="CLI project \\u202eTXT \\u200d \\ufe0f"/);
   assert.equal(firstText.stdout.includes("\u202e"), false);
   assert.equal(firstText.stdout.includes("\u200d"), false);
   assert.equal(firstText.stdout.includes("\ufe0f"), false);

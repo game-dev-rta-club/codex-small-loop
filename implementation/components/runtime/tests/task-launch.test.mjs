@@ -1972,3 +1972,18 @@ test("real ledger transactions preserve parallel sibling launches", async () => 
     await rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("launch failures retain their attempt budget across serialization", async () => {
+  const { planPendingLaunchReconciliation } = await import("../source/heartbeat.mjs");
+  let current = prepare(state(), { phase: "fork_queued", sourceTaskId: "parent-1" }).state;
+  for (let i = 0; i < 50; i++) {
+    current = recordPendingLaunchError(JSON.parse(JSON.stringify(current)), {
+      launchId: "launch-1", expectedPhase: "fork_queued", code: "LAUNCH_PARENT_PROFILE_FAILED",
+      message: "Profile unavailable", now: "2026-07-25T00:03:00.000Z",
+    }).state;
+  }
+  assert.equal(current.pendingLaunches[0].attemptCount, 50);
+  const plan = planPendingLaunchReconciliation(current.pendingLaunches, []);
+  assert.equal(plan.deferredForks.length, 0);
+  assert.deepEqual(plan.repairRequired, [{ launchId: "launch-1", reason: "retry_limit_reached" }]);
+});

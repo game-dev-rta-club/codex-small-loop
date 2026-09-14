@@ -237,6 +237,20 @@ export function threadSettingsFromTaskRunContext(context) {
       permissions: context.permission.id,
     };
   }
+  if (context.permission.policy.type === "workspaceWrite" && Object.keys(context.permission.policy).length > 1) {
+    const policy = context.permission.policy;
+    if (Object.keys(policy).some((key) => !["type", "writableRoots", "networkAccess", "excludeSlashTmp", "excludeTmpdirEnvVar"].includes(key))) {
+      throw new TypeError("Unsupported workspace sandbox details");
+    }
+    return {
+      model: context.model, reasoningEffort: context.reasoningEffort, serviceTier: context.serviceTier,
+      approvalPolicy: clone(context.approvalPolicy), sandbox: "workspace-write",
+      config: { sandbox_workspace_write: {
+        writable_roots: policy.writableRoots ?? [], network_access: policy.networkAccess ?? false,
+        exclude_slash_tmp: policy.excludeSlashTmp ?? false, exclude_tmpdir_env_var: policy.excludeTmpdirEnvVar ?? false,
+      } },
+    };
+  }
   if (Object.keys(context.permission.policy).length !== 1) {
     throw new TypeError(
       `Sandbox permission ${context.permission.policy.type} cannot be represented without losing policy details when creating or forking a task`,

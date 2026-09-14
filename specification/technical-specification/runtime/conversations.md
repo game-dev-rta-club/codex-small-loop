@@ -44,7 +44,7 @@ renders the existing program-owned schedule cleanup action:
 
 ```text
 === Next Actions ===
-1. Delete this delivery schedule before continuing.
+1. Request deletion of this delivery schedule before continuing.
    First run `schedule read --schedule <schedule-id> --task <target-task-id>`.
    Then run `schedule delete --schedule <schedule-id> --task <target-task-id> --if-match <returned-etag>`.
 ```
@@ -215,7 +215,7 @@ and files use mode `0600`. On Windows, each schedule directory replaces
 inherited access with the same verified current-user, SYSTEM, and
 Administrators ACL as the project runtime, and its files inherit that policy.
 Creation is atomic and idempotent. Delivery is at-least-once
-until the receiver reads and deletes the exact temporary schedule with Whole
+until the receiver reads and requests deletion of the exact temporary schedule with Whole
 Job Loop `schedule read/delete` by following the generated `Next Actions`; the runtime
 acknowledges delivery after the schedule disappears.
 
@@ -252,3 +252,33 @@ SCHEDULE_TARGET_MISMATCH
 - [Conversation CLI tests](/implementation/components/runtime/tests/conversation-cli.test.mjs)
 - [Shared communication CLI tests](/implementation/components/runtime/tests/communication-cli.test.mjs)
 - [Message routing tests](/implementation/components/runtime/tests/task-messaging.test.mjs)
+
+## Runtime-owned schedule deletion
+
+The receiver's `schedule delete` command publishes an idempotent request under
+`<project-root>/.codex-small-loop/schedule-deletions/`. It does not write to
+`CODEX_HOME/automations`. The command runs from the project root or takes an
+explicit `--project-root`. It still enforces the current target Task and the
+Small Loop schedule namespace. There is no restriction to schedules created
+by this runtime, and the target need not belong to its task ledger.
+
+The existing heartbeat drains requests before observing Tasks or reconciling
+delivery. It supplies its own automation root, and the existing schedule
+store verifies target Task and etag before deletion. An absent schedule is
+already complete; a changed etag is a terminal conflict. No request can supply
+a filesystem destination.
+
+`deletion_queued` means durable acceptance, not deletion. The receiver continues
+the message after acceptance; it does not poll or wait in the same turn. A
+repeat of the identical command reads the same receipt. `completed: true`
+means the runtime completed deletion; failures return a nonzero exit code.
+The runtime retries transient read/write/lock failures at 30-second intervals
+up to three attempts and stays active while requests remain pending. It
+records failures in the heartbeat report and project-local receipt.
+
+Queued requests survive restart. If runtime stopped before the request arrived,
+processing waits for its next start; the restricted receiver does not launch
+a replacement runtime. Completed receipts remain for duplicate suppression.
+Delivery acknowledgment still depends on actual schedule absence, never merely
+on enqueueing the request. Delete acknowledgment and message execution are
+separate; repeated schedule firings before cleanup remain possible.

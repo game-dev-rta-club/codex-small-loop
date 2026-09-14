@@ -2950,7 +2950,7 @@ test("reference docs record the detailed runtime contracts", async () => {
   );
   assert.match(messageRouting, /mode `0700`.*mode `0600`/is);
   assert.match(messageRouting, /temporary heartbeat schedule/i);
-  assert.match(messageRouting, /receiver reads and deletes.*schedule read\/delete/is);
+  assert.match(messageRouting, /receiver reads and requests deletion.*schedule read\/delete/is);
   assert.match(messageRouting, /=== Next Actions ===/);
   assert.match(messageRouting, /=== System Instructions ===/);
   assert.match(messageRouting, /SCHEDULE_READ_FAILED/);

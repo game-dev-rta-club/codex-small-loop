@@ -102,15 +102,17 @@ test("formats Works, files with key points, compact counts, and active Runtime T
   assert.equal(text, [
     "Sonner v12",
     "Work Graph: valid",
-    "  Work id=\"overview\" type=\"Overview\" node=\"overview/.WORK_NODE.xml\" inputs=[] outputs=[\"implementation\"] keyPoints=\"Project overview.\"",
+    "  overview",
+    "    Project overview.",
+    "    nodeDir: overview/",
+    "    input: none",
+    "    output: implementation",
     "Files:",
-    "  Directory path=\".\"",
-    "    Directory path=\"docs\"",
+    "  ./ 1 extensionless",
+    "    docs/",
     "      Warning code=legacy-work-node path=\"docs/WORK_NODE.xml\" renameTo=\"docs/.WORK_NODE.xml\"",
-    "    Directory path=\"src\"",
-    "      53 meta, 53 png",
-    "    File path=\"README.md\" keyPoints=\"Project keyPoints.\"",
-    "    1 extensionless",
+    "    src/ 53 meta, 53 png",
+    "    README.md keyPoints=\"Project keyPoints.\"",
     "Runtime: available health=attention reasons=[\"task_aborted\",\"runtime_diagnostic\"]",
     "  Task id=\"task-a\" name=null role=\"execute\" state=running",
     "  Task id=\"task-b\" name=\"review\" role=\"review\" state=unknown",
@@ -151,7 +153,7 @@ test("escapes every repository-derived string as one safe JSON-style field", () 
       tasks: [{ id: unsafe, name: unsafe, role: unsafe, turnState: "unknown" }],
     },
   }));
-  assert.equal(text.split("\n").length, 10, "embedded separators never create records");
+  assert.equal(text.split("\n").length, 14, "embedded separators never create records");
   assert.doesNotMatch(text, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]/);
   assert.match(text, /\\nnext\\r\\t\\\\quote\\"\\u0000\\u0001\\u007f\\u0085\\u2028\\u2029눈/);
   assert.equal(text.endsWith("\n"), true);
@@ -203,7 +205,7 @@ test("uses exact lowercase Unicode 16 visible escapes for hostile display scalar
         }],
       },
     }));
-    const literal = text.match(/Work id=("(?:\\.|[^"\\])*") type=/)[1];
+    const literal = text.match(/^  ("(?:\\.|[^"\\])*")$/m)[1];
     assert.equal(literal, `"a${expected}b"`, `U+${codePoint.toString(16)}`);
     assert.equal(JSON.parse(literal), source);
   }
@@ -218,7 +220,7 @@ test("uses exact lowercase Unicode 16 visible escapes for hostile display scalar
         works: [{ id: source, type: "Overview", keyPoints: "keyPoints", nodePath: "node", inputs: [], outputs: [] }],
       },
     }));
-    const literal = text.match(/Work id=("(?:\\.|[^"\\])*") type=/)[1];
+    const literal = text.match(/^  ("(?:\\.|[^"\\])*")$/m)[1];
     assert.equal(literal, expected);
     assert.equal(JSON.parse(literal), source);
   }
@@ -262,7 +264,7 @@ test("routes every free-form field through one reversible quoted primitive", () 
   }));
 
   const lines = text.split("\n");
-  assert.equal(lines.length, 12, "hostile values cannot create physical records");
+  assert.equal(lines.length, 15, "hostile values cannot create physical records");
   assert.deepEqual(lines.filter((line) => /^(Sonner|Work Graph:|Files:|Runtime:)/.test(line)).map((line) => line.split(" ")[0]), [
     "Sonner", "Work", "Files:", "Runtime:",
   ]);
@@ -272,11 +274,11 @@ test("routes every free-form field through one reversible quoted primitive", () 
     }
   }
   const literals = [...text.matchAll(/"(?:\\.|[^"\\])*"/g)].map((match) => match[0]);
-  assert.equal(literals.length, 17);
+  assert.equal(literals.length, 13);
   for (const literal of literals) assert.doesNotThrow(() => JSON.parse(literal));
   const decoded = literals.map((literal) => JSON.parse(literal));
-  assert.equal(decoded.filter((value) => value === hostile).length, 14);
-  for (const value of [".", `${hostile}/file`, `${hostile}-null`]) {
+  assert.equal(decoded.filter((value) => value === hostile).length, 11);
+  for (const value of [`${hostile}-null`]) {
     assert.ok(decoded.includes(value));
   }
   assert.match(text, /\\u202eLEAD\\u2066nested\\u2069\\u200d\\ufe0f\\udb40\\udd00\\udbff\\udfff\\ud800X\\udfff\\nWork id=\\"fake\\"\\\\TAIL\\u061c/);
@@ -298,9 +300,9 @@ test("preserves ordinary Unicode while making only invisible shaping controls vi
       }],
     },
   }));
-  assert.match(text, /id="한국어 Hangul 눈 😀 עברית é"/);
-  assert.match(text, /keyPoints="👩\\u200d💻 ❤\\ufe0f"/);
-  assert.match(text, /node="보통\/😀"/);
+  assert.match(text, /^  한국어 Hangul 눈 😀 עברית é$/m);
+  assert.match(text, /"👩\\u200d💻 ❤\\ufe0f"/);
+  assert.match(text, /nodeDir: 보통\//);
   assert.doesNotMatch(text, /\\u65e5|\\ud83d\\ude00|e\\u0301/);
 });
 

@@ -231,9 +231,10 @@ export function renderNextActions(actions) {
         action.targetTaskId,
         "targetTaskId",
       );
-      return `${index + 1}. Delete this delivery schedule before continuing.
+      return `${index + 1}. Request deletion of this delivery schedule before continuing.
    First run Codex Small Loop \`schedule read --schedule ${scheduleId} --task ${targetTaskId}\`.
-   Then run \`schedule delete --schedule ${scheduleId} --task ${targetTaskId} --if-match <returned-etag>\`.`;
+   Then run \`schedule delete --schedule ${scheduleId} --task ${targetTaskId} --if-match <returned-etag>\`.
+   Run from the project root. If deletion_queued is returned, continue with this message; the runtime handles deletion. Do not wait or repeatedly retry in this turn.`;
     }
     if (action.type === "reply_to_conversation") {
       requireExactOptions(action, ["conversationId", "type"]);

@@ -40,7 +40,9 @@
     "implementation/components/sonner/source/sonner.mjs",
     "implementation/components/sonner/native/",
     "implementation/components/cli/bootstrap.mjs",
-    "user-documentation/cli.md"
+    "user-documentation/cli.md",
+    "implementation/components/runtime/source/session-permissions.mjs",
+    "implementation/components/runtime/source/retry-budget.mjs"
   ],
   "scripts": {
     "test": "node implementation/testing/test-runner.mjs shared",

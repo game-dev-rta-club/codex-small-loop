@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { Readable, Writable } from "node:stream";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { runScheduleCli } from "../../commands/schedule.mjs";
+import { processScheduleDeletions } from "../source/schedule-delete-queue.mjs";
+import { resolveProject } from "../source/project.mjs";
+import { readSchedule } from "../source/schedule.mjs";
 
 function output() {
   let source = "";
@@ -31,9 +34,11 @@ test("runs the public apply/read/delete CAS flow in an isolated automation root"
   ];
   const options = {
     automationRoot,
+    cwd: automationRoot,
     env: { CODEX_THREAD_ID: "task-cli" },
     now: () => 100,
   };
+  await mkdir(path.join(automationRoot, ".codex-small-loop"));
 
   const appliedOutput = output();
   assert.equal(await runScheduleCli([
@@ -62,7 +67,15 @@ test("runs the public apply/read/delete CAS flow in an isolated automation root"
     ...options,
     stdout: deletedOutput.stream,
   }), 0);
-  assert.equal(deletedOutput.json().change, "deleted");
+  assert.equal(deletedOutput.json().change, "deletion_queued");
+  assert.equal(deletedOutput.json().completed, false);
+  const schedule = { automationRoot, scheduleId: base[1], targetTaskId: base[3] };
+  assert.equal((await readSchedule(schedule)).present, true);
+  await processScheduleDeletions(await resolveProject(automationRoot), { automationRoot });
+  assert.equal((await readSchedule(schedule)).present, false);
+  const receipt = output();
+  assert.equal(await runScheduleCli(["delete", ...base, "--if-match", applied.etag], { ...options, stdout: receipt.stream }), 0);
+  assert.equal(receipt.json().completed, true);
 });
 
 test("fails before storage access when the caller Task differs", async () => {

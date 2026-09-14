@@ -353,7 +353,7 @@ test("queues the message and state transition together for App-owned Tasks", asy
   );
   assert.match(
     queuedText,
-    /1\. Delete this delivery schedule[\s\S]*schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task review-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task review-task --if-match <returned-etag>[\s\S]*2\. Reply to this Conversation/,
+    /1\. Request deletion of this delivery schedule[\s\S]*schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task review-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task review-task --if-match <returned-etag>[\s\S]*2\. Reply to this Conversation/,
   );
   assert.equal(current.supervisorStarts(), 1);
 });

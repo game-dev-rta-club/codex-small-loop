@@ -234,14 +234,24 @@ node <plugin-root>/components/commands/schedule.mjs delete \
 ```
 
 After apply, read back and confirm the complete definition and returned etag.
-After delete, read back and confirm `present: false`. Never retry an etag
+Deletion is asynchronous: run from the project root or pass `--project-root`.
+`change: deletion_queued` with `completed: false` means the project-local request
+was accepted; continue the received message without waiting or polling in this
+turn. The existing runtime deletes the schedule using its own filesystem
+permissions. Repeat the identical delete command later to inspect the receipt;
+`completed: true` proves deletion. A stopped runtime leaves the request pending
+until it resumes. Failed receipts return a nonzero exit code.
+After delete, a lifecycle transition requiring removal must wait for an exact
+read with `present: false`; request acceptance alone does not authorize it.
+Never retry an etag
 mismatch blindly: read again and let the caller's Role decide whether the new
 definition still authorizes the intended transition. The CLI refuses to
 operate a schedule for a Task other than `CODEX_THREAD_ID` and refuses IDs
 outside the `codex-small-loop-` namespace.
 
 A queued App-owned message contains this same read-then-delete action. Follow
-it before continuing; the runtime acknowledges delivery when the temporary
+it before continuing; acceptance of the deletion request is sufficient to
+continue. The runtime acknowledges delivery when the temporary
 schedule disappears.
 
 When a Codex Small Loop Heartbeat request reaches this Task only after Codex

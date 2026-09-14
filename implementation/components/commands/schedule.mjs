@@ -6,9 +6,10 @@ import { pathToFileURL } from "node:url";
 import {
   applySchedule,
   defaultAutomationRoot,
-  deleteSchedule,
   readSchedule,
 } from "../runtime/source/schedule.mjs";
+import { queueScheduleDeletion } from "../runtime/source/schedule-delete-queue.mjs";
+import { resolveProject } from "../runtime/source/project.mjs";
 
 const MAX_MESSAGE_BYTES = 64 * 1_024;
 const HELP = `Codex Small Loop schedules
@@ -19,8 +20,11 @@ Create or update the current Task's schedule:
 Read the current Task's exact schedule definition and etag:
   schedule read --schedule <id> --task <task-id>
 
-Delete the current Task's exact schedule:
-  schedule delete --schedule <id> --task <task-id> --if-match <etag>
+Request deletion of the current Task's exact schedule by the project runtime:
+  schedule delete --schedule <id> --task <task-id> --if-match <etag> [--project-root <path>]
+  Run from the project root, or supply --project-root.
+  change=deletion_queued means accepted, not deleted. The runtime must be running.
+  Repeat the same command to read the receipt; completed=true proves deletion.
 
 Pass the apply prompt with --message, or write it to standard input.
 Results are one JSON object: exit 0 for ok and 1 for failed.
@@ -52,6 +56,7 @@ function parseArgs(argv) {
     "--if-match",
     "--interval-minutes",
     "--message",
+    "--project-root",
   ]);
   for (let index = 1; index < argv.length; index += 1) {
     const option = argv[index];
@@ -87,6 +92,9 @@ function parseArgs(argv) {
   if (operation === "read" && values["--if-match"] !== undefined) {
     throw cliError("SCHEDULE_CLI_USAGE", "read does not accept --if-match");
   }
+  if (operation !== "delete" && values["--project-root"] !== undefined) {
+    throw cliError("SCHEDULE_CLI_USAGE", "--project-root is only used for deletion requests");
+  }
   if (operation === "delete" && typeof values["--if-match"] !== "string") {
     throw cliError("SCHEDULE_CLI_USAGE", "delete requires --if-match <etag>");
   }
@@ -99,6 +107,7 @@ function parseArgs(argv) {
       ? undefined
       : Number(values["--interval-minutes"]),
     message: values["--message"],
+    projectRoot: values["--project-root"],
   };
 }
 
@@ -142,8 +151,9 @@ export async function runScheduleCli(argv, options = {}) {
         targetTaskId: parsed.targetTaskId,
       });
     } else if (parsed.operation === "delete") {
-      result = await (options.deleteSchedule ?? deleteSchedule)({
-        automationRoot,
+      const project = await resolveProject(path.resolve(parsed.projectRoot ?? options.cwd ?? process.cwd()));
+      result = await (options.queueScheduleDeletion ?? queueScheduleDeletion)({
+        project,
         scheduleId: parsed.scheduleId,
         targetTaskId: parsed.targetTaskId,
         ifMatch: parsed.ifMatch,

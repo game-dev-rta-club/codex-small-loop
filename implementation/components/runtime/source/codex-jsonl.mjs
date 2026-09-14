@@ -1,3 +1,4 @@
+import { sessionSandboxPolicy } from "./session-permissions.mjs";
 import { StringDecoder } from "node:string_decoder";
 import { open } from "node:fs/promises";
 import path from "node:path";
@@ -406,7 +407,7 @@ function normalizeTurnContext(payload, lineNumber) {
   }
 
   let activePermissionProfile = null;
-  if (permissionProfile.type !== "disabled") {
+  if (permissionProfile.type !== "disabled" && !(permissionProfile.type === "managed" && permissionProfile.id === undefined)) {
     if (
       typeof permissionProfile.id !== "string"
       || permissionProfile.id.length === 0
@@ -431,7 +432,7 @@ function normalizeTurnContext(payload, lineNumber) {
       approvalPolicy: structuredClone(approvalPolicy),
       model,
       reasoningEffort,
-      sandboxPolicy: { type: sandboxType },
+      sandboxPolicy: sessionSandboxPolicy(payload, sandboxType),
       serviceTier,
     },
   };
@@ -498,7 +499,7 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
       return;
     }
     if (record?.type === "turn_context") {
-      latestContext = normalizeTurnContext(record.payload, lineNumber);
+      latestContext = { payload: record.payload, lineNumber };
       return;
     }
     if (
@@ -555,6 +556,11 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
         "TASK_TURN_CONTEXT_MISSING",
         "Codex Task has no persisted turn context",
       );
+    }
+    try { latestContext = normalizeTurnContext(latestContext.payload, latestContext.lineNumber); }
+    catch (cause) {
+      if (cause.code) throw cause;
+      throw invalidTurnContext(`Codex Task permissions cannot be represented: ${cause.message}`);
     }
     if (!pathsEqual(latestContext.cwd, metadata.cwd)) {
       throw invalidTurnContext(

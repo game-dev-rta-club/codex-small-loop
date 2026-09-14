@@ -223,6 +223,7 @@ export function supervisorHasWork(report) {
       || summary.activeConversations > 0
       || summary.pendingDeliveries > 0
       || summary.pendingAppMessages > 0
+      || summary.pendingScheduleDeletes > 0
       || summary.recoveryCandidates > 0
       || summary.unresolvedRecoveries > 0
     )

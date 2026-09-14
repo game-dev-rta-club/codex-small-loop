@@ -81,8 +81,8 @@ function visibleEscape(codePoint) {
   return `\\u${high.toString(16)}\\u${low.toString(16)}`;
 }
 
-// Every present or future free-form field must route through quoted(),
-// nullable(), or stringList(). Fixed grammar tokens use fixedToken() instead.
+// Free-form fields use quoted(), nullable(), stringList(), or display().
+// Fixed grammar tokens use fixedToken() instead.
 function quoted(value) {
   const serialized = JSON.stringify(value);
   let result = "";
@@ -110,6 +110,22 @@ function compactExtension(value) {
   return /^[a-z0-9][a-z0-9+_-]*$/.test(value) ? value : quoted(value);
 }
 
+// Keep ordinary labels readable; quote ambiguous or unsafe values so names
+// cannot inject records, indentation, or invisible display controls.
+function display(value) {
+  return value.length === 0 || value.trim() !== value || /["\\]/.test(value)
+    || [...value].some((character) => unsafeTextCodePoint(character.codePointAt(0)))
+    ? quoted(value) : value;
+}
+
+function pathName(value) {
+  return value.replace(/[\\/]+$/, "").split(/[\\/]/).at(-1);
+}
+
+function workList(values) {
+  return values.length ? values.map(display).join(", ") : "none";
+}
+
 function formatWorkGraph(workGraph, lines) {
   const status = fixedToken(workGraph.status, ["valid", "missing", "invalid"], "Work Graph status");
   lines.push(`Work Graph: ${status}`);
@@ -120,9 +136,11 @@ function formatWorkGraph(workGraph, lines) {
   }
   for (const work of workGraph.works) {
     lines.push(
-      `  Work id=${quoted(work.id)} type=${quoted(work.type)} node=${quoted(work.nodePath)}`
-      + ` inputs=${stringList(work.inputs)} outputs=${stringList(work.outputs)}`
-      + ` keyPoints=${quoted(work.keyPoints)}`,
+      `  ${display(work.id)}`,
+      `    ${display(work.keyPoints)}`,
+      `    nodeDir: ${display(work.nodePath.slice(0, work.nodePath.lastIndexOf("/") + 1) || "./")}`,
+      `    input: ${workList(work.inputs)}`,
+      `    output: ${workList(work.outputs)}`,
     );
   }
 }
@@ -131,13 +149,15 @@ function formatFileNode(node, lines, depth) {
   const indentation = "  ".repeat(depth);
   const type = fixedToken(node.type, ["directory", "file", "file-counts", "warning"], "Files node type");
   if (type === "directory") {
-    lines.push(`${indentation}Directory path=${quoted(node.path)}`);
-    for (const child of node.children) formatFileNode(child, lines, depth + 1);
+    const counts = [];
+    for (const child of node.children.filter((child) => child.type === "file-counts")) formatFileNode(child, counts, 0);
+    lines.push(`${indentation}${display(pathName(node.path))}/${counts.length ? ` ${counts.join(", ")}` : ""}`);
+    for (const child of node.children.filter((child) => child.type !== "file-counts")) formatFileNode(child, lines, depth + 1);
     return;
   }
   if (type === "file") {
     if (typeof node.keyPoints !== "string" || node.keyPoints.length === 0) throw new TypeError("Invalid file keyPoints");
-    lines.push(`${indentation}File path=${quoted(node.path)} keyPoints=${quoted(node.keyPoints)}`);
+    lines.push(`${indentation}${display(pathName(node.path))} keyPoints=${quoted(node.keyPoints)}`);
     return;
   }
   if (type === "warning") {

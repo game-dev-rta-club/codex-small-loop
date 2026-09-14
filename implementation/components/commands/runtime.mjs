@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   inspectProjectRuntime,
+  retryProjectOperation,
   repairProjectRuntime,
 } from "../runtime/source/project-setup.mjs";
 import { diagnoseCodexRuntime } from "../runtime/source/codex-runtime-doctor.mjs";
@@ -12,6 +13,11 @@ import { diagnoseCodexRuntime } from "../runtime/source/codex-runtime-doctor.mjs
 const COMMANDS = new Set(["doctor", "repair", "status"]);
 
 function parseArgs(argv, cwd) {
+  if (Array.isArray(argv) && argv[0] === "retry" && [3, 5].includes(argv.length)
+      && argv[1] === "--operation" && argv[2] && !argv[2].startsWith("--")
+      && (argv.length === 3 || (argv[3] === "--project-root" && argv[4] && !argv[4].startsWith("--")))) {
+    return { command: "retry", operationId: argv[2], projectRoot: path.resolve(cwd, argv[4] ?? ".") };
+  }
   if (
     !Array.isArray(argv)
     || !COMMANDS.has(argv[0])
@@ -56,7 +62,9 @@ export async function runRuntimeCli(argv, options = {}) {
   try {
     const input = parseArgs(argv, path.resolve(options.cwd ?? process.cwd()));
     operation = input.command;
-    const result = input.command === "doctor"
+    const result = input.command === "retry"
+      ? await (options.retry ?? retryProjectOperation)(input.projectRoot, input.operationId)
+      : input.command === "doctor"
       ? await (options.doctor ?? diagnoseCodexRuntime)()
       : input.command === "repair"
         ? await (options.repair ?? repairProjectRuntime)(input.projectRoot)
