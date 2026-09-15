@@ -145,14 +145,16 @@ function formatWorkGraph(workGraph, lines) {
   }
 }
 
-function formatFileNode(node, lines, depth) {
+function formatFileNode(node, lines, depth, workNodes) {
   const indentation = "  ".repeat(depth);
   const type = fixedToken(node.type, ["directory", "file", "file-counts", "warning"], "Files node type");
   if (type === "directory") {
     const counts = [];
-    for (const child of node.children.filter((child) => child.type === "file-counts")) formatFileNode(child, counts, 0);
-    lines.push(`${indentation}${display(pathName(node.path))}/${counts.length ? ` ${counts.join(", ")}` : ""}`);
-    for (const child of node.children.filter((child) => child.type !== "file-counts")) formatFileNode(child, lines, depth + 1);
+    for (const child of node.children.filter((child) => child.type === "file-counts")) formatFileNode(child, counts, 0, workNodes);
+    const workId = workNodes.get(node.path);
+    const marker = workId === undefined ? "" : ` [WORK_NODE: ${display(workId)}]`;
+    lines.push(`${indentation}${display(pathName(node.path))}/${marker}${counts.length ? ` ${counts.join(", ")}` : ""}`);
+    for (const child of node.children.filter((child) => child.type !== "file-counts")) formatFileNode(child, lines, depth + 1, workNodes);
     return;
   }
   if (type === "file") {
@@ -181,15 +183,22 @@ function formatFileNode(node, lines, depth) {
   }
 }
 
-function formatFiles(files, lines) {
+function formatFiles(files, workGraph, lines) {
+  const workNodes = new Map();
+  if (workGraph.status === "valid") {
+    for (const work of workGraph.works) {
+      const slash = work.nodePath.lastIndexOf("/");
+      workNodes.set(slash < 0 ? "." : work.nodePath.slice(0, slash), work.id);
+    }
+  }
   const root = files.root;
   if (root.type !== "directory") throw new TypeError("Files root must be a directory");
-  if (root.children.length === 0) {
+  if (root.children.length === 0 && !workNodes.has(root.path)) {
     lines.push("Files: empty");
     return;
   }
   lines.push("Files:");
-  formatFileNode(root, lines, 1);
+  formatFileNode(root, lines, 1, workNodes);
 }
 
 function formatRuntime(runtime, lines) {
@@ -222,7 +231,7 @@ function formatRuntime(runtime, lines) {
 export function formatSonnerText(value) {
   const lines = [`Sonner v${value.version}`];
   formatWorkGraph(value.workGraph, lines);
-  formatFiles(value.files, lines);
+  formatFiles(value.files, value.workGraph, lines);
   if (Object.hasOwn(value, "runtime")) formatRuntime(value.runtime, lines);
   return `${lines.join("\n")}\n`;
 }

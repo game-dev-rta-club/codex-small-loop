@@ -127,7 +127,9 @@ continue to use one source tree; a second repository is unnecessary.
 ## Text layout
 
 The default text output uses directory/file names within the indented tree and
-places extension counts on the directory's line. Each Work lists its summary,
+places extension counts on the directory's line. Directories belonging to a valid
+Work Graph include `[WORK_NODE: <id>]` immediately after the directory name,
+before any extension counts. Each Work lists its summary,
 project-relative node directory, inputs, and outputs:
 
 ```text
@@ -139,6 +141,8 @@ Work Graph: valid
     output: gameplay-specification, art-specification
 Files:
   ./
+    Docs/
+      Overview/ [WORK_NODE: overview] 1 meta, 3 md
     Assets/ 53 meta, 53 png
 ```
 
