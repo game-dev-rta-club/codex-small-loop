@@ -64,7 +64,7 @@ test("npm tarball runs outside the checkout without Codex and reads hidden Work 
   const [packed] = JSON.parse(stdout);
   assert.ok(packed.files.some((f) => f.path.endsWith("native/sonner-project-reader")));
   assert.ok(!packed.files.some((f) => /\/tests\/|\/board\/|\/roles\/|plugin\.json/.test(f.path)));
-  await exec("tar", ["-xzf", path.join(temporaryRoot, packed.filename), "-C", temporaryRoot]);
+  await exec("tar", ["-xzf", packed.filename], { cwd: temporaryRoot });
   const entry = path.join(temporaryRoot, "package", bin);
   const project = path.join(temporaryRoot, "Project With Spaces");
   await mkdir(path.join(project, "overview"), { recursive: true });

@@ -2502,13 +2502,13 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   const helper = path.join(repositoryRoot, "implementation/components/sonner/native/sonner-project-reader");
   const manifest = JSON.parse(await read("implementation/.codex-plugin/plugin.json"));
   const marketplace = JSON.parse(await read(".agents/plugins/marketplace.json"));
-  assert.match(manifest.version, /^0\.1\.0\+codex\.\d{14}$/);
+  assert.match(manifest.version, /^\d+\.\d+\.\d+\+codex\.\d{14}$/);
   assert.equal(manifest.license, "MIT");
   const versionOccurrences = [];
   for (const relative of await listRepositoryFiles()) {
     const matches = (await readFile(path.join(repositoryRoot, relative)))
       .toString("utf8")
-      .match(/0\.1\.0\+codex\.\d{14}/g);
+      .match(/\d+\.\d+\.\d+\+codex\.\d{14}/g);
     for (const match of matches ?? []) versionOccurrences.push({ relative, match });
   }
   assert.deepEqual(versionOccurrences, [{
