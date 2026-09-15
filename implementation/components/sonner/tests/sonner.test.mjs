@@ -99,7 +99,7 @@ test("valid graph preserves every directory, lists files with key points, and gr
   assert.deepEqual(first, second, "projection ordering is deterministic");
   assert.deepEqual(Object.keys(first), ["version", "workGraph", "files", "runtime"]);
   assert.equal(first.version, SONNER_SCHEMA_VERSION);
-  assert.equal(first.version, 12);
+  assert.equal(first.version, 13);
   assert.deepEqual(Object.keys(first.workGraph), ["status", "works"]);
   assert.deepEqual(first.workGraph.works, [
     {
@@ -213,7 +213,7 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   const secondText = await execFileAsync(process.execPath, [command, "--project-root", root], { encoding: "utf8" });
   assert.equal(firstText.stderr, "");
   assert.equal(firstText.stdout, secondText.stdout);
-  assert.match(firstText.stdout, /^Sonner v12\nWork Graph: missing\nFiles:\n/);
+  assert.match(firstText.stdout, /^Sonner v13\nWork Graph: missing\nFiles:\n/);
   assert.match(firstText.stdout, /docs\/ 1 md/);
   assert.match(firstText.stdout, /README\.md keyPoints="CLI project \\u202eTXT \\u200d \\ufe0f"/);
   assert.equal(firstText.stdout.includes("\u202e"), false);
@@ -228,7 +228,7 @@ test("the public CLI defaults to deterministic Agent text and --json remains can
   assert.equal(firstJson.stdout.trim().split("\n").length, 1);
   const result = JSON.parse(firstJson.stdout);
   assert.deepEqual(Object.keys(result), ["version", "workGraph", "files", "runtime"]);
-  assert.equal(result.version, 12);
+  assert.equal(result.version, 13);
   assert.deepEqual(result.workGraph, { status: "missing" });
   assert.deepEqual(result.runtime, { status: "missing" });
   assert.deepEqual(result.files.root.children.map((node) => node.path), ["docs", "README.md"], "directories sort before files");
@@ -266,7 +266,7 @@ test("the CLI rejects duplicate, missing, positional, and unknown options in the
   assert.deepEqual(JSON.parse(json.stderr), {
     error: {
       code: "SONNER_CLI_USAGE",
-      message: "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--timeout-ms <1..300000>]",
+      message: "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--extensions] [--no-key-points] [--depth <0..128>] [--path <directory>] [--timeout-ms <1..300000>]",
     },
   });
 });

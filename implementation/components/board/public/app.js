@@ -330,7 +330,9 @@ async function renderWorkGraph(workGraph, request) {
     empty.className = "empty work-graph-state";
     empty.textContent = workGraph.status === "missing"
       ? "This project does not have a Work Graph. Files remain available."
-      : "This project has an invalid Work Graph. Files remain available.";
+      : workGraph.status === "partial"
+        ? "Only part of the project was read. Full Work Graph validation is unavailable. Files remain available."
+        : "This project has an invalid Work Graph. Files remain available.";
     layout.replaceChildren(empty);
     updateWorkGraphZoomControls(false);
     clearWorkDetail({ clearSelection: true });
@@ -428,12 +430,12 @@ function fileLabel(node, { interactive = false } = {}) {
       : node.name;
   }
   row.append(name);
-  if (node.type === "file" && node.keyPoints) {
+  if (node.type === "file" && (node.keyPoints || node.summary)) {
     const keyPoints = document.createElement("span");
     keyPoints.className = "file-key-points";
     keyPoints.id = `file-key-points-${++state.fileKeyPointsSequence}`;
-    keyPoints.textContent = node.keyPoints;
-    keyPoints.title = node.keyPoints;
+    keyPoints.textContent = [node.keyPoints, node.summary].filter(Boolean).join("\n");
+    keyPoints.title = keyPoints.textContent;
     row.setAttribute("aria-describedby", keyPoints.id);
     row.append(keyPoints);
   }

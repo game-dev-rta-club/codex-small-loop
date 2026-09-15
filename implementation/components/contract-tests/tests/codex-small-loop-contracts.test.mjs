@@ -1768,7 +1768,7 @@ test("current project Works form an Overview-rooted graph", async () => {
   );
   assert.equal(map.status, 0, map.stderr);
   const sonner = JSON.parse(map.stdout);
-  assert.equal(sonner.version, 12);
+  assert.equal(sonner.version, 13);
   assert.equal(sonner.workGraph.status, "valid");
   const works = sonner.workGraph.works;
   assert.equal(works.filter((work) => work.type === "Overview").length, 1);
@@ -2558,7 +2558,7 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   assert.match(portable, /shell:\s*false/);
   assert.match(portable, /revalidateAncestors/);
   assert.doesNotMatch(portable, /\.\.\.environment/);
-  assert.match(projection, /SONNER_SCHEMA_VERSION = 12/);
+  assert.match(projection, /SONNER_SCHEMA_VERSION = 13/);
   assert.match(projection, /version: SONNER_SCHEMA_VERSION,[\s\S]*workGraph:[\s\S]*files:[\s\S]*runtime,/);
   assert.match(projection, /outputs:/);
   assert.match(projection, /options\.json \? serializeSonner\(projection\) : formatSonnerText\(projection\)/);
@@ -2629,7 +2629,7 @@ test("Sonner packages descriptor-anchored Runtime and history readers", async ()
   assert.doesNotMatch(historySource, /CODEX_HOME|archived_sessions|\/Users\//);
 });
 
-test("Sonner closure keeps schema v12 and flat active Runtime surfaces free of retired contracts", async () => {
+test("Sonner closure keeps schema v13 and flat active Runtime surfaces free of retired contracts", async () => {
   const creating = await read("implementation/skills/creating-and-maintaining-works/SKILL.md");
   const lifecycleTests = await read("implementation/components/sonner/tests/sonner-lifecycle.test.mjs");
   const serverTests = await read("implementation/components/board/tests/board-server.test.mjs");
@@ -2640,7 +2640,7 @@ test("Sonner closure keeps schema v12 and flat active Runtime surfaces free of r
   assert.match(creating, /does not automatically load `understanding-works`, run\s+Sonner/i);
   assert.doesNotMatch(creating, /Work Graph mapper/i);
   assert.doesNotMatch(serverTests, /\bversion:\s*6\b/);
-  assert.match(serverTests, /\bversion:\s*12\b/);
+  assert.match(serverTests, /\bversion:\s*13\b/);
   assert.match(lifecycleTests, /health:\s*"unknown", reasons:\s*\["observation_failed"\], tasks:\s*\[\]/);
   assert.doesNotMatch(lifecycleTests, /health:\s*"unknown", settled:|counts:\s*\{\}, roots:/);
   assert.match(html, /id="runtime-task-list"[^>]*class="runtime-task-list"/);

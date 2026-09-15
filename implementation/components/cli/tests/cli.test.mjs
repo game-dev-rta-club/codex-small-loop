@@ -88,4 +88,12 @@ test("npm tarball runs outside the checkout without Codex and reads hidden Work 
   for (const args of [["unknown"], ["sonner", "--wat"], ["sonner", "--timeout-ms", "0"], ["sonner", "--timeout-ms", "300001"], ["sonner", "--runtime", "--runtime"]]) {
     await assert.rejects(run(args), (error) => error.code === 1);
   }
+  await writeFile(path.join(project, ".sonner.json"), JSON.stringify({ version: 1,
+    extensions: [{ suffix: ".txt", module: "metadata.mjs" }] }));
+  await writeFile(path.join(project, "metadata.mjs"), 'import { summary } from "./helper.mjs"; export const apiVersion = 1; export function extract() { return {summary}; }');
+  await writeFile(path.join(project, "helper.mjs"), 'export const summary = "Project-owned utility";');
+  await writeFile(path.join(project, "notes.txt"), "Input");
+  const extended = JSON.parse((await run(["sonner", "--extensions", "--json"])).stdout);
+  assert.equal(extended.files.root.children.find((entry) => entry.path === "notes.txt").summary, "Project-owned utility");
+
 });

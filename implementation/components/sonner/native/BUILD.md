@@ -25,7 +25,7 @@ chmod 755 sonner-project-reader
 
 The packaged output is ad-hoc signed and contains arm64 and x86_64 slices.
 Its SHA-256 is
-`982a0a119e828759ca867c75bd244e07bfa0e65c53aa4fe754979ed1397f6f8a`.
+`01b06b8050a9bbf572767d3c6f4418c915ed5d108ad05067f50861ec9a92bfef`.
 Tests compile a temporary current-architecture helper with
 `SONNER_PROJECT_READER_TEST_HOOKS`; its control fd 4 pauses descriptor
 transitions so replacement and mutation races can be exercised without adding

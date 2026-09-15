@@ -44,7 +44,7 @@ small-loop sonner --help
 The default Root is the current working directory. `--project-root` accepts
 an absolute path or one relative to that directory. Default output is
 deterministic Agent text containing Work Graph and Files. `--json` returns
-the lossless version-12 projection. Project-only output omits `runtime`;
+the lossless version-13 projection. Project-only output omits `runtime`;
 `--runtime` adds the same Runtime projection used by the Plugin and Board.
 It observes locally available records; it neither installs nor starts Codex.
 
@@ -155,3 +155,10 @@ Files:
 
 Control characters and ambiguous labels remain escaped. Use `--json` for the
 full structured fields, including Work types and complete file paths.
+
+## Project extensions and scoped queries
+
+Use `--extensions` to run project-owned metadata extractors configured in
+`.sonner.json`. Use `--no-key-points`, `--depth N`, and `--path DIR` to control
+the output and content scope. See [Sonner extensions and queries](/user-documentation/sonner-extensions.md)
+for the API, configuration, counting rules, and partial graph semantics.

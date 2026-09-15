@@ -127,9 +127,9 @@ function workList(values) {
 }
 
 function formatWorkGraph(workGraph, lines) {
-  const status = fixedToken(workGraph.status, ["valid", "missing", "invalid"], "Work Graph status");
+  const status = fixedToken(workGraph.status, ["valid", "partial", "missing", "invalid"], "Work Graph status");
   lines.push(`Work Graph: ${status}`);
-  if (workGraph.status !== "valid") return;
+  if (!["valid", "partial"].includes(workGraph.status)) return;
   if (workGraph.works.length === 0) {
     lines.push("  Works: empty");
     return;
@@ -137,7 +137,7 @@ function formatWorkGraph(workGraph, lines) {
   for (const work of workGraph.works) {
     lines.push(
       `  ${display(work.id)}`,
-      `    ${display(work.keyPoints)}`,
+      ...(work.keyPoints === undefined ? [] : [`    ${display(work.keyPoints)}`]),
       `    nodeDir: ${display(work.nodePath.slice(0, work.nodePath.lastIndexOf("/") + 1) || "./")}`,
       `    input: ${workList(work.inputs)}`,
       `    output: ${workList(work.outputs)}`,
@@ -154,12 +154,18 @@ function formatFileNode(node, lines, depth, workNodes) {
     const workId = workNodes.get(node.path);
     const marker = workId === undefined ? "" : ` [WORK_NODE: ${display(workId)}]`;
     lines.push(`${indentation}${display(pathName(node.path))}/${marker}${counts.length ? ` ${counts.join(", ")}` : ""}`);
+    if (node.truncated) lines.push(`${indentation}  … deeper directories omitted`);
     for (const child of node.children.filter((child) => child.type !== "file-counts")) formatFileNode(child, lines, depth + 1, workNodes);
     return;
   }
   if (type === "file") {
-    if (typeof node.keyPoints !== "string" || node.keyPoints.length === 0) throw new TypeError("Invalid file keyPoints");
-    lines.push(`${indentation}${display(pathName(node.path))} keyPoints=${quoted(node.keyPoints)}`);
+    const metadata = [];
+    for (const key of ["keyPoints", "summary"]) {
+      if (node[key] == null) continue;
+      if (typeof node[key] !== "string" || node[key].length === 0) throw new TypeError(`Invalid file ${key}`);
+      metadata.push(`${key}=${quoted(node[key])}`);
+    }
+    lines.push(`${indentation}${display(pathName(node.path))}${metadata.length ? ` ${metadata.join(" ")}` : ""}`);
     return;
   }
   if (type === "warning") {
@@ -185,7 +191,7 @@ function formatFileNode(node, lines, depth, workNodes) {
 
 function formatFiles(files, workGraph, lines) {
   const workNodes = new Map();
-  if (workGraph.status === "valid") {
+  if (["valid", "partial"].includes(workGraph.status)) {
     for (const work of workGraph.works) {
       const slash = work.nodePath.lastIndexOf("/");
       workNodes.set(slash < 0 ? "." : work.nodePath.slice(0, slash), work.id);
@@ -230,6 +236,8 @@ function formatRuntime(runtime, lines) {
 
 export function formatSonnerText(value) {
   const lines = [`Sonner v${value.version}`];
+  if (value.selection) lines.push(`Scope: ${quoted(value.selection.path)} (partial project; external Work links are not validated)`);
+  if (value.maxDepth !== undefined) lines.push(`Files depth: ${value.maxDepth} (root = 0)`);
   formatWorkGraph(value.workGraph, lines);
   formatFiles(value.files, value.workGraph, lines);
   if (Object.hasOwn(value, "runtime")) formatRuntime(value.runtime, lines);

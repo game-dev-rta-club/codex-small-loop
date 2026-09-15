@@ -1,3 +1,4 @@
+import { SONNER_CONFIG_PATH, SONNER_METADATA_BYTES, parseSonnerConfig, selectSonnerPaths, sonnerReadBytes, sonnerSelection } from "./sonner-options.mjs";
 import { execFile, spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { access, open, readFile, stat } from "node:fs/promises";
@@ -14,7 +15,7 @@ export const SONNER_READER_MAX_PATHS = 100_000;
 export const SONNER_READER_MAX_PATH_BYTES = 4096;
 export const SONNER_READER_MAX_WORKS = 1024;
 export const SONNER_READER_MAX_WORK_BYTES = 256 * 1024;
-export const SONNER_READER_MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
+export const SONNER_READER_MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 export const SONNER_READER_MAX_STDERR_BYTES = 4096;
 export const SONNER_GIT_MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
 export const SONNER_READER_TEXT_DETECTION_BYTES = 512;
@@ -438,9 +439,10 @@ export async function readSonnerProject({
   project,
   session = null,
   includeFiles = true,
+  query = {},
   maxWorks = SONNER_READER_MAX_WORKS,
   maxWorkBytes = SONNER_READER_MAX_WORK_BYTES,
-  maxOutputBytes = SONNER_READER_MAX_OUTPUT_BYTES,
+  maxOutputBytes = query.extensions ? SONNER_READER_MAX_OUTPUT_BYTES : 16 * 1024 * 1024,
   helperPath = PACKAGED_SONNER_PROJECT_READER,
   timeoutMs = SONNER_READER_TIMEOUT_MS,
   platform = process.platform,
@@ -476,6 +478,7 @@ export async function readSonnerProject({
         maxWorkBytes,
         maxOutputBytes,
         environment,
+        query,
       });
     }
     activeSession.throwIfAborted();
@@ -488,92 +491,104 @@ export async function readSonnerProject({
       maxOutputBytes: maxGitOutputBytes, maxPaths: maxGitPaths, environment, onTransition, allowNonGit: !includeFiles });
     await onPhase?.("after-git-output");
     activeSession.throwIfAborted();
-    const admittedPaths = gitPaths ?? [];
-    const normalized = admittedPaths.map((projectPath) => ({
-      path: projectPath,
-      maxBytes: includeFiles ? (/\.md$/i.test(projectPath) ? 64 * 1024 : SONNER_READER_TEXT_DETECTION_BYTES) : 0,
-    }));
-    const request = encodeSonnerReaderRequest({ rootIdentity: project.rootIdentity, paths: normalized,
-      maxWorks, maxWorkBytes, maxOutputBytes, includeFiles, gitDiscovery: gitPaths !== null });
-    await onPhase?.("before-content-spawn");
-    activeSession.throwIfAborted();
-    const child = spawnImpl(helperPath, [], {
-      shell: false,
-      stdio: onTransition ? ["pipe", "pipe", "pipe", rootHandle.fd, "pipe"] : ["pipe", "pipe", "pipe", rootHandle.fd, "ignore"],
-      env: onTransition ? { SONNER_PROJECT_READER_CONTROL_FD: "4" } : {},
-    });
-    const requested = new Map(normalized.map((entry) => [entry.path, entry.maxBytes]));
-    const state = { hello: false, final: false, entries: [], works: [], legacyWorkNodes: [], workUnsafe: false,
-      seenPaths: new Set(), seenWorks: new Set(), seenLegacyWorks: new Set(),
-      lastPath: null, lastWork: null, lastLegacyWork: null };
-    let buffered = Buffer.alloc(0);
-    let outputBytes = 0;
-    let stderrBytes = 0;
-    let failure = null;
-    let terminal = false;
-    let controlBuffered = "";
-    let controlActive = false;
-    let requestFinished = false;
-    let killed = false;
-    const fail = () => {
-      if (failure) return;
-      failure = readerError("Sonner project reader failed.");
-      if (!terminal && !killed) { killed = true; try { child.kill("SIGKILL"); } catch { /* close is authoritative */ } }
-    };
-    const closedChild = new Promise((resolve) => child.once("close", (code, signal) => {
-      terminal = true;
-      resolve({ code, signal });
-    }));
-    child.on("error", fail);
-    child.stdin.on("error", fail); child.stdout.on("error", fail); child.stderr.on("error", fail);
-    child.stdin.on("finish", () => { requestFinished = true; });
-    child.stdout.on("data", (chunk) => {
-      if (failure) return;
-      outputBytes += chunk.length;
-      if (outputBytes > maxOutputBytes) { fail(); return; }
-      buffered = Buffer.concat([buffered, chunk]);
-      try {
-        while (buffered.length >= 4) {
-          const length = buffered.readUInt32BE(0);
-          if (length === 0 || length > Math.max(maxWorkBytes, 64 * 1024) + SONNER_READER_MAX_PATH_BYTES + 16) throw readerError("Sonner helper frame overflow.");
-          if (buffered.length < 4 + length) break;
-          parseFrame(buffered.subarray(4, 4 + length), state, requested, maxWorkBytes);
-          buffered = buffered.subarray(4 + length);
-        }
-      } catch { fail(); }
-    });
-    child.stderr.on("data", (chunk) => { stderrBytes += chunk.length; if (stderrBytes > SONNER_READER_MAX_STDERR_BYTES) fail(); });
-    const control = onTransition ? child.stdio[4] : null;
-    if (control) {
-      control.setEncoding("utf8"); control.on("error", fail);
-      control.on("data", (chunk) => {
-        if (failure) return;
-        controlBuffered += chunk;
-        let newline = controlBuffered.indexOf("\n");
-        while (newline >= 0) {
-          const transition = controlBuffered.slice(0, newline); controlBuffered = controlBuffered.slice(newline + 1);
-          if (controlActive) { fail(); return; }
-          controlActive = true;
-          Promise.resolve().then(() => onTransition(transition)).then(() => {
-            if (failure || terminal || control.destroyed) return;
-            control.write(Buffer.from([1]), (error) => { controlActive = false; if (error && !terminal) fail(); });
-          }, () => { controlActive = false; fail(); });
-          newline = controlBuffered.indexOf("\n");
-        }
+    async function readContent(normalized, gitDiscovery, contentFiles = includeFiles) {
+      const request = encodeSonnerReaderRequest({ rootIdentity: project.rootIdentity, paths: normalized,
+        maxWorks, maxWorkBytes, maxOutputBytes, includeFiles: contentFiles, gitDiscovery });
+      await onPhase?.("before-content-spawn");
+      activeSession.throwIfAborted();
+      const child = spawnImpl(helperPath, [], {
+        shell: false,
+        stdio: onTransition ? ["pipe", "pipe", "pipe", rootHandle.fd, "pipe"] : ["pipe", "pipe", "pipe", rootHandle.fd, "ignore"],
+        env: onTransition ? { SONNER_PROJECT_READER_CONTROL_FD: "4" } : {},
       });
+      const requested = new Map(normalized.map((entry) => [entry.path, entry.maxBytes]));
+      const state = { hello: false, final: false, entries: [], works: [], legacyWorkNodes: [], workUnsafe: false,
+        seenPaths: new Set(), seenWorks: new Set(), seenLegacyWorks: new Set(),
+        lastPath: null, lastWork: null, lastLegacyWork: null };
+      let buffered = Buffer.alloc(0);
+      let outputBytes = 0;
+      let stderrBytes = 0;
+      let failure = null;
+      let terminal = false;
+      let controlBuffered = "";
+      let controlActive = false;
+      let requestFinished = false;
+      let killed = false;
+      const fail = () => {
+        if (failure) return;
+        failure = readerError("Sonner project reader failed.");
+        if (!terminal && !killed) { killed = true; try { child.kill("SIGKILL"); } catch { /* close is authoritative */ } }
+      };
+      const closedChild = new Promise((resolve) => child.once("close", (code, signal) => {
+        terminal = true;
+        resolve({ code, signal });
+      }));
+      child.on("error", fail);
+      child.stdin.on("error", fail); child.stdout.on("error", fail); child.stderr.on("error", fail);
+      child.stdin.on("finish", () => { requestFinished = true; });
+      child.stdout.on("data", (chunk) => {
+        if (failure) return;
+        outputBytes += chunk.length;
+        if (outputBytes > maxOutputBytes) { fail(); return; }
+        buffered = Buffer.concat([buffered, chunk]);
+        try {
+          while (buffered.length >= 4) {
+            const length = buffered.readUInt32BE(0);
+            if (length === 0 || length > Math.max(maxWorkBytes, 64 * 1024) + SONNER_READER_MAX_PATH_BYTES + 16) throw readerError("Sonner helper frame overflow.");
+            if (buffered.length < 4 + length) break;
+            parseFrame(buffered.subarray(4, 4 + length), state, requested, maxWorkBytes);
+            buffered = buffered.subarray(4 + length);
+          }
+        } catch { fail(); }
+      });
+      child.stderr.on("data", (chunk) => { stderrBytes += chunk.length; if (stderrBytes > SONNER_READER_MAX_STDERR_BYTES) fail(); });
+      const control = onTransition ? child.stdio[4] : null;
+      if (control) {
+        control.setEncoding("utf8"); control.on("error", fail);
+        control.on("data", (chunk) => {
+          if (failure) return;
+          controlBuffered += chunk;
+          let newline = controlBuffered.indexOf("\n");
+          while (newline >= 0) {
+            const transition = controlBuffered.slice(0, newline); controlBuffered = controlBuffered.slice(newline + 1);
+            if (controlActive) { fail(); return; }
+            controlActive = true;
+            Promise.resolve().then(() => onTransition(transition)).then(() => {
+              if (failure || terminal || control.destroyed) return;
+              control.write(Buffer.from([1]), (error) => { controlActive = false; if (error && !terminal) fail(); });
+            }, () => { controlActive = false; fail(); });
+            newline = controlBuffered.indexOf("\n");
+          }
+        });
+      }
+      const abort = () => fail();
+      activeSession.signal.addEventListener("abort", abort, { once: true });
+      if (activeSession.signal.aborted) fail();
+      child.stdin.end(request);
+      const result = await closedChild;
+      activeSession.signal.removeEventListener("abort", abort);
+      if (failure || result.code !== 0 || result.signal || !requestFinished || buffered.length !== 0
+          || controlBuffered.length !== 0 || controlActive || !state.hello || !state.final) throw readerError("Sonner project reader unavailable.");
+      return { entries: state.entries, works: state.works, legacyWorkNodes: state.legacyWorkNodes,
+        workUnsafe: state.workUnsafe };
     }
-    const abort = () => fail();
-    activeSession.signal.addEventListener("abort", abort, { once: true });
-    if (activeSession.signal.aborted) fail();
-    child.stdin.end(request);
-    const result = await closedChild;
-    activeSession.signal.removeEventListener("abort", abort);
-    if (failure || result.code !== 0 || result.signal || !requestFinished || buffered.length !== 0
-        || controlBuffered.length !== 0 || controlActive || !state.hello || !state.final) throw readerError("Sonner project reader unavailable.");
-    return { entries: state.entries, works: state.works, legacyWorkNodes: state.legacyWorkNodes,
-      workUnsafe: state.workUnsafe, admittedPaths };
+    let configBytes = null;
+    if (gitPaths?.includes(SONNER_CONFIG_PATH)) {
+      // Use the same retained root and bounded native reader for configuration.
+      const configRead = await readContent([{ path: SONNER_CONFIG_PATH, maxBytes: SONNER_METADATA_BYTES }], true, true);
+      const configEntry = configRead.entries.find((entry) => entry.path === SONNER_CONFIG_PATH);
+      if (!configEntry || configEntry.type !== "file") throw readerError("Sonner configuration is not a readable regular file.");
+      configBytes = configEntry.raw;
+    }
+    const config = parseSonnerConfig(configBytes);
+    const admittedPaths = gitPaths === null ? [] : selectSonnerPaths(gitPaths, config, query);
+    const normalized = admittedPaths.map((projectPath) => ({ path: projectPath,
+      maxBytes: includeFiles ? sonnerReadBytes(projectPath, config.extensions, query.extensions === true) : 0 }));
+    const result = await readContent(normalized, gitPaths !== null);
+    return { ...result, admittedPaths, extensions: config.extensions, selection: sonnerSelection(config, query) };
+
   } catch (error) {
-    if (error?.code === "SONNER_PROJECT_READER_UNAVAILABLE" || isSonnerOperationAbort(error)) throw error;
+    if (error?.code === "SONNER_CONFIG_INVALID" || error?.code === "SONNER_PROJECT_READER_UNAVAILABLE" || isSonnerOperationAbort(error)) throw error;
     throw readerError("Sonner project reader unavailable.");
   } finally {
     await closeRoot();
