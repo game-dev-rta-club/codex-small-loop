@@ -5,7 +5,7 @@ import { formatSonnerText, unsafeTextCodePoint } from "../source/sonner-text.mjs
 
 function projection(overrides = {}) {
   return {
-    version: 12,
+    version: 13,
     workGraph: { status: "missing" },
     files: {
       root: { path: ".", name: ".", type: "directory", children: [] },
@@ -17,7 +17,7 @@ function projection(overrides = {}) {
 
 test("formats every Sonner section in canonical order with explicit empty states", () => {
   assert.equal(formatSonnerText(projection()), [
-    "Sonner v12",
+    "Sonner v13",
     "Work Graph: missing",
     "Files: empty",
     "Runtime: missing",
@@ -28,7 +28,7 @@ test("formats every Sonner section in canonical order with explicit empty states
     workGraph: { status: "invalid" },
     runtime: { status: "invalid" },
   })), [
-    "Sonner v12",
+    "Sonner v13",
     "Work Graph: invalid",
     "Files: empty",
     "Runtime: invalid",
@@ -39,7 +39,7 @@ test("formats every Sonner section in canonical order with explicit empty states
     workGraph: { status: "valid", works: [] },
     runtime: { status: "available", health: "ok", reasons: [], tasks: [] },
   })), [
-    "Sonner v12",
+    "Sonner v13",
     "Work Graph: valid",
     "  Works: empty",
     "Files: empty",
@@ -100,7 +100,7 @@ test("formats Works, files with key points, compact counts, and active Runtime T
   });
   const text = formatSonnerText(value);
   assert.equal(text, [
-    "Sonner v12",
+    "Sonner v13",
     "Work Graph: valid",
     "  overview",
     "    Project overview.",

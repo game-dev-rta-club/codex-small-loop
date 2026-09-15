@@ -16,7 +16,7 @@
 #define MAX_COMPONENT_BYTES 512U
 #define MAX_WORKS 1024U
 #define MAX_WORK_BYTES (256U * 1024U)
-#define MAX_OUTPUT_BYTES (16U * 1024U * 1024U)
+#define MAX_OUTPUT_BYTES (64U * 1024U * 1024U)
 #define MAX_GIT_OUTPUT_BYTES (32U * 1024U * 1024U)
 #define MAX_DIRECTORY_ENTRIES 100000U
 
@@ -236,6 +236,7 @@ static int join_path(char *target, size_t capacity, const char *parent, const ch
 static int list_directory_names(int directory_fd, struct strings *names) {
   int duplicate = fcntl(directory_fd, F_DUPFD_CLOEXEC, 5); if (duplicate < 0) return -1;
   DIR *directory = fdopendir(duplicate); if (!directory) { close(duplicate); return -1; }
+  rewinddir(directory); // The retained Root can be enumerated by multiple read phases.
   errno = 0; struct dirent *entry;
   while ((entry = readdir(directory)) != NULL) {
     size_t length = strlen(entry->d_name);

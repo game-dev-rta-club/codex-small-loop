@@ -1,6 +1,6 @@
 {
   "name": "@game-dev-rta-club/small-loop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Small Loop CLI: inspect project structure with Sonner without installing a Codex plugin.",
   "license": "MIT",
   "repository": {
@@ -42,7 +42,10 @@
     "implementation/components/cli/bootstrap.mjs",
     "user-documentation/cli.md",
     "implementation/components/runtime/source/session-permissions.mjs",
-    "implementation/components/runtime/source/retry-budget.mjs"
+    "implementation/components/runtime/source/retry-budget.mjs",
+    "implementation/components/sonner/source/sonner-options.mjs",
+    "implementation/components/sonner/source/sonner-extensions.mjs",
+    "implementation/components/sonner/source/sonner-extension-worker.mjs"
   ],
   "scripts": {
     "test": "node implementation/testing/test-runner.mjs shared",

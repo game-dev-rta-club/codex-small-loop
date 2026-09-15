@@ -179,7 +179,7 @@ letters, and combining marks remain readable. Missing, invalid, and empty
 states are written explicitly. Plaintext is not the lossless
 source format.
 
-Add `--json` for the lossless versioned document. Schema version 12 contains
+Add `--json` for the lossless versioned document. Schema version 13 contains
 `version`, `workGraph`, `files`, and `runtime` in that order and is byte-identical
 to the authenticated Browser API response at the same observation. Valid Works
 include ID, type, key points, node path, direct inputs, and outputs. Missing or

@@ -1,3 +1,4 @@
+import { SONNER_CONFIG_PATH, SONNER_METADATA_BYTES, parseSonnerConfig, selectSonnerPaths, sonnerReadBytes, sonnerSelection } from "./sonner-options.mjs";
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { lstat, open, readdir, realpath, stat } from "node:fs/promises";
@@ -12,8 +13,6 @@ import { classifyPortablePathMetadata } from "../../runtime/source/portable-path
 const execFileAsync = promisify(execFile);
 const MAX_GIT_BYTES = 32 * 1024 * 1024;
 const MAX_PATHS = 100_000;
-const MAX_FILE_BYTES = 64 * 1024;
-const TEXT_DETECTION_BYTES = 512;
 const MAX_WORK_DISCOVERY_ENTRIES = 100_000;
 const MAX_HISTORY_BYTES = 256 * 1024 * 1024;
 const MAX_HISTORY_TAIL_BYTES = 2 * 1024 * 1024;
@@ -358,22 +357,25 @@ async function readPortableIndexEntry(session, projectPath, maximum) {
 
 export async function readPortableSonnerProject({ project, session, includeFiles = true,
   maxWorks = 1024, maxWorkBytes = 256 * 1024, maxOutputBytes = 16 * 1024 * 1024,
-  environment = process.env } = {}) {
+  environment = process.env, query = {} } = {}) {
   if (!session || session.project !== project || session.closed || session.platform !== "win32") throw portableError();
   const gitPaths = await admittedPaths(session, environment, !includeFiles);
-  const discovered = await discoverPortableWorks(session, gitPaths, {
+  const config = parseSonnerConfig(gitPaths?.includes(SONNER_CONFIG_PATH)
+    ? await readPortableSonnerRegularFile(session, SONNER_CONFIG_PATH, SONNER_METADATA_BYTES) : null);
+  const selected = gitPaths === null ? null : selectSonnerPaths(gitPaths, config, query);
+  const discovered = await discoverPortableWorks(session, selected, {
     maxWorks,
     maxWorkBytes,
     maxOutputBytes,
   });
-  const paths = includeFiles ? gitPaths : [];
+  const paths = includeFiles ? selected : [];
   const entries = [];
   const { works, legacyWorkNodes, workUnsafe } = discovered;
   let { outputBytes } = discovered;
   for (const projectPath of paths) {
     session.throwIfAborted();
     try {
-      const maximum = /\.md$/i.test(projectPath) ? MAX_FILE_BYTES : TEXT_DETECTION_BYTES;
+      const maximum = sonnerReadBytes(projectPath, config.extensions, query.extensions === true);
       const record = await readPortableIndexEntry(session, projectPath, maximum);
       if (record === null) continue;
       outputBytes += record.raw.length;
@@ -382,7 +384,7 @@ export async function readPortableSonnerProject({ project, session, includeFiles
     } catch { /* A vanished or unsafe admitted path is omitted. */ }
   }
   await assertRoot(session);
-  return { entries, works, legacyWorkNodes, workUnsafe };
+  return { entries, works, legacyWorkNodes, workUnsafe, extensions: config.extensions, selection: sonnerSelection(config, query) };
 }
 
 export async function readPortableRuntimeRecord({ session, mode } = {}) {

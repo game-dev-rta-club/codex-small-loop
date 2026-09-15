@@ -489,3 +489,17 @@ test("ignored directories are pruned before Work directory opens", async (t) => 
   assert.ok(transitions.some((value) => value === "before-work-directory-open:docs"));
   assert.ok(transitions.every((value) => !value.includes(":Library")));
 });
+
+test("configuration and scoped content reuse the root without entering unrelated directories", async (t) => {
+  const { root } = await fixture(t);
+  await writeFile(path.join(root, ".sonner.json"), JSON.stringify({ version: 1 }));
+  await mkdir(path.join(root, "unrelated"));
+  await writeFile(path.join(root, "unrelated", "secret.md"), "Must not be read");
+  const transitions = [];
+  const result = await readSonnerProject({ project: await resolveProject(root), helperPath: testHelper,
+    query: { path: "docs" }, validateArchitecture: false, onTransition: (value) => transitions.push(value) });
+  assert.equal(result.works.length, 1);
+  assert.ok(result.entries.some((entry) => entry.path === "docs/secret.md"));
+  assert.ok(transitions.some((value) => value === "before-path-open:.sonner.json"));
+  assert.ok(transitions.every((value) => !value.includes(":unrelated")));
+});

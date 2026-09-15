@@ -119,7 +119,7 @@ test("Activity Bar switches Activity and Sonner while Work Graph, Files, and Run
   assert.match(js, /details\.addEventListener\("toggle"/);
   assert.match(js, /row\.addEventListener\("click", \(\) => openFile/);
   assert.match(js, /row\.setAttribute\("aria-describedby", keyPoints\.id\)/);
-  assert.match(js, /keyPoints\.title = node\.keyPoints/);
+  assert.match(js, /keyPoints\.title = keyPoints\.textContent/);
   assert.match(js, /renderFileNode\(node, depth = 0\)/);
   assert.match(js, /style\.setProperty\("--tree-depth", depth\)/);
   assert.match(js, /if \(node\.type === "directory"\)/);

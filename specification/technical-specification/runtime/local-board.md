@@ -117,7 +117,7 @@ serialization; `/api/sonner` always returns those same JSON bytes for the same
 observation. The formatter records its Unicode data-file provenance beside its
 single pinned range table rather than depending on runtime ICU properties.
 
-The version-12 Sonner document has exactly four top-level keys in order:
+The default version-13 Sonner document has four top-level keys in order:
 numeric `version`, `workGraph`, `files`, and `runtime`. A valid `workGraph`
 contains `status: "valid"` and topologically
 ordered `works`; each Work exposes only `id`, `type`, `keyPoints`, `nodePath`,
@@ -134,9 +134,8 @@ between 0.5 and 2.0 without another ELK invocation; the stage dimensions expand
 with the transform so both native scroll axes remain accurate.
 
 `files` contains a deterministic root tree. Directory nodes have
-project-relative `path`, `name`, `type`, and `children`. Only files with
-non-empty Markdown `keyPoints` are projected individually with `path`, `name`,
-`type`, and `keyPoints`. Every other regular file or symbolic link is represented
+project-relative `path`, `name`, `type`, and `children`. Files with non-empty Markdown or extension-provided `keyPoints` or `summary`
+are projected individually with `path`, `name`, `type`, and their metadata. Every other regular file or symbolic link is represented
 in its direct parent by one `file-counts` node. Its ordered `counts` array holds
 a lowercase final `extension` (or `null`) and positive `count` for each group;
 individual names and bodies are absent. Directories never expose Work metadata
@@ -148,8 +147,7 @@ own line without an aggregate symbol.
 An observed legacy `WORK_NODE.xml` is omitted from file counts and represented
 instead by a non-openable `warning` node containing the fixed
 `legacy-work-node` code, its project-relative `path`, and the exact
-`.WORK_NODE.xml` `renameTo` target. Work discovery supplies these warnings even
-when Git ignores the legacy marker. Sonner does not read its contents or treat
+`.WORK_NODE.xml` `renameTo` target. Work discovery supplies these warnings only for admitted, non-excluded paths. Sonner does not read its contents or treat
 it as graph metadata.
 
 Sonner owns Work marker discovery, XML entity decoding, basename/ID matching,
@@ -338,3 +336,25 @@ read.
 - [Board Host process](/implementation/components/board/source/board-host-server.mjs)
 - [Board server](/implementation/components/board/server.mjs)
 - [Board CLI](/implementation/components/commands/board.mjs)
+
+
+## Project query and extension contract
+
+Project `.sonner.json` (version 1) narrows Git-admitted paths with project-relative
+include/exclude prefixes and declares suffix-to-module mappings. The native reader
+reads configuration through its retained Root handle before scoped content; the
+portable reader uses its revalidated file reader. Each native enumeration rewinds
+its directory stream because configuration and content share the retained Root.
+Scope filters constrain both content and Work discovery. Scoped graphs explicitly
+use `partial`; local XML and duplicate IDs are checked but global reachability and
+external links are not inferred. JSON adds selection information for partial reads.
+
+Only `--extensions` opts into project ESM execution. Small Loop owns the API runner,
+limits and result validation; project code owns language-specific extraction.
+A disposable child imports project-local API-v1 modules and receives bounded UTF-8
+file prefixes. It returns optional string keyPoints/summary, with no filesystem
+API provided by Sonner. This is trusted project code, not a security sandbox.
+The operation deadline also bounds worker startup and extraction. No default Board
+request opts into executable extensions. Metadata-bearing files are listed once,
+otherwise aggregated by extension. Display-only key-point hiding and depth limits
+preserve count semantics. See [extension API](/user-documentation/sonner-extensions.md).

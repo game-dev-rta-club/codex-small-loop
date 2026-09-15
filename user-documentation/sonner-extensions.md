@@ -1,0 +1,141 @@
+---
+keyPoints: >-
+  Configure Sonner's project scope and implement project-owned metadata extractors
+  with an explicit execution flag and a bounded versioned API.
+---
+
+# Sonner project extensions and queries
+
+Sonner reads an optional, Git-visible `.sonner.json` at the project root.
+The configuration is versioned separately from Sonner's output schema.
+It is read through the same verified reader as project files. Invalid JSON,
+unknown keys, and invalid paths fail the invocation; they do not silently
+fall back to another scope.
+
+```json
+{
+  "version": 1,
+  "include": ["."],
+  "exclude": ["Assets/ThirdParty"],
+  "extensions": [
+    {"suffix": ".meta", "module": ".agents/sonner/unity-metadata.mjs"},
+    {"suffix": ".cs", "module": ".agents/sonner/unity-metadata.mjs"}
+  ]
+}
+```
+
+`include` defaults to `["."]`; `exclude` and `extensions` default to `[]`.
+Paths are project-relative file or directory prefixes, not glob expressions.
+A directory prefix matches that directory and its descendants, never a
+similarly named sibling. Exclusions take precedence. These settings narrow
+Git's admitted paths and cannot reintroduce Git-ignored content. A narrowed
+scope produces a partial Work Graph rather than claiming full graph validation.
+The configuration file itself is read even when outside the requested scope.
+
+## Project-owned extraction
+
+Small Loop does not implement Unity `.meta` parsing or C# documentation parsing.
+The project supplies its own ESM module and may import its own utility modules:
+
+```js
+import { readProjectMetadata } from './metadata-utils.mjs';
+
+export const apiVersion = 1;
+
+export async function extract({ path, text }) {
+  return readProjectMetadata(path, text);
+  // Return {}, { keyPoints: "..." }, { summary: "..." }, or both fields.
+}
+```
+
+Enable execution explicitly:
+
+```sh
+small-loop sonner --extensions --timeout-ms 30000
+```
+
+Without `--extensions`, configuration still narrows the scope but no project
+module runs. Only enable extensions for a project whose code you trust. The
+separate Node process provides timeout and output isolation, not an OS security
+sandbox; project code executes with the caller's OS permissions. Modules should
+be pure readers of their supplied input and should not modify files or contact
+external services. Environment credentials are not forwarded to the worker.
+
+For each admitted file matching a configured suffix, the extractor receives
+its full project-relative `path` and UTF-8 `text` from at most the first 64 KiB.
+Non-UTF-8 input is skipped. Suffix matching is case-insensitive; the longest
+matching suffix wins, and duplicate suffixes are rejected. Modules are imported
+once per invocation and files are processed in deterministic path order. Relative
+imports work normally. No module executes when no selected file matches it.
+
+Results may contain only `keyPoints` and `summary`, each a string of at most
+8192 UTF-16 code units, null, or absent. Empty strings are omitted. Async
+extractors are supported. A throw, invalid result, failed import, excessive
+output, or operation timeout fails the invocation without retrying another
+version. The content-reader output budget is 16 MiB normally and 64 MiB with extensions.
+The worker has a 128 MiB V8 heap limit; its input and output are bounded.
+Use `console.error` for diagnostics; `console.log` is redirected to stderr.
+On failure, up to 4096 characters of captured diagnostics accompany the error.
+Do not write directly to stdout because it carries the result protocol.
+
+A file with either metadata field is listed individually and is not also
+included in the extension counts. Other files retain the existing count format:
+
+```text
+Combat/ [WORK_NODE: combat] 2 meta, 3 cs
+  Player.cs summary="Player: Controls movement and hook actions."
+  Player.cs.meta keyPoints="Player asset import settings."
+```
+
+The extractor defines its own metadata convention. For example, a Unity project
+can choose a top-level `keyPoints` in its `.meta` files, and can choose type-level
+XML documentation for `.cs` summaries. Sonner does not write or migrate those
+files. Parsing incomplete prefixes and language-specific syntax belongs to the
+project's extractor, which should return no metadata when uncertain.
+
+## Query options
+
+```sh
+small-loop sonner --no-key-points
+small-loop sonner --depth 2
+small-loop sonner --path Assets/Gameplay
+small-loop sonner --extensions --path Assets/Gameplay --depth 1 --no-key-points --json
+```
+
+- `--no-key-points` omits `keyPoints` from both Work and file output, including
+  JSON. Individual filenames, counts, and independently extracted `summary`
+  remain. This is an output option, not a request to skip metadata reads.
+- `--depth N` limits directory expansion in Files. The selected root has depth
+  0; files/counts directly within a visible directory remain visible. At the
+  boundary, omitted child directories are indicated by `truncated: true` in
+  JSON and an omission line in text. Counts remain direct-directory counts,
+  not totals of hidden descendants. Work Graph is not depth-filtered. Supported
+  values are 0–128; this is a display limit, not a disk-read limit.
+- `--path DIR` reads Files and Work markers only from that project-relative
+  directory and below. Git may enumerate the repository to apply ignore rules,
+  and `.sonner.json` is read to determine configuration, but content outside
+  the selected scope is not read by Sonner. A scope with no admitted files
+  yields an empty result. Project code explicitly enabled with `--extensions`
+  can perform its own IO and is responsible for respecting this convention.
+
+`--path` combines with configuration `include`/`exclude` by intersection.
+`--project-root` continues to identify the original repository root; paths in
+JSON and extractor inputs remain relative to that root, even for a subtree.
+Runtime remains a separate, project-wide observation when `--runtime` is used.
+
+## Output schema 13
+
+The default document retains `version`, `workGraph`, `files`, and optional
+`runtime`. Metadata-bearing files may additionally carry `summary`. Hiding key
+points removes that property rather than replacing it with an empty string.
+A depth-limited result adds `maxDepth` and marks truncated directories.
+A narrowed scope adds `selection` with `path`, `include`, `exclude`, and `partial`.
+
+A scoped Work Graph has status `partial` and lists only the parsed local Works
+in ID order. Work IDs and metadata are checked locally; cross-scope references,
+Overview reachability, and full-graph cycles are not validated. Inputs can name
+Works outside the result; outputs include only relationships observed inside it.
+Unsafe or malformed local markers still produce `invalid`. Work directory
+labels appear for both valid full graphs and partial graphs. The Board's default
+view does not execute project extensions and identifies partial graph state
+without trying to lay out unresolved cross-scope edges.

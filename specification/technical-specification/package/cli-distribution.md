@@ -25,7 +25,7 @@ cache. No generated copy of Sonner is maintained.
 Board and library consumers; the new CLI explicitly passes false unless
 `--runtime` is requested. Skipping Runtime does not read local ledgers or
 session history and omits that member from JSON and text. Existing full
-version-12 output and lifecycle cancellation behavior remain unchanged.
+version-13 output and lifecycle cancellation behavior remain unchanged.
 The old `commands/sonner.mjs` adapter remains compatible with existing callers;
 new documentation and skills use `small-loop sonner`.
 

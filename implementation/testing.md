@@ -51,7 +51,7 @@ Focused Activity tests cover:
 Sonner focused tests cover Git tracked and non-ignored untracked discovery,
 dependency/generated/cache exclusions, symbolic-link non-following, leading
 Markdown `keyPoints` extraction, complete Work Graph XML validation and topological
-ordering, version-12 valid/missing/invalid states, key-points-only individual file
+ordering, version-13 valid/partial/missing/invalid states, metadata-bearing individual file
 projection, direct-parent compact extension counts, active-only Runtime
 health and bounded coarse reasons, deterministic default Agent text, JSON-string escaping,
 the pinned Unicode 16.0 unsafe-display boundary and ordinary-Unicode
@@ -226,3 +226,8 @@ Review PASS sequence. All eight managed Tasks retained full access and all
 queued receipt and needed App-tool cleanup; the wake/idle regression tests
 above cover that separately repaired path. The final macOS suite passed
 831 tests on 2026-09-15.
+
+Project extension tests cover explicit opt-in, local ESM imports, bounded worker
+failures, configuration/scoped reads, depth and key-point output options, and the
+packed CLI dependency closure. Language-specific extractor tests belong to the
+consuming project.

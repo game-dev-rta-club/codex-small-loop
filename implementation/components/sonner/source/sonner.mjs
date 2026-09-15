@@ -1,3 +1,5 @@
+import { runSonnerExtensions } from "./sonner-extensions.mjs";
+import { normalizeSonnerPath, below, validateSonnerQuery } from "./sonner-options.mjs";
 import path from "node:path";
 
 import { resolveProject } from "../../runtime/source/project.mjs";
@@ -9,7 +11,7 @@ import {
 import { buildRuntimeProjection } from "./runtime.mjs";
 import { formatSonnerText } from "./sonner-text.mjs";
 
-export const SONNER_SCHEMA_VERSION = 12;
+export const SONNER_SCHEMA_VERSION = 13;
 export const MAX_MARKDOWN_FRONTMATTER_BYTES = 64 * 1024;
 export const SONNER_TEXT_DETECTION_BYTES = SONNER_READER_TEXT_DETECTION_BYTES;
 
@@ -236,7 +238,7 @@ export function isSonnerTextBytes(raw) {
   return !containsZero || couldBeUtf16Le || couldBeUtf16Be;
 }
 
-function collectFiles(entries) {
+function collectFiles(entries, metadata = new Map()) {
   return entries.map((entry) => {
     const name = path.posix.basename(entry.path);
     if (entry.type !== "file") return { path: entry.path, name, type: entry.type };
@@ -249,12 +251,19 @@ function collectFiles(entries) {
       keyPoints: text && /\.md$/i.test(entry.path)
         ? parseMarkdownKeyPoints(entry.raw.toString("utf8"))
         : null,
+      ...(metadata.get(entry.path) ?? {}),
     };
   });
 }
 
 function graphState(reader, root) {
   try {
+    if (reader.selection?.partial) {
+      if (reader.workUnsafe) throw new Error("Unsafe partial graph");
+      const works = reader.works.map(({ xml, relativePath }) => parseWorkNode(xml, relativePath));
+      if (new Set(works.map(({ id }) => id)).size !== works.length) throw new Error("Duplicate Work IDs");
+      return { status: "partial", works: works.sort((a, b) => compareText(a.id, b.id)) };
+    }
     const works = loadWorkGraphRecords(reader.works, { workUnsafe: reader.workUnsafe, directory: root });
     return { status: "valid", works };
   } catch (error) {
@@ -265,13 +274,13 @@ function graphState(reader, root) {
 }
 
 function publicWorkGraph(graph) {
-  if (graph.status !== "valid") return { status: graph.status };
+  if (!["valid", "partial"].includes(graph.status)) return { status: graph.status };
   const outputsById = new Map(graph.works.map((work) => [work.id, []]));
   for (const work of graph.works) {
-    for (const input of work.inputs) outputsById.get(input).push(work.id);
+    for (const input of work.inputs) outputsById.get(input)?.push(work.id);
   }
   return {
-    status: "valid",
+    status: graph.status,
     works: graph.works.map(({ id, type, keyPoints, nodePath, inputs }) => ({
       id,
       type,
@@ -316,9 +325,9 @@ function legacyWarning(projectPath) {
   };
 }
 
-function tree(files, legacyWorkNodes = []) {
+function tree(files, legacyWorkNodes = [], rootPath = ".") {
   const warnings = legacyWorkNodes.map(legacyWarning);
-  const directories = directoryIndex([...files, ...warnings]);
+  const directories = [...new Set([rootPath, ...directoryIndex([...files, ...warnings]).filter((directory) => below(directory, rootPath))])].sort(compareText);
   const childDirectories = new Map(directories.map((directory) => [directory, []]));
   const childFiles = new Map(directories.map((directory) => [directory, []]));
   const childWarnings = new Map(directories.map((directory) => [directory, []]));
@@ -332,14 +341,14 @@ function tree(files, legacyWorkNodes = []) {
   function directoryNode(directory, root = false) {
     const node = {
       path: directory,
-      name: root ? "." : path.posix.basename(directory),
+      name: root && directory === "." ? "." : path.posix.basename(directory),
       type: "directory",
     };
 
     const filesHere = childFiles.get(directory) ?? [];
     const fileCounts = new Map();
     for (const file of filesHere) {
-      if (file.type === "file" && file.keyPoints !== null) continue;
+      if (file.type === "file" && (file.keyPoints != null || file.summary != null)) continue;
       const extension = fileExtension(file.name);
       fileCounts.set(extension, (fileCounts.get(extension) ?? 0) + 1);
     }
@@ -355,14 +364,14 @@ function tree(files, legacyWorkNodes = []) {
       ...(childWarnings.get(directory) ?? [])
         .sort((left, right) => compareText(left.path, right.path)),
       ...filesHere
-        .filter((file) => file.type === "file" && file.keyPoints !== null)
+        .filter((file) => file.type === "file" && (file.keyPoints != null || file.summary != null))
         .map(({ text: _text, ...file }) => file)
         .sort((left, right) => compareText(left.path, right.path)),
       ...(counts.length === 0 ? [] : [{ type: "file-counts", counts }]),
     ];
     return { ...node, children };
   }
-  return directoryNode(".", true);
+  return directoryNode(rootPath, true);
 }
 
 function validProject(project) {
@@ -374,6 +383,7 @@ function validProject(project) {
 
 export async function buildSonnerProject(project, {
   includeRuntime = true,
+  query = {},
   readerOptions = {},
   runtimeOptions = {},
   openSession = openSonnerProjectReadSession,
@@ -385,6 +395,7 @@ export async function buildSonnerProject(project, {
     error.code = "SONNER_PROJECT_READER_UNAVAILABLE";
     throw error;
   }
+  query = validateSonnerQuery(query);
   const session = await openSession(project, readerOptions);
   try {
     const branches = [
@@ -392,6 +403,7 @@ export async function buildSonnerProject(project, {
         project,
         session,
         includeFiles: true,
+        query,
         ...readerOptions,
       })),
       Promise.resolve().then(() => includeRuntime
@@ -408,17 +420,38 @@ export async function buildSonnerProject(project, {
     const [reader, runtime] = settled.map((result) => result.value);
     const legacyWorkNodes = reader.legacyWorkNodes ?? [];
     const legacyPaths = new Set(legacyWorkNodes);
-    const files = collectFiles(reader.entries).filter((entry) => !legacyPaths.has(entry.path));
+    const metadata = query.extensions
+      ? await runSonnerExtensions(project, reader.entries, reader.extensions ?? [], session)
+      : new Map();
+    const files = collectFiles(reader.entries, metadata).filter((entry) => !legacyPaths.has(entry.path));
     const graph = graphState(reader, project.root);
     const projection = {
       version: SONNER_SCHEMA_VERSION,
       workGraph: publicWorkGraph(graph),
       files: {
-        root: tree(files, legacyWorkNodes),
+        root: tree(files, legacyWorkNodes, reader.selection?.path ?? "."),
       },
       runtime,
     };
     if (!includeRuntime) delete projection.runtime;
+    if (reader.selection?.partial) projection.selection = reader.selection;
+    if (query.noKeyPoints) {
+      for (const work of projection.workGraph.works ?? []) delete work.keyPoints;
+      const hide = (node) => { delete node.keyPoints; for (const child of node.children ?? []) hide(child); };
+      hide(projection.files.root);
+    }
+    if (query.depth !== undefined) {
+      const trim = (node, depth) => {
+        if (node.type !== "directory") return;
+        if (depth === query.depth) {
+          const directories = node.children.filter((child) => child.type === "directory");
+          if (directories.length) node.truncated = true;
+          node.children = node.children.filter((child) => child.type !== "directory");
+        } else for (const child of node.children) trim(child, depth + 1);
+      };
+      trim(projection.files.root, 0);
+      projection.maxDepth = query.depth;
+    }
     session.throwIfAborted();
     return projection;
   } finally {
@@ -439,6 +472,7 @@ function parseArguments(argv, defaults) {
   let json = false;
   let includeRuntime = defaults.includeRuntime ?? true;
   let timeoutMs = 5_000;
+  const query = {};
   const seen = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const option = argv[index];
@@ -450,6 +484,17 @@ function parseArguments(argv, defaults) {
       index += 1;
     } else if (option === "--json") json = true;
     else if (option === "--runtime") includeRuntime = true;
+    else if (option === "--extensions") query.extensions = true;
+    else if (option === "--no-key-points") query.noKeyPoints = true;
+    else if (option === "--path") {
+      if (!argv[index + 1] || argv[index + 1].startsWith("--")) return null;
+      try { query.path = normalizeSonnerPath(argv[++index]); } catch { return null; }
+    } else if (option === "--depth") {
+      const value = argv[++index];
+      if (!/^(?:0|[1-9][0-9]*)$/.test(value ?? "")) return null;
+      query.depth = Number(value);
+      if (!Number.isSafeInteger(query.depth) || query.depth > 128) return null;
+    }
     else if (option === "--timeout-ms") {
       const value = argv[++index];
       if (!/^[1-9][0-9]*$/.test(value ?? "")) return null;
@@ -458,23 +503,23 @@ function parseArguments(argv, defaults) {
     }
     else return null;
   }
-  return projectRoot ? { projectRoot, json, includeRuntime, timeoutMs } : null;
+  return projectRoot ? { projectRoot, json, includeRuntime, timeoutMs, query } : null;
 }
 
 function publicError(error, message) {
   const code = typeof error?.code === "string" && /^[A-Z0-9_]{1,64}$/.test(error.code)
     ? error.code
     : "SONNER_UNAVAILABLE";
-  return { error: { code, message } };
+  return { error: { code, message, ...(code === "SONNER_EXTENSION_FAILED" && typeof error.details === "string" ? { details: error.details.slice(0, 4096) } : {}) } };
 }
 
 function renderError(value, json) {
   return json
     ? serializeSonner(value)
-    : `Sonner error code=${JSON.stringify(value.error.code)} message=${JSON.stringify(value.error.message)}\n`;
+    : `Sonner error code=${JSON.stringify(value.error.code)} message=${JSON.stringify(value.error.message)}${value.error.details ? ` details=${JSON.stringify(value.error.details)}` : ""}\n`;
 }
 
-export const SONNER_CLI_USAGE = "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--timeout-ms <1..300000>]";
+export const SONNER_CLI_USAGE = "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--extensions] [--no-key-points] [--depth <0..128>] [--path <directory>] [--timeout-ms <1..300000>]";
 
 export async function runSonnerCli(argv = process.argv.slice(2), defaults = {}) {
   if (argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
@@ -494,6 +539,7 @@ export async function runSonnerCli(argv = process.argv.slice(2), defaults = {}) 
   try {
     const projection = await buildSonner(options.projectRoot, {
       includeRuntime: options.includeRuntime,
+      query: options.query,
       readerOptions: { timeoutMs: options.timeoutMs },
     });
     process.stdout.write(options.json ? serializeSonner(projection) : formatSonnerText(projection));

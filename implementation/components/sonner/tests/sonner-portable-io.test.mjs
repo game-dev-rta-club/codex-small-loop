@@ -84,7 +84,7 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
     },
   });
 
-  assert.equal(projection.version, 12);
+  assert.equal(projection.version, 13);
   assert.equal(projection.workGraph.status, "valid");
   assert.deepEqual(projection.workGraph.works.map(({ id }) => id), ["overview"]);
   assert.deepEqual(projection.files.root.children.find(({ path: entryPath }) => entryPath === "overview").children, [{
