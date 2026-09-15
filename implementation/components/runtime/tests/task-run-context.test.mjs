@@ -124,9 +124,10 @@ test("fails closed for missing or unrepresentable authority", () => {
         sandboxPolicy: {
           type: "workspaceWrite",
           writableRoots: ["/project"],
+          customRestriction: true,
         },
       }),
     ),
-    /without losing policy details/i,
+    /Unsupported workspace sandbox details/i,
   );
 });

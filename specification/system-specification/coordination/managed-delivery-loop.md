@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   The Managed Delivery Loop composes user handling, project ownership,
   implementation, independent review, and finding clarification into one
   retained trajectory from agreement to verified delivery.
@@ -74,12 +74,16 @@ satisfies its approved evidence bar. Execute and Review Tasks are reused only
 inside their Primary's Milestone; no role searches for older Task IDs.
 
 Controller does not implement, does not directly operate Primary's children,
-and does not create a separate Monitor. Every Primary bootstrap and live
-pre-execution interview is heartbeat-free. Only after that Primary reports
-`READY_FOR_EXECUTION` does Controller create and confirm one Primary-scoped
-`START_PENDING` heartbeat with literal uncommitted Conversation before starting
-the execution Conversation. A committed ID is immediately rebound and read
-back on that same schedule as `START_BOUND` before any supervision or recovery.
+and does not create a separate Monitor. Immediately before forking Primary,
+Controller creates and confirms one Primary-scoped one-minute
+`PRIMARY_PENDING` heartbeat with literal uncommitted Primary and Conversation.
+The exact committed Child is rebound on that same schedule as `PRIMARY_BOUND`,
+which covers bootstrap and the live pre-execution interview. After Primary
+reports `READY_FOR_EXECUTION`, Controller updates that schedule to
+`START_PENDING` with literal `conversation=uncommitted` before starting the
+execution Conversation. A committed ID is
+immediately rebound and read back on the same schedule as `START_BOUND` before
+any supervision or recovery.
 Once Execute has started, it updates the same schedule identity to the default ten-minute or
 user-selected steady cadence. Callback identity and Milestone generation are
 validated with state and revision before any action, and no startup/steady or cross-Milestone schedules

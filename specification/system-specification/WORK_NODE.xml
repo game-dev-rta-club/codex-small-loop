@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<work-node id="system-specification" type="SystemSpecification">
-  <summary>Defines the Work Graph, managed coordination model, five job roles, and seven skills that connect delegated intent to verified delivery.</summary>
-  <inputs>
-    <input ref="product-concept" />
-    <input ref="interaction-specification" />
-  </inputs>
-</work-node>

@@ -1208,3 +1208,27 @@ test("accepts only the current ledger version", () => {
     "LEDGER_VERSION_UNSUPPORTED",
   );
 });
+
+test("delivery attempt limits survive serialization and do not block healthy siblings", () => {
+  const current = state({ links: [readyLink()], deliveries: [
+    recoveryDelivery({ attemptCount: 50 }),
+    recoveryDelivery({ id: "other", observedTurnId: "other-turn", dedupeKey: "recovery:child-task:other-turn", attemptCount: 49 }),
+  ] });
+  const result = leaseDeliveries(JSON.parse(JSON.stringify(current)), {
+    now: UPDATED_AT, leaseOwner: "worker", leaseExpiresAt: "2026-07-25T00:16:00.000Z",
+  });
+  assert.deepEqual(result.leased.map((x) => x.id), ["other"]);
+  assert.equal(result.leased[0].attemptCount, 50);
+  const again = leaseDeliveries(JSON.parse(JSON.stringify(result.state)), {
+    now: "2026-07-25T00:17:00.000Z", leaseOwner: "restart", leaseExpiresAt: "2026-07-25T00:18:00.000Z",
+  });
+  assert.equal(again.leased.length, 0);
+});
+
+test("App messages stop at the same attempt limit while scheduled cleanup stays independent", () => {
+  let current = enqueueAppMessage(state(), { id: "message", targetTaskId: "app-task", text: "hello" }, { now: CREATED_AT }).state;
+  current = { ...current, appMessages: current.appMessages.map((x) => ({ ...x, attemptCount: 50 })) };
+  const result = leaseAppMessages(current, { now: UPDATED_AT, leaseOwner: "worker", leaseExpiresAt: "2026-07-25T00:30:00.000Z" });
+  assert.equal(result.leased.length, 0);
+  assert.equal(result.state.appMessages[0].attemptCount, 50);
+});

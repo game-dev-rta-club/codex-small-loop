@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<work-node id="product-concept" type="ProductConcept">
+  <keyPoints>The user delegates one agreed outcome rather than agent coordination; Controller keeps the delivery loop moving within explicit authority, routes sufficient project context, and returns only independently reviewed and verified results.</keyPoints>
+  <inputs>
+    <input ref="overview" />
+  </inputs>
+</work-node>

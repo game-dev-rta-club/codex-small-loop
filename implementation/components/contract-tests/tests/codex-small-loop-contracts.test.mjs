@@ -84,7 +84,7 @@ test("one shared document owns Review Signal evaluation", async () => {
     "implementation/contents/review/signal-evaluation.md",
   );
 
-  assert.match(evaluation, /^---\nsummary:/);
+  assert.match(evaluation, /^---\nkeyPoints:/);
   assert.match(evaluation, /Development Efficiency/i);
   assert.match(evaluation, /User Experience/i);
   assert.match(evaluation, /environment[\s\S]*documentation[\s\S]*rules/i);
@@ -227,7 +227,7 @@ test("Primary judgment and delegated detail work use resolved separate profiles"
 test("controller mediates every user-facing exchange without implementing", async () => {
   const controller = await read("implementation/components/roles/controller/role.md");
 
-  assert.match(controller, /^---\nsummary:/);
+  assert.match(controller, /^---\nkeyPoints:/);
   assert.match(controller, /Controller Job Role/i);
   assert.match(controller, /user intent/i);
   assert.match(controller, /interview/i);
@@ -254,12 +254,12 @@ test("controller mediates every user-facing exchange without implementing", asyn
   assert.doesNotMatch(controller, /co-located.*primary/is);
 
   const primaryForkIndex = controller.indexOf("context-preserving `primary` fork");
-  const startupHeartbeatIndex = controller.indexOf(
-    "one-minute startup thread heartbeat",
+  const startupHeartbeatIndex = controller.search(
+    /one-minute\s+startup thread heartbeat/,
   );
   const executeProofIndex = controller.indexOf("Once Execute startup is proven");
   const steadyHeartbeatIndex = controller.indexOf("ten-minute steady-state heartbeat");
-  assert.ok(primaryForkIndex >= 0 && primaryForkIndex < startupHeartbeatIndex);
+  assert.ok(startupHeartbeatIndex >= 0 && startupHeartbeatIndex < primaryForkIndex);
   assert.ok(executeProofIndex >= 0 && executeProofIndex < steadyHeartbeatIndex);
 });
 
@@ -316,7 +316,7 @@ test("controller keeps Primary clarification live until execution becomes a Conv
     assert.match(source, /task wait/i);
     assert.doesNotMatch(source, /read_thread|wait_threads/i);
     assert.match(source, /no.*reply obligation|reply obligation.*none/is);
-    assert.match(source, /no.*heartbeat|without.*heartbeat/is);
+    assert.match(source, /PRIMARY_BOUND[\s\S]*(?:pre-execution|live preparation)/i);
     assert.match(source, /ready.*execution|execution.*ready/is);
     assert.match(source, /(?:first|current) Milestone[\s\S]*(?:managed )?Conversation[\s\S]*Role\s+reload/i);
 
@@ -325,9 +325,8 @@ test("controller keeps Primary clarification live until execution becomes a Conv
     const executionReady = source.search(
       /When execution is ready|After `READY_FOR_EXECUTION`/i,
     );
-    assert.ok(liveInterview >= 0 && liveInterview < startupHeartbeat);
+    assert.ok(startupHeartbeat >= 0 && startupHeartbeat < liveInterview);
     assert.ok(executionReady >= 0 && liveInterview < executionReady);
-    assert.ok(startupHeartbeat >= executionReady);
   }
 
   assert.match(primary, /pre-execution.*interview/i);
@@ -354,7 +353,7 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   assert.ok(machineBlock, "Controller Role must contain the normative state table");
   const machine = new Map();
   for (const line of machineBlock.split("\n")) {
-    if (!/^\| `(?:LIVE|START_PENDING|START_BOUND|STEADY|ADVANCE_STOP|ADVANCE_DELETE|TERMINAL_DELETE)` \|/.test(line)) continue;
+    if (!/^\| `(?:LIVE|PRIMARY_PENDING|PRIMARY_BOUND|START_PENDING|START_BOUND|STEADY|ADVANCE_STOP|ADVANCE_DELETE|TERMINAL_DELETE)` \|/.test(line)) continue;
     const [stateCell, bindingCell, actionsCell, nextCell] = line
       .split("|")
       .slice(1, -1)
@@ -402,6 +401,8 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
 
   const states = [
     "LIVE",
+    "PRIMARY_PENDING",
+    "PRIMARY_BOUND",
     "START_PENDING",
     "START_BOUND",
     "STEADY",
@@ -410,9 +411,14 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
     "TERMINAL_DELETE",
   ];
   assert.deepEqual([...machine.keys()], states);
-  assert.deepEqual([...machine.get("START_PENDING").next], ["START_BOUND", "LIVE"]);
+  assert.deepEqual([...machine.get("LIVE").next], ["PRIMARY_PENDING"]);
+  assert.deepEqual([...machine.get("PRIMARY_PENDING").next], ["PRIMARY_BOUND", "LIVE"]);
+  assert.deepEqual([...machine.get("PRIMARY_BOUND").next], ["START_PENDING"]);
+  assert.deepEqual([...machine.get("START_PENDING").next], ["START_BOUND", "PRIMARY_BOUND"]);
   assert.deepEqual([...machine.get("STEADY").next], ["ADVANCE_STOP", "TERMINAL_DELETE"]);
   assert.deepEqual([...machine.get("ADVANCE_DELETE").next], ["LIVE"]);
+  assert.match(machine.get("PRIMARY_PENDING").binding, /P=uncommitted/);
+  assert.match(machine.get("PRIMARY_BOUND").binding, /conversation=uncommitted/);
   assert.match(machine.get("START_PENDING").binding, /conversation=uncommitted/);
   assert.match(machine.get("START_BOUND").binding, /conversation=exact_CID/);
 
@@ -434,7 +440,7 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
     return machine.get(current.state)?.actions.has(action) === true;
   };
   const canDeletePending = (current, delivered, evidence) =>
-    canAct(current, delivered, "delete_pending_noncommit") &&
+    canAct(current, delivered, "restore_primary_bound_after_failed_start") &&
     [...deleteGate].every(([field, required]) => String(evidence?.[field]) === required);
   const canRebindPending = (current, delivered, evidence) =>
     canAct(current, delivered, "rebind_exact_conversation") &&
@@ -453,17 +459,21 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
     };
   };
 
-  const pending1 = {
-    C: "C", P: "P1", S: "S1", G: 1, R: 1,
-    state: "START_PENDING", conversation: "uncommitted",
-  };
-  const live1 = { C: "C", P: "P1", S: null, G: 1, R: 0, state: "LIVE", conversation: null };
+  const live1 = { C: "C", P: null, S: null, G: 1, R: 0, state: "LIVE", conversation: null };
+  const primaryPending1 = transition(live1, "PRIMARY_PENDING", {
+    P: "uncommitted", S: "S1", conversation: "uncommitted",
+  });
+  const primaryBound1 = transition(primaryPending1, "PRIMARY_BOUND", { P: "P1" });
+  const pending1 = transition(primaryBound1, "START_PENDING");
   const failedCreation = live1;
   assert.equal(machine.get(failedCreation.state).actions.has("start_execution_conversation"), false);
+  assert.equal(canAct(live1, live1, "arm_primary_pending"), true);
+  assert.equal(canAct(primaryPending1, primaryPending1, "continue_deferred_fork"), true);
+  assert.equal(canAct(primaryBound1, primaryBound1, "inspect_primary_preparation"), true);
   assert.equal(canAct(pending1, pending1, "inspect_start_evidence"), true);
   assert.equal(canAct(pending1, pending1, "recover_bound_execution"), false);
   assert.equal(canAct(pending1, pending1, "stop_handoff_primary"), false);
-  assert.equal(canAct(pending1, pending1, "bootstrap_primary"), false);
+  assert.equal(canAct(pending1, pending1, "continue_deferred_fork"), false);
   assert.equal(canDeletePending(pending1, pending1, {}), false);
   assert.equal(canDeletePending(pending1, pending1, { matchingConversations: "0" }), false);
 
@@ -527,14 +537,11 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   assert.equal(mayInvokeStart("START_PENDING", 0), true);
   assert.equal(mayInvokeStart("START_PENDING", 1), false);
   assert.equal(mayInvokeStart("START_PENDING", 2), false);
-  const noncommitLive1 = {
-    ...live1,
-    R: pending1.R + 1,
-  };
-  assert.equal(machine.get(pending1.state).next.has(noncommitLive1.state), true);
-  assert.equal(noncommitLive1.S, null);
-  const freshPendingAfterCleanup = { ...pending1, R: noncommitLive1.R + 1 };
-  assert.equal(mayInvokeStart(freshPendingAfterCleanup.state, 0), true);
+  const restoredPrimaryBound1 = transition(pending1, "PRIMARY_BOUND");
+  assert.equal(restoredPrimaryBound1.S, pending1.S);
+  assert.equal(restoredPrimaryBound1.P, pending1.P);
+  const freshPendingAfterRestore = transition(restoredPrimaryBound1, "START_PENDING");
+  assert.equal(mayInvokeStart(freshPendingAfterRestore.state, 0), true);
 
   assert.equal(canRebindPending(
     pending1,
@@ -589,18 +596,19 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   const advanceDelete1 = transition(advanceStop1, "ADVANCE_DELETE");
   assert.equal(canAct(advanceDelete1, advanceStop1, "delete_advance_schedule"), false);
   assert.equal(canAct(advanceDelete1, advanceDelete1, "delete_advance_schedule"), true);
-  assert.equal(canAct(advanceDelete1, advanceDelete1, "bootstrap_primary"), false);
+  assert.equal(canAct(advanceDelete1, advanceDelete1, "arm_primary_pending"), false);
   const failedDelete = advanceDelete1;
-  assert.equal(canAct(failedDelete, advanceDelete1, "bootstrap_primary"), false);
+  assert.equal(canAct(failedDelete, advanceDelete1, "arm_primary_pending"), false);
 
   // Exact S1 absence is the only point at which G2 may enter LIVE and create a
   // new schedule. No G1 revision or generation can authorize a G2 action.
-  const live2 = { C: "C", P: "P2", S: null, G: 2, R: 0, state: "LIVE", conversation: null };
-  const pending2 = {
-    C: "C", P: "P2", S: "S2", G: 2, R: 1,
-    state: "START_PENDING", conversation: "uncommitted",
-  };
-  assert.equal(machine.get(live2.state).actions.has("bootstrap_primary"), true);
+  const live2 = { C: "C", P: null, S: null, G: 2, R: 0, state: "LIVE", conversation: null };
+  const primaryPending2 = transition(live2, "PRIMARY_PENDING", {
+    P: "uncommitted", S: "S2", conversation: "uncommitted",
+  });
+  const primaryBound2 = transition(primaryPending2, "PRIMARY_BOUND", { P: "P2" });
+  const pending2 = transition(primaryBound2, "START_PENDING");
+  assert.equal(machine.get(live2.state).actions.has("arm_primary_pending"), true);
   for (const stale1 of [pending1, bound1, steady1, advanceStop1, advanceDelete1]) {
     assert.equal(canAct(pending2, stale1, "inspect_start_evidence"), false);
   }
@@ -614,13 +622,13 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   // action, so no two schedules or states become authoritative.
   assert.equal(canAct(steady1, steady1, "accept_handoff_conversation"), false);
   assert.equal(canAct(pending1, pending1, "recover_bound_execution"), false);
-  assert.equal(canAct(advanceDelete1, advanceDelete1, "bootstrap_primary"), false);
+  assert.equal(canAct(advanceDelete1, advanceDelete1, "arm_primary_pending"), false);
   assert.equal(new Set([pending2.S]).size, 1);
 
   const terminal2 = transition(steady2, "TERMINAL_DELETE");
   assert.equal(canAct(terminal2, terminal2, "delete_terminal_schedule"), true);
   assert.equal(canAct(terminal2, terminal2, "stop_handoff_primary"), false);
-  assert.equal(canAct(terminal2, terminal2, "bootstrap_primary"), false);
+  assert.equal(canAct(terminal2, terminal2, "arm_primary_pending"), false);
 
   assert.match(controller, /before recovery, supervision, or ending the Controller turn/i);
   assert.match(controller, /accepted CID observed in `START_BOUND` or `STEADY`[\s\S]*no Task action/i);
@@ -628,13 +636,14 @@ test("controller heartbeat state machine drives two revisioned Milestones", asyn
   assert.match(controller, /Deletion failure[\s\S]*forbids fork or schedule creation/i);
   assert.match(controller, /`TERMINAL_DELETE`[\s\S]*never forks/i);
   for (const source of [controllerSpec, lifecycle]) {
+    assert.match(source, /PRIMARY_PENDING[\s\S]*PRIMARY_BOUND[\s\S]*START_PENDING/);
     assert.match(source, /START_PENDING[\s\S]*START_BOUND[\s\S]*STEADY/);
     assert.match(source, /ADVANCE_STOP[\s\S]*ADVANCE_DELETE/);
     assert.match(source, /TERMINAL_DELETE/);
     assert.match(source, /revision|`R`/i);
     assert.match(source, /read.back/i);
   }
-  assert.doesNotMatch(deliveryLoop, /Immediately before forking Primary[\s\S]{0,120}one-minute heartbeat/i);
+  assert.match(deliveryLoop, /Immediately before forking Primary[\s\S]*one-minute[\s\S]*PRIMARY_PENDING/i);
   assert.match(deliveryLoop, /`START_PENDING`[\s\S]*uncommitted[\s\S]*`START_BOUND`/);
   assert.match(deliveryLoop, /`ADVANCE_STOP`[\s\S]*accepts[\s\S]*stops[\s\S]*`ADVANCE_DELETE`/);
 });
@@ -655,32 +664,32 @@ test("handling-user-requests presents one task-scoped setup and execution profil
     "implementation/contents/welcome/welcome-loop.png",
   ));
 
-  assert.match(profileSource.recordedAt, /^2026-08-08T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/);
+  assert.match(profileSource.recordedAt, /^2026-09-08T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/);
   assert.deepEqual(profileSource.benchmark, {
     name: "Artificial Analysis Intelligence Index",
-    version: "v4.1.1",
-    sourceUrl: "https://artificialanalysis.ai/models/gpt-5-6-terra-medium",
+    version: "v4.3",
+    sourceUrl: "https://artificialanalysis.ai/models/gpt-5-6-terra-high",
   });
   assert.deepEqual(
     profileSource.models.map(({ id, recommendedPlan }) => [id, recommendedPlan]),
     [
       ["luna-max", "Plus"],
-      ["terra-medium", "Plus"],
-      ["sol-low", "Pro 5x"],
-      ["sol-medium", "Pro 20x"],
+      ["terra-high", "Plus"],
+      ["astra-low", "Pro 5x"],
+      ["astra-medium", "Pro 20x"],
     ],
   );
   assert.deepEqual(
     profileSource.models.map(({ aaScore }) => aaScore),
-    [52, 47, 51, 56],
+    [38, 34, 46, 50],
   );
   assert.deepEqual(
     profileSource.models.map(({ aaCostUsd }) => aaCostUsd),
-    [172, 192, 344, 580],
+    [0.18, 0.34, 0.82, 1.54],
   );
   assert.deepEqual(
     profileSource.models.map(({ aaTimeSeconds }) => aaTimeSeconds),
-    [108, 37, 46, 79],
+    [338, 117, 84, 174],
   );
   assert.ok(profileSource.models.every((model) => (
     !Object.hasOwn(model, "completionCostUsd")
@@ -691,9 +700,9 @@ test("handling-user-requests presents one task-scoped setup and execution profil
     profileSource.models.map(({ model, reasoningEffort }) => [model, reasoningEffort]),
     [
       ["gpt-5.6-luna", "max"],
-      ["gpt-5.6-terra", "medium"],
-      ["gpt-5.6-sol", "low"],
-      ["gpt-5.6-sol", "medium"],
+      ["gpt-5.6-terra", "high"],
+      ["gpt-6-astra", "low"],
+      ["gpt-6-astra", "medium"],
     ],
   );
   assert.deepEqual(
@@ -706,7 +715,7 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.equal(profileSource.speeds[1].speedMultiplier, 1.5);
   assert.equal(profileSource.speeds[1].tokenMultiplier, 2.5);
   assert.deepEqual(profileSource.defaultProfile, {
-    modelId: "terra-medium",
+    modelId: "terra-high",
     speedId: "normal",
     summary: "the standard profile",
   });
@@ -732,13 +741,13 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.match(guide, /The following tools make development easier\./i);
   assert.match(guide, /\{\{WELCOME_IMAGE_ABSOLUTE_PATH\}\}/);
   assert.match(guide, /Luna Max/i);
-  assert.match(guide, /Terra Medium/i);
-  assert.match(guide, /Sol Low/i);
-  assert.match(guide, /Sol Medium/i);
+  assert.match(guide, /Terra High/i);
+  assert.match(guide, /Astra Low/i);
+  assert.match(guide, /Astra Medium/i);
   assert.match(guide, /AA Score/i);
   assert.match(guide, /AA Cost/i);
   assert.match(guide, /AA Time/i);
-  assert.match(guide, /108 sec/i);
+  assert.match(guide, /338 sec/i);
   assert.match(guide, /\b1x\b/i);
   assert.match(guide, /1\.5/i);
   assert.match(guide, /Let's choose the Agent model\./i);
@@ -752,7 +761,7 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.doesNotMatch(guide, /About\s+(?:\d|1\.5x|2\.5x)/i);
   assert.match(
     guide,
-    /May I start with the standard Terra Medium model\?/i,
+    /May I start with the standard Terra High model\?/i,
   );
   assert.match(guide, /Unless you explicitly select 1\.5x, execution remains at 1x/i);
 
@@ -769,7 +778,7 @@ test("handling-user-requests presents one task-scoped setup and execution profil
   assert.match(skill, /no persistent|does not persist|without persisting/i);
   assert.match(skill, /welcome\s+(?:guide|Markdown)/i);
   assert.match(skill, /every.*Root Task|each.*Root Task/is);
-  assert.match(skill, /Terra Medium/i);
+  assert.match(skill, /Terra High/i);
   assert.match(skill, /latest\s+user-authored\s+message/i);
   assert.match(skill, /Speed defaults immediately to 1x/i);
   assert.match(skill, /Do not ask a speed-only follow-up/i);
@@ -881,7 +890,7 @@ test("Sonner ships the pinned EPL-2.0 ELK browser layout artifact", async () => 
 test("primary role is explicitly installed", async () => {
   const primary = await read("implementation/components/roles/primary/role.md");
 
-  assert.match(primary, /^---\nsummary:/);
+  assert.match(primary, /^---\nkeyPoints:/);
   assert.doesNotMatch(primary, /default job role|no (explicit )?job role|unspecified/i);
   assert.match(primary, /Milestone trajectory/i);
   assert.match(primary, /one delegated Milestone/i);
@@ -1034,7 +1043,7 @@ test("execute and review roles are explicitly installed", async () => {
     "implementation/components/roles/review/role.md",
   );
 
-  assert.match(execute, /^---\nsummary:/);
+  assert.match(execute, /^---\nkeyPoints:/);
   assert.match(execute, /Job Role/i);
   assert.match(execute, /modify/i);
   assert.match(execute, /assignment/i);
@@ -1061,7 +1070,7 @@ test("execute and review roles are explicitly installed", async () => {
   assert.match(execute, /working-with-codex-tasks[\s\S]*reply/is);
   assert.doesNotMatch(execute, /correction uses a fresh Execute/i);
 
-  assert.match(review, /^---\nsummary:/);
+  assert.match(review, /^---\nkeyPoints:/);
   assert.match(review, /Job Role/i);
   assert.match(review, /read-only/i);
   assert.match(review, /must not modify|does not modify/i);
@@ -1113,7 +1122,7 @@ test("interviewer turns required Review Signals into implementation guidance", a
     "implementation/components/runtime/templates/signals/review-signal.md",
   );
 
-  assert.match(interviewer, /^---\nsummary:/);
+  assert.match(interviewer, /^---\nkeyPoints:/);
   assert.match(interviewer, /Interviewer Job Role/i);
   assert.match(interviewer, /existing Reviewer Task/i);
   assert.match(
@@ -1759,70 +1768,70 @@ test("current project Works form an Overview-rooted graph", async () => {
   );
   assert.equal(map.status, 0, map.stderr);
   const sonner = JSON.parse(map.stdout);
-  assert.equal(sonner.version, 10);
+  assert.equal(sonner.version, 12);
   assert.equal(sonner.workGraph.status, "valid");
   const works = sonner.workGraph.works;
   assert.equal(works.filter((work) => work.type === "Overview").length, 1);
   assert.deepEqual(
     works.map(({ id, nodePath }) => ({ id, nodePath })),
     [
-      { id: "overview", nodePath: "overview/WORK_NODE.xml" },
+      { id: "overview", nodePath: "overview/.WORK_NODE.xml" },
       {
         id: "product-concept",
-        nodePath: "product-concept/WORK_NODE.xml",
+        nodePath: "product-concept/.WORK_NODE.xml",
       },
       {
         id: "interaction-specification",
-        nodePath: "specification/interaction-specification/WORK_NODE.xml",
+        nodePath: "specification/interaction-specification/.WORK_NODE.xml",
       },
       {
         id: "system-specification",
-        nodePath: "specification/system-specification/WORK_NODE.xml",
+        nodePath: "specification/system-specification/.WORK_NODE.xml",
       },
       {
         id: "technical-specification",
-        nodePath: "specification/technical-specification/WORK_NODE.xml",
+        nodePath: "specification/technical-specification/.WORK_NODE.xml",
       },
       {
         id: "implementation",
-        nodePath: "implementation/WORK_NODE.xml",
+        nodePath: "implementation/.WORK_NODE.xml",
       },
       {
         id: "user-documentation",
-        nodePath: "user-documentation/WORK_NODE.xml",
+        nodePath: "user-documentation/.WORK_NODE.xml",
       },
     ],
   );
 
   assert.equal(await exists("docs"), false);
 
-  const overviewNode = await read("overview/WORK_NODE.xml");
+  const overviewNode = await read("overview/.WORK_NODE.xml");
   assert.match(overviewNode, /<work-node id="overview" type="Overview">/);
-  assert.match(overviewNode, /<summary>[^<]+<\/summary>/);
+  assert.match(overviewNode, /<keyPoints>[^<]+<\/keyPoints>/);
   assert.match(overviewNode, /<inputs\s*\/>/);
-  assert.equal(await exists("WORK_NODE.xml"), false);
+  assert.equal(await exists(".WORK_NODE.xml"), false);
   assert.equal(await exists("works"), false);
 
-  const implementationNode = await read("implementation/WORK_NODE.xml");
-  assert.match(implementationNode, /<work-node id="implementation" type="Implementation">/);
-  assert.match(implementationNode, /<summary>[^<]*seven Skills[^<]*Sonner project inspection[^<]*<\/summary>/);
+  const implementationNode = await read("implementation/.WORK_NODE.xml");
+  assert.match(implementationNode, /<work-node id="implementation" type="PluginOutput">/);
+  assert.match(implementationNode, /<keyPoints>[^<]*seven skills[^<]*Board and Sonner[^<]*<\/keyPoints>/i);
   assert.doesNotMatch(implementationNode, /Work mapper/i);
   assert.match(implementationNode, /<input ref="interaction-specification"\s*\/>/);
   assert.match(implementationNode, /<input ref="system-specification"\s*\/>/);
   assert.match(implementationNode, /<input ref="technical-specification"\s*\/>/);
 
-  const systemNode = await read("specification/system-specification/WORK_NODE.xml");
-  assert.match(systemNode, /<summary>[^<]*five job roles[^<]*seven skills[^<]*<\/summary>/i);
+  const systemNode = await read("specification/system-specification/.WORK_NODE.xml");
+  assert.match(systemNode, /<keyPoints>[^<]*Controller[^<]*Primary[^<]*four independent Reviews[^<]*<\/keyPoints>/i);
   assert.doesNotMatch(systemNode, /eight skills/i);
 
   const implementationEntries = await readdir(
     path.join(repositoryRoot, "implementation"),
   );
   assert.deepEqual(implementationEntries.sort(), [
+    ".WORK_NODE.xml",
     ".codex-plugin",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
-    "WORK_NODE.xml",
     "assets",
     "components",
     "contents",
@@ -1836,15 +1845,22 @@ test("current project Works form an Overview-rooted graph", async () => {
   const repositoryStructure = await read(
     "specification/technical-specification/package/repository-structure.md",
   );
-  assert.match(repositoryStructure, /^---\nsummary:/);
+  assert.match(repositoryStructure, /^---\nkeyPoints:/);
   assert.match(repositoryStructure, /plugin/i);
-  assert.match(repositoryStructure, /skills\/\s+# Complete six-Skill specification inventory/);
-  assert.doesNotMatch(repositoryStructure, /seven-Skill specification inventory/i);
+  assert.match(repositoryStructure, /skills\/\s+# Complete seven-Skill specification inventory/);
+  assert.doesNotMatch(repositoryStructure, /six-Skill specification inventory/i);
+
+  const userDocumentationNode = await read("user-documentation/.WORK_NODE.xml");
+  assert.match(
+    userDocumentationNode,
+    /<work-node id="user-documentation" type="UserDocumentationOutput">/,
+  );
+  assert.match(userDocumentationNode, /<input ref="implementation"\s*\/>/);
 
   const testing = await read(
     "implementation/testing.md",
   );
-  assert.match(testing, /^---\nsummary:/);
+  assert.match(testing, /^---\nkeyPoints:/);
   assert.match(testing, /Do not build automated E2E tests/i);
   assert.match(testing, /each part can be tested independently/i);
   assert.match(testing, /final end-to-end check manually/i);
@@ -1852,7 +1868,7 @@ test("current project Works form an Overview-rooted graph", async () => {
   const deliveryLoop = await read(
     "specification/system-specification/coordination/managed-delivery-loop.md",
   );
-  assert.match(deliveryLoop, /^---\nsummary:/);
+  assert.match(deliveryLoop, /^---\nkeyPoints:/);
   assert.match(deliveryLoop, /job role/i);
   assert.match(deliveryLoop, /fresh Execute owns each Milestone/i);
   assert.match(deliveryLoop, /four Review\s+responsibilities/i);
@@ -1860,13 +1876,13 @@ test("current project Works form an Overview-rooted graph", async () => {
   const authority = await read(
     "product-concept/authority-gated-autonomy.md",
   );
-  assert.match(authority, /^---\nsummary:/);
+  assert.match(authority, /^---\nkeyPoints:/);
   assert.match(authority, /authority-gated autonomy/i);
 
   const taskAutomation = await read(
     "specification/system-specification/coordination/task-coordination.md",
   );
-  assert.match(taskAutomation, /^---\nsummary:/);
+  assert.match(taskAutomation, /^---\nkeyPoints:/);
   assert.match(taskAutomation, /Task Coordination/i);
   assert.match(taskAutomation, /managed Task/i);
   assert.match(taskAutomation, /Conversation/i);
@@ -1883,7 +1899,7 @@ test("current project Works form an Overview-rooted graph", async () => {
     entry.isDirectory() ? `${entry.name}/` : entry.name,
   );
   assert.deepEqual(interactionNames.sort(), [
-    "WORK_NODE.xml",
+    ".WORK_NODE.xml",
     "activation/",
     "agreement/",
     "delivery/",
@@ -1897,7 +1913,7 @@ test("current project Works form an Overview-rooted graph", async () => {
     entry.isDirectory() ? `${entry.name}/` : entry.name,
   );
   assert.deepEqual(systemNames.sort(), [
-    "WORK_NODE.xml",
+    ".WORK_NODE.xml",
     "coordination/",
     "roles/",
     "skills/",
@@ -1912,7 +1928,7 @@ test("current project Works form an Overview-rooted graph", async () => {
     entry.isDirectory() ? `${entry.name}/` : entry.name,
   );
   assert.deepEqual(runtimeContractNames.sort(), [
-    "WORK_NODE.xml",
+    ".WORK_NODE.xml",
     "integrations/",
     "package/",
     "runtime/",
@@ -1971,15 +1987,15 @@ test("current project Works form an Overview-rooted graph", async () => {
 });
 
 test("repository Works and the installable plugin share the production structure", async () => {
-  assert.equal(await exists("WORK_NODE.xml"), false);
+  assert.equal(await exists(".WORK_NODE.xml"), false);
   assert.equal(await exists("works"), false);
-  assert.equal(await exists("overview/WORK_NODE.xml"), true);
-  assert.equal(await exists("product-concept/WORK_NODE.xml"), true);
-  assert.equal(await exists("specification/interaction-specification/WORK_NODE.xml"), true);
-  assert.equal(await exists("specification/system-specification/WORK_NODE.xml"), true);
-  assert.equal(await exists("specification/technical-specification/WORK_NODE.xml"), true);
-  assert.equal(await exists("implementation/WORK_NODE.xml"), true);
-  assert.equal(await exists("user-documentation/WORK_NODE.xml"), true);
+  assert.equal(await exists("overview/.WORK_NODE.xml"), true);
+  assert.equal(await exists("product-concept/.WORK_NODE.xml"), true);
+  assert.equal(await exists("specification/interaction-specification/.WORK_NODE.xml"), true);
+  assert.equal(await exists("specification/system-specification/.WORK_NODE.xml"), true);
+  assert.equal(await exists("specification/technical-specification/.WORK_NODE.xml"), true);
+  assert.equal(await exists("implementation/.WORK_NODE.xml"), true);
+  assert.equal(await exists("user-documentation/.WORK_NODE.xml"), true);
   assert.equal(await exists("implementation/.codex-plugin/plugin.json"), true);
   assert.equal(await exists("implementation/skills"), true);
   assert.equal(await exists("implementation/components"), true);
@@ -2126,7 +2142,7 @@ test("public task flow replaces the first-task-only page", async () => {
   assert.match(install, /Slack/i);
   assert.match(install, /required/i);
   assert.match(install, /reminder/i);
-  assert.match(runTask, /^---\nsummary:/);
+  assert.match(runTask, /^---\nkeyPoints:/);
   assert.match(runTask, /interview/i);
   assert.match(runTask, /plan/i);
   assert.match(runTask, /agreement|agree/i);
@@ -2293,7 +2309,7 @@ test("skill UI identifiers and invocations use the plugin namespace", async () =
   }
 });
 
-test("plugin marketplace installs the Implementation Work", async () => {
+test("plugin marketplace installs the Plugin Output Work", async () => {
   const marketplace = JSON.parse(
     await read(".agents/plugins/marketplace.json"),
   );
@@ -2314,7 +2330,7 @@ test("Obsidian vault state stays outside version control", async () => {
   assert.match(gitignore, /^\.obsidian\/$/m);
 });
 
-test("host-constrained skills remain at the Implementation plugin root", async () => {
+test("host-constrained skills remain at the Plugin Output root", async () => {
   const skillEntries = await readdir(
     path.join(repositoryRoot, "implementation", "skills"),
     { withFileTypes: true },
@@ -2486,13 +2502,13 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   const helper = path.join(repositoryRoot, "implementation/components/sonner/native/sonner-project-reader");
   const manifest = JSON.parse(await read("implementation/.codex-plugin/plugin.json"));
   const marketplace = JSON.parse(await read(".agents/plugins/marketplace.json"));
-  assert.match(manifest.version, /^0\.1\.0\+codex\.\d{14}$/);
+  assert.match(manifest.version, /^\d+\.\d+\.\d+\+codex\.\d{14}$/);
   assert.equal(manifest.license, "MIT");
   const versionOccurrences = [];
   for (const relative of await listRepositoryFiles()) {
     const matches = (await readFile(path.join(repositoryRoot, relative)))
       .toString("utf8")
-      .match(/0\.1\.0\+codex\.\d{14}/g);
+      .match(/\d+\.\d+\.\d+\+codex\.\d{14}/g);
     for (const match of matches ?? []) versionOccurrences.push({ relative, match });
   }
   assert.deepEqual(versionOccurrences, [{
@@ -2530,7 +2546,7 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   const command = await read("implementation/components/commands/sonner.mjs");
   const view = await read("implementation/components/board/public/sonner-view.js");
   const provenance = await read("implementation/components/sonner/native/BUILD.md");
-  assert.match(source, /PROTOCOL_VERSION 2/);
+  assert.match(source, /PROTOCOL_VERSION 3/);
   assert.match(source, /openat\(/);
   assert.match(source, /AT_SYMLINK_NOFOLLOW/);
   assert.match(source, /F_DUPFD_CLOEXEC/);
@@ -2542,7 +2558,7 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   assert.match(portable, /shell:\s*false/);
   assert.match(portable, /revalidateAncestors/);
   assert.doesNotMatch(portable, /\.\.\.environment/);
-  assert.match(projection, /SONNER_SCHEMA_VERSION = 10/);
+  assert.match(projection, /SONNER_SCHEMA_VERSION = 12/);
   assert.match(projection, /version: SONNER_SCHEMA_VERSION,[\s\S]*workGraph:[\s\S]*files:[\s\S]*runtime,/);
   assert.match(projection, /outputs:/);
   assert.match(projection, /options\.json \? serializeSonner\(projection\) : formatSonnerText\(projection\)/);
@@ -2613,7 +2629,7 @@ test("Sonner packages descriptor-anchored Runtime and history readers", async ()
   assert.doesNotMatch(historySource, /CODEX_HOME|archived_sessions|\/Users\//);
 });
 
-test("Sonner closure keeps schema v10 and flat active Runtime surfaces free of retired contracts", async () => {
+test("Sonner closure keeps schema v12 and flat active Runtime surfaces free of retired contracts", async () => {
   const creating = await read("implementation/skills/creating-and-maintaining-works/SKILL.md");
   const lifecycleTests = await read("implementation/components/sonner/tests/sonner-lifecycle.test.mjs");
   const serverTests = await read("implementation/components/board/tests/board-server.test.mjs");
@@ -2624,7 +2640,7 @@ test("Sonner closure keeps schema v10 and flat active Runtime surfaces free of r
   assert.match(creating, /does not automatically load `understanding-works`, run\s+Sonner/i);
   assert.doesNotMatch(creating, /Work Graph mapper/i);
   assert.doesNotMatch(serverTests, /\bversion:\s*6\b/);
-  assert.match(serverTests, /\bversion:\s*10\b/);
+  assert.match(serverTests, /\bversion:\s*12\b/);
   assert.match(lifecycleTests, /health:\s*"unknown", reasons:\s*\["observation_failed"\], tasks:\s*\[\]/);
   assert.doesNotMatch(lifecycleTests, /health:\s*"unknown", settled:|counts:\s*\{\}, roots:/);
   assert.match(html, /id="runtime-task-list"[^>]*class="runtime-task-list"/);
@@ -2777,11 +2793,11 @@ test("Work skills separate project understanding from mutation", async () => {
   assert.match(understanding, /Primary, Execute, Review, and Interviewer do not invoke this skill again/i);
   assert.match(understanding, /Work Graph/i);
   assert.match(understanding, /WORK_NODE\.xml/i);
-  assert.match(understanding, /directory names[\s\S]*filenames[\s\S]*summar/is);
+  assert.match(understanding, /directory names[\s\S]*filenames[\s\S]*key points/is);
   assert.match(understanding, /explicit repository-root-relative Markdown links/i);
   assert.match(understanding, /backlinks/i);
   assert.match(understanding, /same or clearly shared descriptive name/i);
-  assert.match(understanding, /components\/commands\/sonner\.mjs/);
+  assert.match(understanding, /components\/commands\/small-loop\.mjs" sonner --runtime/);
   assert.match(understanding, /--project-root <project-root>/);
   assert.match(understanding, /`outputs` for[\s\S]*downstream impact/i);
   assert.match(understanding, /workGraph\.status[\s\S]*missing[\s\S]*invalid/i);
@@ -2800,7 +2816,7 @@ test("Work skills separate project understanding from mutation", async () => {
   assert.match(creating, /user agreement/i);
   assert.match(creating, /does not require perfect[\s\S]*file-level traceability/i);
   assert.match(creating, /force every file into a Work/i);
-  assert.match(creating, /parallel binding database/i);
+  assert.match(creating, /parallel binding\s+database/i);
 
   assert.equal(await exists("implementation/skills/reading-docs"), false);
   assert.equal(await exists("implementation/skills/writing-docs"), false);
@@ -2811,7 +2827,7 @@ test("Work Graph knowledge supports media-independent project grounding", async 
     "implementation/skills/understanding-works/references/work-graph.md",
   );
 
-  assert.match(graph, /^---\nsummary:/);
+  assert.match(graph, /^---\nkeyPoints:/);
   assert.match(graph, /maintained production output/i);
   assert.match(graph, /exactly one `Overview`/i);
   assert.match(
@@ -2834,18 +2850,20 @@ test("Atomic Documentation is designed backward from fast reading", async () => 
     "implementation/skills/creating-and-maintaining-works/references/atomic-documentation.md",
   );
 
-  assert.match(atomic, /^---\nsummary:/);
+  assert.match(atomic, /^---\nkeyPoints:/);
   assert.match(atomic, /write-side contract for fast project grounding/i);
   assert.match(atomic, /one independently nameable knowledge responsibility/i);
-  assert.match(atomic, /filename[\s\S]*and summar(?:y|ies) distinguish it/i);
+  assert.match(atomic, /filename[\s\S]*and key points distinguish it/i);
   assert.match(atomic, /independent reasons to change/i);
   assert.match(atomic, /different downstream consumers/i);
   assert.match(atomic, /not the smallest possible file/i);
-  assert.match(atomic, /directory structure, filenames, and summaries[\s\S]*project map/i);
+  assert.match(atomic, /directory structure, filenames, and key points[\s\S]*project map/i);
   assert.match(atomic, /README, index, or directory-named document/i);
   assert.match(atomic, /duplicates that map and can become stale/i);
   assert.match(atomic, /distinct audience/i);
-  assert.match(atomic, /native summaries[\s\S]*when they are natural/i);
+  assert.match(atomic, /native key-point metadata[\s\S]*when it is natural/i);
+  assert.match(atomic, /current main specification, decisions, behavior/i);
+  assert.match(atomic, /Write the content itself/i);
   assert.match(atomic, /one canonical document/i);
 });
 
@@ -2878,21 +2896,21 @@ test("reference docs record the detailed runtime contracts", async () => {
     "specification/system-specification/skills/working-with-codex-tasks.md",
   );
 
-  assert.match(activation, /^---\nsummary:/);
+  assert.match(activation, /^---\nkeyPoints:/);
   assert.match(activation, /handling-user-requests/i);
   assert.match(activation, /Markdown guide[\s\S]*Controller Role/i);
   assert.match(activation, /no project.*investigation[\s\S]*before the guide/i);
-  assert.match(handling, /^---\nsummary:/);
+  assert.match(handling, /^---\nkeyPoints:/);
   assert.match(handling, /entry point/i);
   assert.match(handling, /welcome/i);
   assert.match(handling, /components\/commands\/role\.mjs controller/i);
   assert.match(handling, /Controller[\s\S]*interview/i);
-  assert.match(loadingRole, /^---\nsummary:/);
+  assert.match(loadingRole, /^---\nkeyPoints:/);
   assert.match(
     loadingRole,
     /components\/roles\/(?:primary|<role>)\/role\.md/i,
   );
-  assert.match(primary, /^---\nsummary:/);
+  assert.match(primary, /^---\nkeyPoints:/);
   assert.match(primary, /primary trajectory/i);
   assert.match(primary, /direct parent/i);
   assert.match(primary, /Conversation Initiator evaluates each reply/i);
@@ -2901,13 +2919,13 @@ test("reference docs record the detailed runtime contracts", async () => {
     primary,
     /https:\/\/github\.com\/lopopolo\/harness-engineering\/blob\/226c8d35fb6ea3ed55467753dba6dea2b5fd5778\/docs\/whole-job\/README\.md/,
   );
-  assert.match(handlingRole, /^---\nsummary:/);
+  assert.match(handlingRole, /^---\nkeyPoints:/);
   assert.match(handlingRole, /Controller[\s\S]*verification/i);
   assert.match(
     handlingRole,
     /Controller does not modify project files or directly operate Primary's[\s\S]*children/is,
   );
-  assert.match(messageRouting, /^---\nsummary:/);
+  assert.match(messageRouting, /^---\nkeyPoints:/);
   assert.match(messageRouting, /turn\/steer/i);
   assert.match(messageRouting, /Fail-Closed Rules/i);
   assert.match(messageRouting, /managed exchanges/i);
@@ -2932,7 +2950,7 @@ test("reference docs record the detailed runtime contracts", async () => {
   );
   assert.match(messageRouting, /mode `0700`.*mode `0600`/is);
   assert.match(messageRouting, /temporary heartbeat schedule/i);
-  assert.match(messageRouting, /receiver reads and deletes.*schedule read\/delete/is);
+  assert.match(messageRouting, /receiver reads and requests deletion.*schedule read\/delete/is);
   assert.match(messageRouting, /=== Next Actions ===/);
   assert.match(messageRouting, /=== System Instructions ===/);
   assert.match(messageRouting, /SCHEDULE_READ_FAILED/);
@@ -2950,7 +2968,7 @@ test("reference docs record the detailed runtime contracts", async () => {
   assert.doesNotMatch(messageRouting, /supplies the sender's explicit Agent name/i);
   assert.match(messageRouting, /32 MiB/i);
   assert.match(messageRouting, /exact Conversation ID and `conversation reply` command/is);
-  assert.match(coordination, /^---\nsummary:/);
+  assert.match(coordination, /^---\nkeyPoints:/);
   assert.match(coordination, /working-with-codex-tasks/i);
   assert.match(coordination, /Parent[\s\S]*Task ID/i);
   assert.match(coordination, /owns Agent-facing mechanics/i);
@@ -2959,7 +2977,7 @@ test("reference docs record the detailed runtime contracts", async () => {
     /Initiator starts an exchange[\s\S]*reply[\s\S]*continues or accepts/i,
   );
   assert.doesNotMatch(coordination, /task\.mjs accept|task accept/i);
-  assert.match(notifications, /^---\nsummary:/);
+  assert.match(notifications, /^---\nkeyPoints:/);
   assert.match(notifications, /parent/i);
   assert.match(notifications, /Controller/i);
   assert.match(notifications, /Slack/i);
@@ -2983,7 +3001,7 @@ test("authority-gated autonomy keeps work moving and escalates only authority", 
     "product-concept/authority-gated-autonomy.md",
   );
 
-  assert.match(concept, /^---\nsummary:/);
+  assert.match(concept, /^---\nkeyPoints:/);
   assert.match(concept, /authority-gated autonomy/i);
   assert.match(concept, /explicit authority/i);
   assert.match(concept, /consequential/i);
@@ -3009,7 +3027,7 @@ test("Work Graph documents expose distributed markers without Task coupling", as
     "specification/system-specification/work-graph/contract.md",
   );
 
-  assert.match(concept, /^---\nsummary:/);
+  assert.match(concept, /^---\nkeyPoints:/);
   assert.match(concept, /WORK_NODE\.xml/i);
   assert.match(concept, /meaningful project directory/i);
   assert.match(concept, /Work ID is independent of the containing directory/i);
@@ -3017,13 +3035,13 @@ test("Work Graph documents expose distributed markers without Task coupling", as
   assert.match(concept, /does not mean.*complete|does not indicate.*completion/is);
   assert.doesNotMatch(concept, /\bTask\b/);
 
-  assert.match(contract, /^---\nsummary:/);
+  assert.match(contract, /^---\nkeyPoints:/);
   assert.match(contract, /WORK_NODE\.xml/i);
   assert.match(contract, /id.*independent of the containing directory name/is);
   assert.match(contract, /do not require README files/i);
   assert.match(contract, /project root/i);
   assert.match(contract, /does not claim[\s\S]*every maintained project[\s\S]*file to belong to a Work/i);
-  assert.match(contract, /atomic[\s\S]*summaries/i);
+  assert.match(contract, /atomic key[\s\S]*points/i);
   assert.match(contract, /backlinks/i);
   assert.match(contract, /shared names/i);
   assert.match(contract, /approved future Works/i);
@@ -3042,13 +3060,13 @@ test("easy grounding routes Controller context to every milestone agent", async 
     "implementation/skills/creating-and-maintaining-works/SKILL.md",
   );
 
-  assert.match(concept, /^---\nsummary:/);
+  assert.match(concept, /^---\nkeyPoints:/);
   assert.match(concept, /grounding/i);
   assert.match(concept, /working model|working context/i);
   assert.match(concept, /before.*(decid|act)/is);
-  assert.match(concept, /summary/i);
+  assert.match(concept, /key points/i);
   assert.match(concept, /one command|single command/i);
-  assert.match(concept, /sonner\.mjs/i);
+  assert.match(concept, /small-loop\.mjs" sonner --runtime/i);
   assert.match(concept, /link/i);
   assert.match(concept, /new agent|newly started agent/i);
   assert.match(concept, /accurate|correct/i);

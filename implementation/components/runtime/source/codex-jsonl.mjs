@@ -1,4 +1,6 @@
+import { sessionSandboxPolicy } from "./session-permissions.mjs";
 import { StringDecoder } from "node:string_decoder";
+import { open } from "node:fs/promises";
 import path from "node:path";
 
 import { pathsEqual } from "./path-identity.mjs";
@@ -6,6 +8,8 @@ import { pathsEqual } from "./path-identity.mjs";
 export const MAX_JSONL_LINE_LENGTH = 8 * 1024 * 1024;
 export const MAX_TASK_ID_LENGTH = 512;
 export const MAX_TURN_ID_LENGTH = 512;
+
+const REVERSE_LINE_BUFFER_SIZE = 64 * 1024;
 
 const MAX_DIAGNOSTIC_LENGTH = 512;
 const SUPPORTED_EVENT_TYPES = new Set([
@@ -62,15 +66,25 @@ function assertTurnId(turnId, details = {}) {
   if (!validTurnId(turnId)) {
     throw createError(
       "TASK_EVENT_INVALID",
-      `Codex task event has an invalid Turn ID${details.lineNumber ? ` at line ${details.lineNumber}` : ""}`,
+      `Codex task event has an invalid Turn ID${eventLocation(details)}`,
       details,
     );
   }
 }
 
+function eventLocation(details = {}) {
+  if (details.lineNumber !== undefined) {
+    return ` at line ${details.lineNumber}`;
+  }
+  if (details.byteOffset !== undefined) {
+    return ` at byte offset ${details.byteOffset}`;
+  }
+  return "";
+}
+
 function normalizeRecord(
   record,
-  lineNumber,
+  details = {},
   { includeFinalAnswer = false } = {},
 ) {
   if (
@@ -92,7 +106,7 @@ function normalizeRecord(
     return null;
   }
 
-  assertTurnId(payload.turn_id, { lineNumber });
+  assertTurnId(payload.turn_id, details);
   const event = {
     type: payload.type,
     turnId: payload.turn_id,
@@ -105,8 +119,8 @@ function normalizeRecord(
     ) {
       throw createError(
         "TASK_EVENT_INVALID",
-        `Codex task completion has an invalid final answer at line ${lineNumber}`,
-        { lineNumber },
+        `Codex task completion has an invalid final answer${eventLocation(details)}`,
+        details,
       );
     }
     event.finalAnswer = payload.last_agent_message ?? null;
@@ -144,19 +158,70 @@ function parseLine(line, lineNumber, {
   }
 
   return {
-    event: normalizeRecord(record, lineNumber, { includeFinalAnswer }),
+    event: normalizeRecord(record, { lineNumber }, { includeFinalAnswer }),
     ignoredIncompleteTail: false,
   };
 }
 
-function assertLineLength(line, lineNumber) {
-  if (line.length > MAX_JSONL_LINE_LENGTH) {
-    throw createError(
-      "TASK_JSONL_LINE_TOO_LARGE",
-      `Codex JSONL line ${lineNumber} exceeds the supported size`,
-      { lineNumber },
-    );
+function createBoundedLineFramer() {
+  let fragment = "";
+  let oversized = false;
+  let lineCount = 0;
+
+  function appendSegment(segment) {
+    if (oversized) return;
+    if (fragment.length + segment.length > MAX_JSONL_LINE_LENGTH + 1) {
+      fragment = "";
+      oversized = true;
+      return;
+    }
+    fragment += segment;
   }
+
+  function push(text) {
+    const lines = [];
+    let offset = 0;
+    while (offset < text.length) {
+      const newlineIndex = text.indexOf("\n", offset);
+      const end = newlineIndex === -1 ? text.length : newlineIndex;
+      appendSegment(text.slice(offset, end));
+      if (newlineIndex === -1) break;
+
+      lineCount += 1;
+      const line = fragment.endsWith("\r") ? fragment.slice(0, -1) : fragment;
+      if (!oversized && line.length <= MAX_JSONL_LINE_LENGTH) {
+        lines.push({
+          line,
+          lineNumber: lineCount,
+        });
+      }
+      fragment = "";
+      oversized = false;
+      offset = newlineIndex + 1;
+    }
+    return lines;
+  }
+
+  function finish() {
+    if (fragment.length === 0 && !oversized) return null;
+    lineCount += 1;
+    const line = fragment.endsWith("\r") ? fragment.slice(0, -1) : fragment;
+    if (oversized || line.length > MAX_JSONL_LINE_LENGTH) {
+      fragment = "";
+      oversized = false;
+      return { discarded: true, lineNumber: lineCount };
+    }
+    fragment = "";
+    return { discarded: false, line, lineNumber: lineCount };
+  }
+
+  return {
+    finish,
+    get lineCount() {
+      return lineCount;
+    },
+    push,
+  };
 }
 
 function assertReadable(readable) {
@@ -186,15 +251,9 @@ export async function readCodexSessionMetadata(readable, expectedTaskId) {
   }
 
   const decoder = new StringDecoder("utf8");
-  let fragment = "";
-  let lineCount = 0;
+  const framer = createBoundedLineFramer();
 
-  function inspectLine(rawLine) {
-    lineCount += 1;
-    const line = rawLine.endsWith("\r")
-      ? rawLine.slice(0, -1)
-      : rawLine;
-    assertLineLength(line, lineCount);
+  function inspectLine(line, lineNumber) {
     if (!line.trim()) {
       return null;
     }
@@ -205,8 +264,8 @@ export async function readCodexSessionMetadata(readable, expectedTaskId) {
     } catch (cause) {
       throw createError(
         "TASK_JSONL_MALFORMED",
-        `Malformed Codex JSONL at line ${lineCount}: ${cause.message}`,
-        { cause, lineNumber: lineCount },
+        `Malformed Codex JSONL at line ${lineNumber}: ${cause.message}`,
+        { cause, lineNumber },
       );
     }
 
@@ -232,7 +291,7 @@ export async function readCodexSessionMetadata(readable, expectedTaskId) {
       throw createError(
         "TASK_SESSION_META_INVALID",
         "Codex session metadata does not match the expected Task and project",
-        { lineNumber: lineCount },
+        { lineNumber },
       );
     }
     return Object.freeze({
@@ -247,29 +306,24 @@ export async function readCodexSessionMetadata(readable, expectedTaskId) {
       const bytes = typeof chunk === "string"
         ? Buffer.from(chunk)
         : Buffer.from(chunk);
-      fragment += decoder.write(bytes);
-      let newlineIndex = fragment.indexOf("\n");
-
-      while (newlineIndex !== -1) {
-        const metadata = inspectLine(fragment.slice(0, newlineIndex));
+      for (const framed of framer.push(decoder.write(bytes))) {
+        const metadata = inspectLine(framed.line, framed.lineNumber);
         if (metadata) {
           return metadata;
         }
-        fragment = fragment.slice(newlineIndex + 1);
-        newlineIndex = fragment.indexOf("\n");
       }
-      assertLineLength(
-        fragment.endsWith("\r") ? fragment.slice(0, -1) : fragment,
-        lineCount + 1,
-      );
     }
 
-    fragment += decoder.end();
-    if (fragment.length > 0) {
-      const metadata = inspectLine(fragment);
+    for (const framed of framer.push(decoder.end())) {
+      const metadata = inspectLine(framed.line, framed.lineNumber);
       if (metadata) {
         return metadata;
       }
+    }
+    const tail = framer.finish();
+    if (tail && !tail.discarded) {
+      const metadata = inspectLine(tail.line, tail.lineNumber);
+      if (metadata) return metadata;
     }
     throw createError(
       "TASK_SESSION_META_MISSING",
@@ -353,7 +407,7 @@ function normalizeTurnContext(payload, lineNumber) {
   }
 
   let activePermissionProfile = null;
-  if (permissionProfile.type !== "disabled") {
+  if (permissionProfile.type !== "disabled" && !(permissionProfile.type === "managed" && permissionProfile.id === undefined)) {
     if (
       typeof permissionProfile.id !== "string"
       || permissionProfile.id.length === 0
@@ -378,7 +432,7 @@ function normalizeTurnContext(payload, lineNumber) {
       approvalPolicy: structuredClone(approvalPolicy),
       model,
       reasoningEffort,
-      sandboxPolicy: { type: sandboxType },
+      sandboxPolicy: sessionSandboxPolicy(payload, sandboxType),
       serviceTier,
     },
   };
@@ -395,19 +449,13 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
   }
 
   const decoder = new StringDecoder("utf8");
-  let fragment = "";
-  let lineCount = 0;
+  const framer = createBoundedLineFramer();
   let metadata = null;
   let sawSessionMetadata = false;
   let latestContext = null;
   let latestAppliedServiceTier;
 
-  function consumeLine(rawLine, { incompleteTail = false } = {}) {
-    lineCount += 1;
-    const line = rawLine.endsWith("\r")
-      ? rawLine.slice(0, -1)
-      : rawLine;
-    assertLineLength(line, lineCount);
+  function consumeLine(line, lineNumber, { incompleteTail = false } = {}) {
     if (!line.trim()) return;
 
     let record;
@@ -417,8 +465,8 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
       if (incompleteTail) return;
       throw createError(
         "TASK_JSONL_MALFORMED",
-        `Malformed Codex JSONL at line ${lineCount}: ${cause.message}`,
-        { cause, lineNumber: lineCount },
+        `Malformed Codex JSONL at line ${lineNumber}: ${cause.message}`,
+        { cause, lineNumber },
       );
     }
 
@@ -433,7 +481,7 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
         throw createError(
           "TASK_SESSION_META_INVALID",
           `Codex session metadata does not match Task ID ${bounded(expectedTaskId, 256)}`,
-          { lineNumber: lineCount },
+          { lineNumber },
         );
       }
       const matching = {
@@ -444,14 +492,14 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
         throw createError(
           "TASK_SESSION_META_INVALID",
           `Codex session metadata does not match Task ID ${bounded(expectedTaskId, 256)}`,
-          { lineNumber: lineCount },
+          { lineNumber },
         );
       }
       metadata = matching;
       return;
     }
     if (record?.type === "turn_context") {
-      latestContext = normalizeTurnContext(record.payload, lineCount);
+      latestContext = { payload: record.payload, lineNumber };
       return;
     }
     if (
@@ -467,7 +515,7 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
       ) {
         latestAppliedServiceTier = normalizeServiceTier(
           settings.service_tier,
-          lineCount,
+          lineNumber,
           "applied thread settings",
         );
       }
@@ -475,17 +523,9 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
   }
 
   function consumeDecoded(text) {
-    fragment += text;
-    let newlineIndex = fragment.indexOf("\n");
-    while (newlineIndex !== -1) {
-      consumeLine(fragment.slice(0, newlineIndex));
-      fragment = fragment.slice(newlineIndex + 1);
-      newlineIndex = fragment.indexOf("\n");
+    for (const framed of framer.push(text)) {
+      consumeLine(framed.line, framed.lineNumber);
     }
-    assertLineLength(
-      fragment.endsWith("\r") ? fragment.slice(0, -1) : fragment,
-      lineCount + 1,
-    );
   }
 
   try {
@@ -497,8 +537,9 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
       );
     }
     consumeDecoded(decoder.end());
-    if (fragment.length > 0) {
-      consumeLine(fragment, { incompleteTail: true });
+    const tail = framer.finish();
+    if (tail && !tail.discarded) {
+      consumeLine(tail.line, tail.lineNumber, { incompleteTail: true });
     }
     if (!metadata) {
       throw createError(
@@ -515,6 +556,11 @@ export async function readCodexTaskRunSettings(readable, expectedTaskId) {
         "TASK_TURN_CONTEXT_MISSING",
         "Codex Task has no persisted turn context",
       );
+    }
+    try { latestContext = normalizeTurnContext(latestContext.payload, latestContext.lineNumber); }
+    catch (cause) {
+      if (cause.code) throw cause;
+      throw invalidTurnContext(`Codex Task permissions cannot be represented: ${cause.message}`);
     }
     if (!pathsEqual(latestContext.cwd, metadata.cwd)) {
       throw invalidTurnContext(
@@ -556,19 +602,12 @@ export async function scanCodexTaskEvents(readable, reducer, options = {}) {
   const includeFinalAnswer = options.includeFinalAnswer ?? false;
 
   const decoder = new StringDecoder("utf8");
-  let fragment = "";
+  const framer = createBoundedLineFramer();
   let eventCount = 0;
   let ignoredIncompleteTail = false;
-  let lineCount = 0;
 
-  async function consumeCompleteLine(rawLine) {
-    lineCount += 1;
-    const line = rawLine.endsWith("\r")
-      ? rawLine.slice(0, -1)
-      : rawLine;
-    assertLineLength(line, lineCount);
-
-    const parsed = parseLine(line, lineCount, { includeFinalAnswer });
+  async function consumeCompleteLine(line, lineNumber) {
+    const parsed = parseLine(line, lineNumber, { includeFinalAnswer });
     if (parsed.event) {
       await reducer(parsed.event);
       eventCount += 1;
@@ -576,20 +615,9 @@ export async function scanCodexTaskEvents(readable, reducer, options = {}) {
   }
 
   async function consumeDecoded(text) {
-    fragment += text;
-    let newlineIndex = fragment.indexOf("\n");
-
-    while (newlineIndex !== -1) {
-      const rawLine = fragment.slice(0, newlineIndex);
-      await consumeCompleteLine(rawLine);
-      fragment = fragment.slice(newlineIndex + 1);
-      newlineIndex = fragment.indexOf("\n");
+    for (const framed of framer.push(text)) {
+      await consumeCompleteLine(framed.line, framed.lineNumber);
     }
-
-    assertLineLength(
-      fragment.endsWith("\r") ? fragment.slice(0, -1) : fragment,
-      lineCount + 1,
-    );
   }
 
   try {
@@ -602,13 +630,11 @@ export async function scanCodexTaskEvents(readable, reducer, options = {}) {
 
     await consumeDecoded(decoder.end());
 
-    if (fragment.length > 0) {
-      lineCount += 1;
-      const finalLine = fragment.endsWith("\r")
-        ? fragment.slice(0, -1)
-        : fragment;
-      assertLineLength(finalLine, lineCount);
-      const parsed = parseLine(finalLine, lineCount, {
+    const tail = framer.finish();
+    if (tail?.discarded) {
+      ignoredIncompleteTail = true;
+    } else if (tail) {
+      const parsed = parseLine(tail.line, tail.lineNumber, {
         incompleteTail: true,
         includeFinalAnswer,
       });
@@ -623,12 +649,203 @@ export async function scanCodexTaskEvents(readable, reducer, options = {}) {
     return {
       eventCount,
       ignoredIncompleteTail,
-      lineCount,
+      lineCount: framer.lineCount,
     };
   } finally {
     if (typeof readable.destroy === "function" && !readable.destroyed) {
       readable.destroy();
     }
+  }
+}
+
+function validateReverseScanOptions(options) {
+  if (
+    options === null
+    || typeof options !== "object"
+    || Array.isArray(options)
+    || Object.keys(options).some((key) => key !== "includeFinalAnswer")
+    || (
+      options.includeFinalAnswer !== undefined
+      && typeof options.includeFinalAnswer !== "boolean"
+    )
+  ) {
+    throw new TypeError("options may contain only boolean includeFinalAnswer");
+  }
+
+  return {
+    includeFinalAnswer: options.includeFinalAnswer ?? false,
+  };
+}
+
+async function* readLinesFromEnd(fileHandle, fileSize, readStats) {
+  let position = fileSize;
+  let lineEnd = fileSize;
+  let lineByteLength = 0;
+  let lineSegments = [];
+  let oversized = false;
+  let trailingNewline = fileSize === 0;
+  let sawFirstRead = false;
+
+  function resetLine(nextEnd) {
+    lineEnd = nextEnd;
+    lineByteLength = 0;
+    lineSegments = [];
+    oversized = false;
+  }
+
+  function prependSegment(segment) {
+    if (segment.length === 0) return;
+    lineByteLength += segment.length;
+    if (oversized) return;
+    if (lineByteLength > MAX_JSONL_LINE_LENGTH + 1) {
+      lineSegments = [];
+      oversized = true;
+      return;
+    }
+    lineSegments.push(segment);
+  }
+
+  function currentLine(startOffset) {
+    if (lineByteLength === 0) return null;
+    const incompleteTail = !trailingNewline && lineEnd === fileSize;
+    if (oversized) {
+      return { byteOffset: startOffset, incompleteTail, oversized: true };
+    }
+
+    const bytes = Buffer.concat(
+      [...lineSegments].reverse(),
+      lineByteLength,
+    );
+    const content = bytes[bytes.length - 1] === 0x0d
+      ? bytes.subarray(0, bytes.length - 1)
+      : bytes;
+    if (content.length > MAX_JSONL_LINE_LENGTH) {
+      return { byteOffset: startOffset, incompleteTail, oversized: true };
+    }
+    return {
+      byteOffset: startOffset,
+      incompleteTail,
+      oversized: false,
+      text: content.toString("utf8"),
+    };
+  }
+
+  while (position > 0) {
+    const readStart = Math.max(0, position - REVERSE_LINE_BUFFER_SIZE);
+    const buffer = Buffer.allocUnsafe(position - readStart);
+    const result = await fileHandle.read(
+      buffer,
+      0,
+      buffer.length,
+      readStart,
+    );
+    if (result.bytesRead !== buffer.length) {
+      throw createError(
+        "TASK_HISTORY_UNREADABLE",
+        "Codex task history changed during observation",
+      );
+    }
+    readStats.bytesRead += result.bytesRead;
+    if (!sawFirstRead) {
+      trailingNewline = buffer[buffer.length - 1] === 0x0a;
+      sawFirstRead = true;
+    }
+
+    let cursor = buffer.length - 1;
+    while (cursor >= 0) {
+      const newlineIndex = buffer.lastIndexOf(0x0a, cursor);
+      if (newlineIndex === -1) {
+        prependSegment(buffer.subarray(0, cursor + 1));
+        break;
+      }
+
+      prependSegment(buffer.subarray(newlineIndex + 1, cursor + 1));
+      const absoluteNewline = readStart + newlineIndex;
+      const line = currentLine(absoluteNewline + 1);
+      if (line) yield line;
+      resetLine(absoluteNewline);
+      cursor = newlineIndex - 1;
+    }
+    position = readStart;
+  }
+
+  const firstLine = currentLine(0);
+  if (firstLine) yield firstLine;
+}
+
+/**
+ * Reads a JSONL history from EOF toward BOF and emits supported lifecycle
+ * events newest-first. Returning true from reducer stops the scan immediately.
+ * Physical lines above the shared JSONL limit are skipped without inspecting
+ * their contents.
+ */
+export async function scanCodexTaskEventsFromEnd(
+  historyFile,
+  reducer,
+  options = {},
+) {
+  if (
+    typeof historyFile !== "string"
+    || historyFile.length === 0
+    || !path.isAbsolute(historyFile)
+  ) {
+    throw new TypeError("historyFile must be an absolute path");
+  }
+  assertReducer(reducer);
+  const normalized = validateReverseScanOptions(options);
+  const fileHandle = await open(historyFile, "r");
+
+  const readStats = { bytesRead: 0 };
+  let eventCount = 0;
+  let ignoredIncompleteTail = false;
+  let scannedLineCount = 0;
+
+  try {
+    const stats = await fileHandle.stat();
+    const fileSize = stats.size;
+    for await (const line of readLinesFromEnd(fileHandle, fileSize, readStats)) {
+      scannedLineCount += 1;
+      if (line.oversized) {
+        if (line.incompleteTail) ignoredIncompleteTail = true;
+        continue;
+      }
+      if (!line.text.trim()) continue;
+
+      let record;
+      try {
+        record = JSON.parse(line.text);
+      } catch (cause) {
+        if (line.incompleteTail) {
+          ignoredIncompleteTail = true;
+          continue;
+        }
+        throw createError(
+          "TASK_JSONL_MALFORMED",
+          `Malformed Codex JSONL at byte offset ${line.byteOffset}: ${cause.message}`,
+          { cause, byteOffset: line.byteOffset },
+        );
+      }
+
+      const event = normalizeRecord(
+        record,
+        { byteOffset: line.byteOffset },
+        { includeFinalAnswer: normalized.includeFinalAnswer },
+      );
+      if (!event) continue;
+      eventCount += 1;
+      if (await reducer(event) === true) {
+        break;
+      }
+    }
+    return {
+      bytesRead: readStats.bytesRead,
+      eventCount,
+      fileSize,
+      ignoredIncompleteTail,
+      scannedLineCount,
+    };
+  } finally {
+    await fileHandle.close();
   }
 }
 

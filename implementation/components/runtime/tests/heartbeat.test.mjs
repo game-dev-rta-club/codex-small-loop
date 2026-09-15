@@ -328,7 +328,7 @@ test("runs only the deferred forks selected from accepted Parent turns", async (
     },
     async readTaskLedger(store, project) {
       assert.equal(store, "store");
-      assert.equal(project.root, "/project");
+      assert.equal(path.normalize(project.root), path.normalize("/project"));
       return finalState;
     },
   });
@@ -1697,6 +1697,11 @@ test("runs the one-shot heartbeat pipeline in its required order", async () => {
         stateFile: "/project/.codex-small-loop/state.json",
       };
     },
+    async processScheduleDeletions(project) {
+      events.push("schedule-deletions");
+      assert.equal(path.normalize(project.root), path.normalize("/project"));
+      return { pending: 1, events: [{ type: "schedule_deleted", requestId: "request" }] };
+    },
     async assertRuntimeAvailable(project, options) {
       events.push("runtime");
       assert.equal(options.store, "store");
@@ -1782,6 +1787,7 @@ test("runs the one-shot heartbeat pipeline in its required order", async () => {
 
   assert.deepEqual(events, [
     "resolve",
+    "schedule-deletions",
     "runtime",
     "observe-initial",
     "plan-launch",
@@ -1794,6 +1800,8 @@ test("runs the one-shot heartbeat pipeline in its required order", async () => {
     "recovery",
     "close",
   ]);
+  assert.equal(report.summary.pendingScheduleDeletes, 1);
+  assert.ok(report.events.some((event) => event.type === "schedule_deleted"));
   assert.equal(report.run, "ok");
   assert.equal(report.project, "active");
 });

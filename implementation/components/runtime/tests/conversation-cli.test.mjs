@@ -167,7 +167,7 @@ test("reload-role is valid only when starting a Conversation", async () => {
   assert.equal(stdout.json().code, "CONVERSATION_CLI_USAGE");
 });
 
-test("a committed Conversation delivery failure returns partial and queues recovery", async () => {
+test("a committed direct Conversation failure stays partial without a heartbeat", async () => {
   const current = harness();
   current.options.send = async () => {
     throw Object.assign(new Error("direct delivery failed"), {
@@ -189,12 +189,12 @@ test("a committed Conversation delivery failure returns partial and queues recov
   assert.equal(stdout.json().run, "partial");
   assert.equal(stdout.json().code, "DELIVERY_FAILED");
   assert.equal(stdout.json().conversationId, "message-1");
-  assert.equal(stdout.json().delivery, "queued");
+  assert.equal(stdout.json().delivery, "not_queued");
   assert.equal(current.state().conversations[0].state, "awaiting_reply");
-  assert.equal(current.state().appMessages.length, 1);
+  assert.equal(current.state().appMessages.length, 0);
 });
 
-test("a queued Conversation stays partial when supervision cannot start", async () => {
+test("a delivered Conversation stays partial when supervision cannot start", async () => {
   const current = harness("user");
   current.options.startSupervisor = async () => {
     throw Object.assign(new Error("supervisor unavailable"), {
@@ -220,11 +220,11 @@ test("a queued Conversation stays partial when supervision cannot start", async 
     message: "supervisor unavailable",
     conversationId: "message-1",
     taskId: "review-task",
-    messageId: "message-2",
-    delivery: "queued",
+    turnId: "turn-1",
+    delivery: "started",
     recommendedAction: "start_supervisor",
   });
-  assert.equal(current.state().appMessages.length, 1);
+  assert.equal(current.state().appMessages.length, 0);
 });
 
 test("a delivered Conversation reports delivery when only supervision fails", async () => {

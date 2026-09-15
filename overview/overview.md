@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Codex Small Loop lets a Codex Desktop user delegate an agreed project outcome
   and receive a verified result without manually coordinating the agents,
   reviews, corrections, and recovery needed to produce it.
@@ -60,10 +60,10 @@ ordinary coordination.
 
 Project knowledge is maintained as a Work Graph rather than a task history.
 Overview, Product Concept, Interaction Specification, System Specification,
-Technical Specification, Implementation, and User Documentation stay connected
-as approved current or future production outputs. Graph membership does not
-claim completion. This makes the latest intent and implementation routes
-recoverable by a newly started agent without replaying the project.
+Technical Specification, Plugin Output, and User Documentation Output stay
+connected as approved current or future production outputs. Graph membership
+does not claim completion. This makes the latest intent and implementation
+routes recoverable by a newly started agent without replaying the project.
 
 ## Where To Continue
 

@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   The one canonical standard for evaluating every Codex Small Loop Review Signal
   by its supported improvement and implementation proportionality.
 ---

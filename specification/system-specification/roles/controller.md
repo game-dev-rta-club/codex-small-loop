@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Controller advances Codex Small Loop to completion and reports progress,
   decisions, and completion to the user.
 ---
@@ -43,8 +43,9 @@ lifecycle:
    the Browser is the complete user-facing action; Controller sends no separate
    textual notice or URL. A bounded start/open failure does not prevent Primary
    creation, and no non-Controller role operates the user's Browser.
-4. With zero heartbeat schedules for the Milestone, it forks a fresh Primary
-   directly from its complete conversation for the
+4. With zero schedules remaining from the preceding Milestone, it creates and
+   reads back one one-minute `PRIMARY_PENDING` heartbeat with
+   `P=uncommitted`, then forks a fresh Primary directly from its complete conversation for the
    current Milestone with a bootstrap-only
    launch assignment and explicitly applies the Primary model (the user-facing
    thinking model), reasoning
@@ -52,17 +53,18 @@ lifecycle:
    the resolved Worker model (the user-facing implementation model) and
    reasoning effort with the same speed; Worker
    defaults to the Primary pair and applies to Execute, Review, and Interviewer.
-   The Controller Task retains its own Codex App settings. Primary sends the one
-   required launch reply, Controller accepts that Conversation, and no heartbeat
-   is active yet.
-5. It runs a live pre-execution interview by using
+   The Controller Task retains its own Codex App settings. Once the fork commits
+   one Child ID, Controller rebinds and reads back the same schedule as
+   `PRIMARY_BOUND` with exact `P`. Primary sends the one required launch reply
+   and Controller accepts that Conversation.
+5. Under `PRIMARY_BOUND`, it runs a live pre-execution interview by using
    `$codex-small-loop:working-with-codex-tasks` to send one-way Notifications and
    reading each ordinary local final answer through Codex Small Loop exact-Turn
    `task wait`. These Notification turns create no reply obligation. Primary
    asks one material question or reports
    `READY_FOR_EXECUTION`; it does not start Execute during this phase.
-6. When execution is ready, Controller creates and reads back one one-minute
-   startup heartbeat in `START_PENDING` whose revisioned tuple binds exact Controller,
+6. When execution is ready, Controller updates and reads back that same
+   one-minute heartbeat as `START_PENDING`, retaining exact Controller,
    Primary, schedule, generation, and literal `conversation=uncommitted`. It
    then starts the current Milestone managed Conversation with Role reload. An
    `ok` or `partial` committed ID
@@ -93,8 +95,9 @@ lifecycle:
    Conversation, stop/recover the exact Primary, and after proven stop update
    the same schedule to confirmed `ADVANCE_DELETE`. That state only
    deletes/confirms the exact schedule. Only absence enters `LIVE` for the next
-   generation, after which Controller reassesses, reads the Work Graph, and
-   forks a fresh Primary without further user approval.
+   generation, after which Controller reassesses, reads the Work Graph, arms a
+   new `PRIMARY_PENDING` schedule, and forks a fresh Primary without further
+   user approval.
    The new Primary creates fresh Execute and Review Tasks and does not rediscover
    old Child Task IDs.
 11. At verified completion or unrecoverable stop, it removes monitoring by
@@ -102,10 +105,11 @@ lifecycle:
     exact schedule, then stops the Primary, notifies the user, and delivers the
     completion evidence or stop reason. Terminal flow never forks.
 
-Controller never runs the one-minute and ten-minute heartbeats together. It
-does not create a heartbeat during the pre-execution interview, manage raw
-automation files, or use a standalone project cron job. There is no fixed
-elapsed-time limit.
+Controller has one schedule per Milestone: it starts before the Primary fork,
+remains at one-minute cadence through preparation and execution startup, and
+becomes the ten-minute steady heartbeat after Execute begins. It does not
+manage raw automation files or use a standalone project cron job. There is no
+fixed elapsed-time limit.
 
 All heartbeat creation, update, inspection, and deletion goes through Codex
 Small Loop `schedule apply/read/delete`, never Codex App `automation_update`.
@@ -115,12 +119,14 @@ after delete. An etag mismatch retains the last confirmed state and grants no
 dependent authority.
 
 Every scheduled prompt embeds
-`(C,P,S,G,R,STATE,conversation=uncommitted|exact CID)`. Every same-`S` update
+`(C,P,S,G,R,STATE,conversation=uncommitted|exact CID)`. Only
+`PRIMARY_PENDING` permits literal `P=uncommitted`; every later state binds exact
+`P`. Every same-`S` update
 increments `R` and requires read-back. A callback acts only when every tuple
 field equals the current schedule; an old revision, accepted CID in
 `START_BOUND`/`STEADY`, missing/replaced schedule, unknown state, or identity or
-generation mismatch is a no-op. Stable states are `LIVE`, `START_PENDING`,
-`START_BOUND`, `STEADY`, `ADVANCE_STOP`, `ADVANCE_DELETE`, and
+generation mismatch is a no-op. Stable states are `LIVE`, `PRIMARY_PENDING`,
+`PRIMARY_BOUND`, `START_PENDING`, `START_BOUND`, `STEADY`, `ADVANCE_STOP`, `ADVANCE_DELETE`, and
 `TERMINAL_DELETE`, with the disjoint allowlists defined by the runtime Role.
 Arming/read-back failure forbids the dependent action. Noncommitted stop retains
 `ADVANCE_STOP`; committed/partial stop follows only structured exact-stop
@@ -132,10 +138,10 @@ While `START_PENDING`, not-yet-invoked, in-flight, interrupted/lost result,
 timeout, malformed/missing/unattributable output, authentication/observation
 ambiguity, delayed visibility, exit 2/partial, `ok`, any CID, queued/committed
 delivery, failed-with-CID, stale/wrong-target/later attempt, or contradictory or
-multiple evidence cannot delete. Unique commitment permits only same-S
-`START_BOUND` rebinding; ambiguity permits neither action. Controller invokes
-`conversation start` once per pending tuple and never retries until confirmed
-`LIVE` cleanup or `START_BOUND` settlement.
+multiple evidence cannot restore preparation. Unique commitment permits only
+same-S `START_BOUND` rebinding; one exact failed noncommit may restore same-S
+`PRIMARY_BOUND`. Controller invokes `conversation start` once per pending tuple
+and retries only after a new pending revision or `START_BOUND` settlement.
 
 ## Milestone Shape
 

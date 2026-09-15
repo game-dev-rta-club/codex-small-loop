@@ -9,7 +9,7 @@ import {
 import { buildRuntimeProjection } from "./runtime.mjs";
 import { formatSonnerText } from "./sonner-text.mjs";
 
-export const SONNER_SCHEMA_VERSION = 10;
+export const SONNER_SCHEMA_VERSION = 12;
 export const MAX_MARKDOWN_FRONTMATTER_BYTES = 64 * 1024;
 export const SONNER_TEXT_DETECTION_BYTES = SONNER_READER_TEXT_DETECTION_BYTES;
 
@@ -27,7 +27,7 @@ function scalar(value) {
   return trimmed;
 }
 
-export function parseMarkdownSummary(source) {
+export function parseMarkdownKeyPoints(source) {
   const normalized = source.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n");
   if (!normalized.startsWith("---\n")) return null;
   const closing = normalized.slice(4).match(/\n---(?:\n|$)/);
@@ -36,7 +36,7 @@ export function parseMarkdownSummary(source) {
   const frontmatter = normalized.slice(4, end).split("\n");
 
   for (let index = 0; index < frontmatter.length; index += 1) {
-    const match = frontmatter[index].match(/^summary\s*:\s*(.*)$/);
+    const match = frontmatter[index].match(/^keyPoints\s*:\s*(.*)$/);
     if (!match) continue;
     const value = match[1].trim();
     if (![">", ">-", ">+", "|", "|-", "|+"].includes(value)) return scalar(value);
@@ -107,9 +107,9 @@ export function parseWorkNode(xml, relativePath) {
   if (!root) graphFail(`${displayPath(relativePath)}: expected one <work-node> root element`);
   const id = readAttribute(root[1], "id", relativePath, "work-node");
   const type = readAttribute(root[1], "type", relativePath, "work-node");
-  const summaryMatch = root[2].match(/<summary>([\s\S]*?)<\/summary>/i);
-  if (!summaryMatch || summaryMatch[1].trim() === "") {
-    graphFail(`${displayPath(relativePath)}: summary must be a non-empty element`);
+  const keyPointsMatch = root[2].match(/<keyPoints>([\s\S]*?)<\/keyPoints>/i);
+  if (!keyPointsMatch || keyPointsMatch[1].trim() === "") {
+    graphFail(`${displayPath(relativePath)}: keyPoints must be a non-empty element`);
   }
   const inputsMatch = root[2].match(/<inputs\b[^>]*>([\s\S]*?)<\/inputs>|<inputs\s*\/>/i);
   if (!inputsMatch) graphFail(`${displayPath(relativePath)}: inputs element is required`);
@@ -118,7 +118,7 @@ export function parseWorkNode(xml, relativePath) {
   return {
     id,
     type,
-    summary: decodeXml(summaryMatch[1], relativePath).replace(/\s+/g, " ").trim(),
+    keyPoints: decodeXml(keyPointsMatch[1], relativePath).replace(/\s+/g, " ").trim(),
     nodePath: displayPath(relativePath),
     inputs,
     relativePath: displayPath(relativePath),
@@ -201,8 +201,8 @@ export function validateAndOrderWorks(works) {
 }
 
 export function loadWorkGraphRecords(records, { workUnsafe = false, directory = "project" } = {}) {
-  if (workUnsafe) graphFail(`Unsafe or changed WORK_NODE.xml metadata: ${directory}`);
-  if (records.length === 0) graphFail(`No WORK_NODE.xml files found: ${directory}`, "NO_GRAPH");
+  if (workUnsafe) graphFail(`Unsafe or changed .WORK_NODE.xml metadata: ${directory}`);
+  if (records.length === 0) graphFail(`No .WORK_NODE.xml files found: ${directory}`, "NO_GRAPH");
   return validateAndOrderWorks(records.map(({ relativePath, xml }) => parseWorkNode(xml, relativePath)));
 }
 
@@ -246,8 +246,8 @@ function collectFiles(entries) {
       name,
       type: "file",
       text,
-      summary: text && /\.md$/i.test(entry.path)
-        ? parseMarkdownSummary(entry.raw.toString("utf8"))
+      keyPoints: text && /\.md$/i.test(entry.path)
+        ? parseMarkdownKeyPoints(entry.raw.toString("utf8"))
         : null,
     };
   });
@@ -272,10 +272,10 @@ function publicWorkGraph(graph) {
   }
   return {
     status: "valid",
-    works: graph.works.map(({ id, type, summary, nodePath, inputs }) => ({
+    works: graph.works.map(({ id, type, keyPoints, nodePath, inputs }) => ({
       id,
       type,
-      summary,
+      keyPoints,
       nodePath,
       inputs,
       outputs: outputsById.get(id).sort(compareText),
@@ -283,10 +283,10 @@ function publicWorkGraph(graph) {
   };
 }
 
-function directoryIndex(files) {
+function directoryIndex(entries) {
   const directories = new Set(["."]);
-  for (const file of files) {
-    const parts = file.path.split("/");
+  for (const entry of entries) {
+    const parts = entry.path.split("/");
     for (let length = 1; length < parts.length; length += 1) {
       directories.add(parts.slice(0, length).join("/"));
     }
@@ -305,15 +305,29 @@ function fileExtension(name) {
   return extension.length > 1 ? extension.slice(1).toLowerCase() : null;
 }
 
-function tree(files) {
-  const directories = directoryIndex(files);
+function legacyWarning(projectPath) {
+  const parent = parentOf(projectPath);
+  return {
+    path: projectPath,
+    name: "WORK_NODE.xml",
+    type: "warning",
+    code: "legacy-work-node",
+    renameTo: parent === null || parent === "." ? ".WORK_NODE.xml" : `${parent}/.WORK_NODE.xml`,
+  };
+}
+
+function tree(files, legacyWorkNodes = []) {
+  const warnings = legacyWorkNodes.map(legacyWarning);
+  const directories = directoryIndex([...files, ...warnings]);
   const childDirectories = new Map(directories.map((directory) => [directory, []]));
   const childFiles = new Map(directories.map((directory) => [directory, []]));
+  const childWarnings = new Map(directories.map((directory) => [directory, []]));
   for (const directory of directories) {
     const parent = parentOf(directory);
     if (parent) childDirectories.get(parent)?.push(directory);
   }
   for (const file of files) childFiles.get(parentOf(file.path) ?? ".")?.push(file);
+  for (const warning of warnings) childWarnings.get(parentOf(warning.path) ?? ".")?.push(warning);
 
   function directoryNode(directory, root = false) {
     const node = {
@@ -325,7 +339,7 @@ function tree(files) {
     const filesHere = childFiles.get(directory) ?? [];
     const fileCounts = new Map();
     for (const file of filesHere) {
-      if (file.type === "file" && file.summary !== null) continue;
+      if (file.type === "file" && file.keyPoints !== null) continue;
       const extension = fileExtension(file.name);
       fileCounts.set(extension, (fileCounts.get(extension) ?? 0) + 1);
     }
@@ -338,8 +352,10 @@ function tree(files) {
       ...(childDirectories.get(directory) ?? [])
         .map((child) => directoryNode(child))
         .sort((left, right) => compareText(left.path, right.path)),
+      ...(childWarnings.get(directory) ?? [])
+        .sort((left, right) => compareText(left.path, right.path)),
       ...filesHere
-        .filter((file) => file.type === "file" && file.summary !== null)
+        .filter((file) => file.type === "file" && file.keyPoints !== null)
         .map(({ text: _text, ...file }) => file)
         .sort((left, right) => compareText(left.path, right.path)),
       ...(counts.length === 0 ? [] : [{ type: "file-counts", counts }]),
@@ -357,6 +373,7 @@ function validProject(project) {
 }
 
 export async function buildSonnerProject(project, {
+  includeRuntime = true,
   readerOptions = {},
   runtimeOptions = {},
   openSession = openSonnerProjectReadSession,
@@ -377,7 +394,9 @@ export async function buildSonnerProject(project, {
         includeFiles: true,
         ...readerOptions,
       })),
-      Promise.resolve().then(() => runtimeBuilder(project, { ...runtimeOptions, projectSession: session })),
+      Promise.resolve().then(() => includeRuntime
+        ? runtimeBuilder(project, { ...runtimeOptions, projectSession: session })
+        : undefined),
     ].map((branch) => branch.catch((error) => {
       session.abort(error);
       throw error;
@@ -387,16 +406,19 @@ export async function buildSonnerProject(project, {
     if (failed) throw failed.reason;
     session.throwIfAborted();
     const [reader, runtime] = settled.map((result) => result.value);
-    const files = collectFiles(reader.entries);
+    const legacyWorkNodes = reader.legacyWorkNodes ?? [];
+    const legacyPaths = new Set(legacyWorkNodes);
+    const files = collectFiles(reader.entries).filter((entry) => !legacyPaths.has(entry.path));
     const graph = graphState(reader, project.root);
     const projection = {
       version: SONNER_SCHEMA_VERSION,
       workGraph: publicWorkGraph(graph),
       files: {
-        root: tree(files),
+        root: tree(files, legacyWorkNodes),
       },
       runtime,
     };
+    if (!includeRuntime) delete projection.runtime;
     session.throwIfAborted();
     return projection;
   } finally {
@@ -412,9 +434,11 @@ export function serializeSonner(value) {
   return `${JSON.stringify(value)}\n`;
 }
 
-function parseArguments(argv) {
-  let projectRoot = null;
+function parseArguments(argv, defaults) {
+  let projectRoot = defaults.projectRoot ?? null;
   let json = false;
+  let includeRuntime = defaults.includeRuntime ?? true;
+  let timeoutMs = 5_000;
   const seen = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const option = argv[index];
@@ -425,9 +449,16 @@ function parseArguments(argv) {
       projectRoot = argv[index + 1];
       index += 1;
     } else if (option === "--json") json = true;
+    else if (option === "--runtime") includeRuntime = true;
+    else if (option === "--timeout-ms") {
+      const value = argv[++index];
+      if (!/^[1-9][0-9]*$/.test(value ?? "")) return null;
+      timeoutMs = Number(value);
+      if (!Number.isSafeInteger(timeoutMs) || timeoutMs > 300_000) return null;
+    }
     else return null;
   }
-  return projectRoot ? { projectRoot, json } : null;
+  return projectRoot ? { projectRoot, json, includeRuntime, timeoutMs } : null;
 }
 
 function publicError(error, message) {
@@ -443,19 +474,28 @@ function renderError(value, json) {
     : `Sonner error code=${JSON.stringify(value.error.code)} message=${JSON.stringify(value.error.message)}\n`;
 }
 
-export async function runSonnerCli(argv = process.argv.slice(2)) {
-  const options = parseArguments(argv);
+export const SONNER_CLI_USAGE = "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--timeout-ms <1..300000>]";
+
+export async function runSonnerCli(argv = process.argv.slice(2), defaults = {}) {
+  if (argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
+    process.stdout.write(`${SONNER_CLI_USAGE}\n`);
+    return;
+  }
+  const options = parseArguments(argv, defaults);
   if (!options) {
     const json = argv.includes("--json");
     process.stderr.write(renderError(
-      publicError({ code: "SONNER_CLI_USAGE" }, "Usage: node sonner.mjs --project-root <path> [--json]"),
+      publicError({ code: "SONNER_CLI_USAGE" }, SONNER_CLI_USAGE),
       json,
     ));
     process.exitCode = 1;
     return;
   }
   try {
-    const projection = await buildSonner(options.projectRoot);
+    const projection = await buildSonner(options.projectRoot, {
+      includeRuntime: options.includeRuntime,
+      readerOptions: { timeoutMs: options.timeoutMs },
+    });
     process.stdout.write(options.json ? serializeSonner(projection) : formatSonnerText(projection));
   } catch (error) {
     process.stderr.write(renderError(

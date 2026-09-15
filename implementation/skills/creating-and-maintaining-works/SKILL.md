@@ -39,7 +39,7 @@ For textual project knowledge, read
 [Atomic Documentation](references/atomic-documentation.md) completely. Apply it
 when adding, splitting, merging, moving, or substantially rewriting documents.
 For every smaller textual edit, preserve its canonical ownership, descriptive
-filename, accurate summary, and relevant links.
+filename, accurate key points, and relevant links.
 
 Organize every maintained output at the most natural boundary supported by its
 medium:
@@ -47,8 +47,8 @@ medium:
 - directories name coherent production or knowledge areas;
 - files use descriptive names that reveal their owned responsibility;
 - independently maintained knowledge receives one canonical home;
-- Work summaries and atomic document summaries support fast discovery;
-- code and binary media use native summaries when natural, without introducing
+- Work and atomic-document key points support fast grounding;
+- code and binary media use native key-point metadata when natural, without introducing
   a new metadata system solely for compliance.
 
 ## Preserve Loose Traceability
@@ -87,10 +87,16 @@ splitting or merging Works. Present the proposed production forms, inputs,
 branches, merges, and granularity for user agreement before changing topology.
 
 Ordinary content maintenance, link repair, a meaning-preserving move that keeps
-the directory-ID contract, and a summary correction do not require a new
+the directory-ID contract, and a key-points correction do not require a new
 topology decision.
 
-For a new or repaired graph, satisfy the Work Graph contract defined by
+For a new or repaired graph, read
+[Work Graph](../understanding-works/references/work-graph.md) completely. Use the
+flow from Overview through Specifications, Units, Composites, and Outputs as a
+starting point. Select the roles represented by useful maintained Works,
+classify each Work by the purpose that best explains why it is maintained
+separately, and connect the Works by production causality. Satisfy the Work
+Graph contract defined by
 `$codex-small-loop:understanding-works`: one Overview root, stable IDs, valid
 inputs, reachability, and acyclicity. Reason backward from the desired output
 and include approved future Works only when their production structure is
@@ -100,8 +106,9 @@ settled.
 
 Before completion:
 
-1. Re-read the changed filenames, Work summaries, and atomic summaries as a new
-   agent would see them.
+1. Re-read the changed filenames and Work and atomic-document `keyPoints` as a
+   new agent would see them. Confirm they state the current content itself and
+   provide a correct coarse model before a full body is opened.
 2. Follow changed explicit links and check their inbound references.
 3. Search for shared-name peers across the relevant Works.
 4. Inspect every reachable downstream Work that may be stale when that context
@@ -117,5 +124,6 @@ real work.
 
 This skill owns project mutation discipline, Atomic Documentation structure,
 loose traceability, and Work Graph maintenance. It does not require perfect
-file-level traceability, force every file into a Work, impose summaries on media
-without a natural summary surface, or maintain a parallel binding database.
+file-level traceability, force every file into a Work, impose key-point metadata
+on media without a natural metadata surface, or maintain a parallel binding
+database.

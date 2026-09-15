@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   execute is a Milestone-scoped Child role that performs its initial project
   change and later Review corrections without losing implementation context.
 ---

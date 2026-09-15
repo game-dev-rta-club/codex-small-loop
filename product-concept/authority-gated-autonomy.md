@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Authority-Gated Autonomy keeps every trajectory working inside explicit
   authority, escalates consequential decisions through its parent chain, and
   involves the user only when a decision reaches the user-facing Controller.

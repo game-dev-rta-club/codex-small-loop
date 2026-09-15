@@ -5,7 +5,7 @@ import { layoutWorkGraph, roundedWorkLink } from "/sonner-view.js";
 const state = { activities: [], detail: null, activityId: null, agentId: null, signalId: null,
   boardView: "activity", sonner: null, sonnerRequest: 0, sonnerTab: "work-graph",
   workId: null, workGraphScrollLeft: 0, workGraphScrollTop: 0, workGraphZoom: 1,
-  sonnerLoadedAt: null, fileSummarySequence: 0, openingPaths: new Set(),
+  sonnerLoadedAt: null, fileKeyPointsSequence: 0, openingPaths: new Set(),
   liveRevision: null, liveTimer: null, liveInFlight: false, liveGeneration: 0 };
 const projectKey = new URL(location.href).searchParams.get("project");
 const projectQuery = projectKey ? `project=${encodeURIComponent(projectKey)}` : "";
@@ -202,9 +202,9 @@ function renderWorkDetail(works) {
   const title = document.createElement("h3");
   title.textContent = work.id;
   heading.append(title);
-  const summary = document.createElement("p");
-  summary.className = "work-detail-summary";
-  summary.textContent = work.summary;
+  const keyPoints = document.createElement("p");
+  keyPoints.className = "work-detail-key-points";
+  keyPoints.textContent = work.keyPoints;
   const details = document.createElement("dl");
   const directoryPath = work.nodePath.slice(0, work.nodePath.lastIndexOf("/"));
   for (const [label, value] of [
@@ -237,7 +237,7 @@ function renderWorkDetail(works) {
     path: directoryPath,
   }, open));
   open.setAttribute("aria-label", `Open ${work.id} folder`);
-  workDetail.replaceChildren(heading, summary, details, open);
+  workDetail.replaceChildren(heading, keyPoints, details, open);
   workDetail.hidden = false;
 }
 
@@ -406,27 +406,36 @@ function fileLabel(node, { interactive = false } = {}) {
   const row = document.createElement(interactive ? "button" : "span");
   if (interactive) row.type = "button";
   row.className = `file-row type-${node.type}`;
-  if (["file", "file-counts"].includes(node.type)) {
+  if (["file", "warning"].includes(node.type)) {
     const marker = document.createElement("span");
     marker.className = "file-marker";
     marker.setAttribute("aria-hidden", "true");
-    marker.textContent = node.type === "file-counts" ? "∑" : "▤";
+    marker.textContent = node.type === "warning" ? "⚠" : "▤";
     row.append(marker);
   }
   const name = document.createElement("span");
   name.className = "file-name";
-  name.textContent = node.type === "file-counts"
-    ? node.counts.map(({ extension, count }) => `${count} ${extension ?? "extensionless"}`).join(", ")
-    : node.name;
+  if (node.type === "file-counts") {
+    for (const { extension, count } of node.counts) {
+      const line = document.createElement("span");
+      line.className = "file-count-line";
+      line.textContent = `${count} ${extension ?? "extensionless"}`;
+      name.append(line);
+    }
+  } else {
+    name.textContent = node.type === "warning"
+      ? `Legacy WORK_NODE.xml — rename to ${node.renameTo.split("/").at(-1)}`
+      : node.name;
+  }
   row.append(name);
-  if (node.type === "file" && node.summary) {
-    const summary = document.createElement("span");
-    summary.className = "file-summary";
-    summary.id = `file-summary-${++state.fileSummarySequence}`;
-    summary.textContent = node.summary;
-    summary.title = node.summary;
-    row.setAttribute("aria-describedby", summary.id);
-    row.append(summary);
+  if (node.type === "file" && node.keyPoints) {
+    const keyPoints = document.createElement("span");
+    keyPoints.className = "file-key-points";
+    keyPoints.id = `file-key-points-${++state.fileKeyPointsSequence}`;
+    keyPoints.textContent = node.keyPoints;
+    keyPoints.title = node.keyPoints;
+    row.setAttribute("aria-describedby", keyPoints.id);
+    row.append(keyPoints);
   }
   return row;
 }

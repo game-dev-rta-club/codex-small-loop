@@ -1,3 +1,4 @@
+import { requireFullAccess } from "./daemon-permissions.mjs";
 import path from "node:path";
 
 import {
@@ -231,9 +232,10 @@ export function renderNextActions(actions) {
         action.targetTaskId,
         "targetTaskId",
       );
-      return `${index + 1}. Delete this delivery schedule before continuing.
+      return `${index + 1}. Request deletion of this delivery schedule before continuing.
    First run Codex Small Loop \`schedule read --schedule ${scheduleId} --task ${targetTaskId}\`.
-   Then run \`schedule delete --schedule ${scheduleId} --task ${targetTaskId} --if-match <returned-etag>\`.`;
+   Then run \`schedule delete --schedule ${scheduleId} --task ${targetTaskId} --if-match <returned-etag>\`.
+   Run from the project root. If deletion_queued is returned, continue with this message; the runtime handles deletion. Do not wait or repeatedly retry in this turn.`;
     }
     if (action.type === "reply_to_conversation") {
       requireExactOptions(action, ["conversationId", "type"]);
@@ -521,8 +523,9 @@ export async function sendTaskMessage(input, options) {
         );
       }
       try {
-        persistedRunContext = requireTaskRunContext(persisted.runContext);
+        persistedRunContext = requireFullAccess(requireTaskRunContext(persisted.runContext));
       } catch (cause) {
+        if (cause.code === "DAEMON_FULL_ACCESS_REQUIRED") throw cause;
         throw stateError(
           "TASK_PERMISSION_UNKNOWN",
           "Persisted task run context is missing or invalid.",
@@ -559,8 +562,9 @@ export async function sendTaskMessage(input, options) {
       );
     }
     try {
-      return requireTaskRunContext(settings.runContext);
+      return requireFullAccess(requireTaskRunContext(settings.runContext));
     } catch (cause) {
+      if (cause.code === "DAEMON_FULL_ACCESS_REQUIRED") throw cause;
       throw stateError(
         "TASK_PERMISSION_UNKNOWN",
         "Target task run context is missing or invalid.",

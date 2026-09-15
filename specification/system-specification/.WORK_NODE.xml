@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<work-node id="system-specification" type="SystemSpecification">
+  <keyPoints>One Overview-rooted Work Graph supplies maintained production context, while Controller, Primary, Execute, four independent Reviews, and one-to-one Interviewers coordinate through durable Tasks and Conversations until every required finding is corrected.</keyPoints>
+  <inputs>
+    <input ref="product-concept" />
+    <input ref="interaction-specification" />
+  </inputs>
+</work-node>

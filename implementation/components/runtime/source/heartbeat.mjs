@@ -1,8 +1,10 @@
+import { retryExhausted, exhaustedOperations } from "./retry-budget.mjs";
 import {
   createHash,
   randomUUID,
 } from "node:crypto";
 import path from "node:path";
+import { processScheduleDeletions } from "./schedule-delete-queue.mjs";
 
 import {
   appMessageScheduleId,
@@ -262,6 +264,10 @@ export function planPendingLaunchReconciliation(
   const degraded = [];
 
   for (const launch of pendingLaunches) {
+    if (retryExhausted(launch)) {
+      repairRequired.push({ launchId: launch.id, reason: "retry_limit_reached" });
+      continue;
+    }
     if (typeof launch.assignment !== "string") {
       repairRequired.push({
         launchId: launch.id,
@@ -654,6 +660,20 @@ export async function runDeferredForks(ledger, plan, options = {}) {
       }, continuationOptions);
       return { launchId, completed: true };
     } catch (error) {
+      // Early preflight failures may precede the launch's own error recording.
+      // Persist those too, without charging a failure twice.
+      const before = options.state?.pendingLaunches.find((x) => x.id === launchId)?.attemptCount ?? 0;
+      try {
+        await (options.transactTaskLedger ?? transactTaskLedger)(ledger.store, ledger.project, (state) => {
+          const current = state.pendingLaunches.find((x) => x.id === launchId);
+          if (!current || retryExhausted(current) || (current.attemptCount ?? 0) > before) return { state, result: null };
+          return { state: { ...state, pendingLaunches: state.pendingLaunches.map((x) => x.id === launchId
+            ? { ...x, attemptCount: before + 1, lastError: {
+              code: String(error?.code ?? failureReason).slice(0, 128),
+              message: String(error?.message ?? failureReason).slice(0, 1024), at: new Date().toISOString(),
+            } } : x) }, result: null };
+        }, { now: new Date().toISOString() });
+      } catch { /* The original failure remains visible if the ledger is unavailable. */ }
       return {
         launchId,
         completed: false,
@@ -1414,19 +1434,22 @@ export function buildHeartbeatReport(input) {
     ),
   ];
 
+  const exhausted = exhaustedOperations(state);
+  events.push(...exhausted.map((operation) => ({ type: "retry_limit_reached", ...operation })));
   events.sort((left, right) =>
     left.type.localeCompare(right.type)
     || (left.reason ?? "").localeCompare(right.reason ?? "")
   );
 
   return {
-    run: hasProblems ? "partial" : "ok",
+    run: hasProblems || exhausted.length ? "partial" : "ok",
     project: hasProblems
       ? "degraded"
       : hasPendingWork(state)
       ? "active"
       : "idle",
     summary: {
+      ...(exhausted.length ? { exhaustedOperations: exhausted } : {}),
       pendingLaunches: state.pendingLaunches.length,
       activeConversations: state.conversations.filter(
         ({ responderTaskId, state: conversationState }) =>
@@ -1546,6 +1569,10 @@ export async function runHeartbeat(input, options = {}) {
   const { projectRoot } = requireHeartbeatInput(input);
   const dependencies = heartbeatDependencies(options);
   const project = await dependencies.resolveProject(projectRoot);
+  // Drain deletion requests even when later task observation/recovery fails.
+  const scheduleDeletions = await (options.processScheduleDeletions ?? processScheduleDeletions)(project, {
+    automationRoot: options.automationRoot ?? defaultAppMessageAutomationRoot(options),
+  });
   const store = options.store ?? new AtomicJsonStore(project.stateFile);
   const runtime = await dependencies.assertRuntimeAvailable(project, {
     store,
@@ -1710,7 +1737,7 @@ export async function runHeartbeat(input, options = {}) {
         )
       : { state: recoveryResult.state };
 
-    return dependencies.buildHeartbeatReport({
+    const report = dependencies.buildHeartbeatReport({
       state: compacted.state,
       pendingLaunchPlan,
       pendingLaunchResult,
@@ -1720,6 +1747,12 @@ export async function runHeartbeat(input, options = {}) {
       appMessageResult,
       deferredForkResult,
     });
+    if (scheduleDeletions.pending || scheduleDeletions.events.length) {
+      report.summary = { ...report.summary, pendingScheduleDeletes: scheduleDeletions.pending };
+      report.events = [...report.events, ...scheduleDeletions.events];
+      if (scheduleDeletions.events.some(({ type }) => type !== "schedule_deleted")) report.run = "partial";
+    }
+    return report;
   } finally {
     if (typeof appServer.close === "function") {
       await Promise.resolve(appServer.close()).catch(() => {});

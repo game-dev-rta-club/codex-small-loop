@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   codex-small-loop:handling-user-requests is the explicit user-facing entry point
   that renders initial setup and resolves the execution profile before loading
   Controller on the next user-authored turn.

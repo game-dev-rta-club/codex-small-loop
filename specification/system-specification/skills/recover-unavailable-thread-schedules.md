@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define the Codex Small Loop recovery adapter that returns failed App
-  Heartbeats to the exact Task-owned schedule boundary.
+keyPoints: >-
+  When an App Heartbeat operation is unavailable, the adapter preserves its
+  exact schedule, target Task, prompt, cadence, and operation while returning
+  control to the same Task-owned Codex Small Loop schedule boundary. Recovery
+  requires real Heartbeat evidence and never introduces another scheduler.
 ---
 
 # Recover Unavailable Thread Schedules
@@ -45,4 +47,3 @@ Heartbeat Turn.
 - [Lifecycle and recovery](/specification/technical-specification/runtime/lifecycle-and-recovery.md)
 - [Runtime Skill](/implementation/skills/recover-unavailable-thread-schedules/SKILL.md)
 - [Codex UI metadata](/implementation/skills/recover-unavailable-thread-schedules/agents/openai.yaml)
-

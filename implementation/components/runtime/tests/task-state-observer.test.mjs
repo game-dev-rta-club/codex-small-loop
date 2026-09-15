@@ -13,6 +13,7 @@ import { Readable } from "node:stream";
 import test from "node:test";
 
 import { resolveCodexSessionRoots } from "../source/codex-session-locator.mjs";
+import { MAX_JSONL_LINE_LENGTH } from "../source/codex-jsonl.mjs";
 import {
   observeExactTurn,
   observeLatestTask,
@@ -163,16 +164,15 @@ test("observes active latest turns from not started through terminal states", as
   });
 });
 
-test("observes task state across a large valid unrelated Codex record", async () => {
+test("observes task state across an oversized unknown Codex record", async () => {
   await withCodexHome(async ({ active, roots }) => {
     const taskId = "large-record-task";
     const historyFile = await writeHistory(active, taskId, [
       event("task_started", "turn-large-record"),
       {
-        type: "response_item",
+        type: "future_large_record",
         payload: {
-          type: "custom_tool_call_output",
-          output: "x".repeat(1_500_000),
+          content: "x".repeat(MAX_JSONL_LINE_LENGTH + 1_024),
         },
       },
       event("task_complete", "turn-large-record"),

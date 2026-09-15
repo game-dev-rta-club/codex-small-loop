@@ -1,3 +1,4 @@
+import { retryExhausted } from "./retry-budget.mjs";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import path from "node:path";
@@ -584,6 +585,7 @@ export function recordPendingLaunchError(state, {
   return replaceLaunch(state, index, {
     ...launch,
     updatedAt: now,
+    attemptCount: (launch.attemptCount ?? 0) + 1,
     lastError: {
       code,
       message,
@@ -1048,6 +1050,9 @@ async function createManagedTask(input, options, operation) {
     ? "fork_assignment_started"
     : "assignment_started";
 
+  if ((deferredFork || continuingRole) && retryExhausted(findLaunch(runtime.ledger, launchId).launch)) {
+    throw launchError("RETRY_LIMIT_REACHED", "Automatic launch attempt limit reached", { launchId });
+  }
   let continuedRoleTurnId = null;
   let continuedChildTaskId = null;
   if (continuingRole) {

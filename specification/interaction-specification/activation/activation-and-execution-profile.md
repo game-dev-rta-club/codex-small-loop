@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define when Codex Small Loop activates and how the first user-facing turn
-  presents setup, model, speed, and profile confirmation.
+keyPoints: >-
+  Codex Small Loop activates only when explicitly selected or requested. Its
+  first turn presents the complete setup guide and resolves one Primary model,
+  an optional shared Worker model, and 1x or explicitly selected 1.5x speed
+  before Controller begins project investigation.
 ---
 
 # Activation And Execution Profile
@@ -42,10 +44,10 @@ the user specified a model, the Root resolves the profile immediately with the
 explicit speed or the 1x default and does not reconfirm it. If the model is
 missing, the Root asks only for the model while retaining an explicitly selected
 speed or defaulting it to 1x. With neither setting present, it proposes Terra
-Medium and explains the 1x default in the guide's Next Action section, for
+High and explains the 1x default in the guide's Next Action section, for
 example:
 
-> Start with Terra Medium? Unless you explicitly select 1.5x, execution remains at 1x.
+> Start with Terra High? Unless you explicitly select 1.5x, execution remains at 1x.
 
 An explicit answer that supplies or changes a setting is agreement to that
 value and is not reconfirmed. On that next user-authored turn, the entry Skill

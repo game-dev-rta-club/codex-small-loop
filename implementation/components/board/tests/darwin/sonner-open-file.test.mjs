@@ -25,9 +25,9 @@ async function fixture(t) {
   const root = path.join(parent, "project");
   await mkdir(path.join(root, "overview"), { recursive: true });
   await writeFile(path.join(root, "README.md"), "authorized\n");
-  await writeFile(path.join(root, "overview/WORK_NODE.xml"), "<work-node />\n");
+  await writeFile(path.join(root, "overview/.WORK_NODE.xml"), "<work-node />\n");
   await execFileAsync("git", ["-C", root, "init", "-q"]);
-  await execFileAsync("git", ["-C", root, "add", "README.md", "overview/WORK_NODE.xml"]);
+  await execFileAsync("git", ["-C", root, "add", "README.md", "overview/.WORK_NODE.xml"]);
   return { parent, root, project: await resolveProject(root), helper: await compileHelper(parent) };
 }
 
@@ -37,7 +37,7 @@ test("native opener binds normal files and Work directories as retained referenc
   const item = await fixture(t);
   await writeFile(path.join(item.root, "한국어.md"), "unicode\n");
   await link(path.join(item.root, "README.md"), path.join(item.root, "alias.md"));
-  for (const name of ["README.md", "overview", "overview/WORK_NODE.xml", "한국어.md", "alias.md"]) {
+  for (const name of ["README.md", "overview", "overview/.WORK_NODE.xml", "한국어.md", "alias.md"]) {
     await openSonnerFileReference(item.project, name, options(item.helper, async () => {}));
   }
   assert.throws(() => encodeSonnerOpenRequest(item.project, "../outside"), (error) => error.code === "SONNER_FILE_INVALID");
@@ -82,7 +82,7 @@ test("final and ancestor transition replacements never dispatch the replacement 
 
   const item = await fixture(t); const ancestor = path.join(item.root, "overview"); const moved = path.join(item.parent, "overview-original");
   let changed = false;
-  await assert.rejects(openSonnerFileReference(item.project, "overview/WORK_NODE.xml", options(item.helper, async (event) => {
+  await assert.rejects(openSonnerFileReference(item.project, "overview/.WORK_NODE.xml", options(item.helper, async (event) => {
     if (!changed && event === "before-ancestor-open") { changed = true; await rename(ancestor, moved); await symlink("/tmp", ancestor); }
   })), (error) => error.code === "SONNER_FILE_INVALID" || error.code === "SONNER_FILE_CHANGED");
 });

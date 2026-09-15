@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<work-node id="product-concept" type="ProductConcept">
-  <summary>Defines whole-job ownership, continuous delivery, authority-gated autonomy, verified delivery, and easy grounding as the stable product intent.</summary>
-  <inputs>
-    <input ref="overview" />
-  </inputs>
-</work-node>

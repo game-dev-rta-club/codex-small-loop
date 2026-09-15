@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { verifyDaemonCaller } from "./daemon-permissions.mjs";
+
 import {
   randomBytes,
 } from "node:crypto";
@@ -406,6 +408,7 @@ const main = process.argv[1]
 
 if (main) {
   try {
+    await verifyDaemonCaller();
     await runCodexAppServerBridge();
   } catch (error) {
     process.stderr.write(

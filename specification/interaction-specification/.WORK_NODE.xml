@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<work-node id="interaction-specification" type="InteractionSpecification">
+  <keyPoints>The user explicitly activates Codex Small Loop, confirms its execution profile, resolves material ambiguity, and approves the plan before autonomous work begins; Controller then reports meaningful progress, requests authority when needed, and delivers evidence-backed completion.</keyPoints>
+  <inputs>
+    <input ref="product-concept" />
+  </inputs>
+</work-node>

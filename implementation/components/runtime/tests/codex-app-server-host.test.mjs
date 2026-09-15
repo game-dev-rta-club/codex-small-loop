@@ -13,6 +13,7 @@ import test from "node:test";
 import { AtomicJsonStore } from "../source/atomic-json-store.mjs";
 import {
   ensureCodexAppServerHost,
+  codexAppServerHostDirectory,
 } from "../source/codex-app-server-host.mjs";
 
 const RUNTIME = Object.freeze({
@@ -31,7 +32,7 @@ async function withHost(run) {
 
 function createHostStore(codexHome) {
   return new AtomicJsonStore(
-    path.join(codexHome, "codex-small-loop", "app-server", "host.json"),
+    path.join(codexAppServerHostDirectory(codexHome, RUNTIME), "host.json"),
     { syncHandle: async () => {} },
   );
 }
@@ -97,7 +98,7 @@ test("starts and persists one platform-neutral detached host", async () => {
       now: () => new Date("2026-08-10T00:00:00.000Z"),
     });
 
-    const directory = path.join(codexHome, "codex-small-loop", "app-server");
+    const directory = codexAppServerHostDirectory(codexHome, RUNTIME);
     assert.equal(prepared, directory);
     assert.deepEqual(launch, { runtime: RUNTIME, directory });
     assert.deepEqual(result, {
@@ -149,9 +150,87 @@ test("serializes concurrent callers and reuses one verified host", async () => {
   });
 });
 
+test("runtime updates select a new host without disturbing live old clients", async () => {
+  await withHost(async (codexHome) => {
+    let runtime = RUNTIME;
+    const launches = [];
+    const cleanups = [];
+    const options = {
+      codexHome,
+      resolveRuntime: async () => runtime,
+      hostPlatform: fakePlatform({
+        onLaunch: (value) => launches.push(value),
+        onCleanup: (value) => cleanups.push(value),
+      }),
+      processProbe: () => true,
+    };
+    const old = await ensureCodexAppServerHost(options);
+    const oldFile = path.join(codexAppServerHostDirectory(codexHome, runtime), "host.json");
+    const oldState = await readFile(oldFile, "utf8");
+    runtime = { ...RUNTIME, version: "0.153.4" };
+    const updated = await Promise.all([
+      ensureCodexAppServerHost(options),
+      ensureCodexAppServerHost(options),
+    ]);
+    assert.equal(launches.length, 2);
+    assert.notDeepEqual(updated[0].endpoint, old.endpoint);
+    assert.deepEqual(updated[0].endpoint, updated[1].endpoint);
+    assert.deepEqual(new Set(updated.map((host) => host.reused)), new Set([true, false]));
+    assert.equal(updated[0].executableVersion, runtime.version);
+    assert.equal(await readFile(oldFile, "utf8"), oldState);
+    assert.ok(cleanups.every(({ endpoint }) => endpoint === null));
+
+    runtime = { ...runtime, executablePath: path.resolve("other-install", "codex") };
+    const moved = await ensureCodexAppServerHost(options);
+    assert.notDeepEqual(moved.endpoint, updated[0].endpoint);
+    assert.equal(launches.length, 3);
+  });
+});
+
+test("legacy unversioned live host cannot be reused after an update", async () => {
+  await withHost(async (codexHome) => {
+    const legacy = path.join(codexHome, "codex-small-loop", "app-server");
+    await mkdir(legacy, { recursive: true });
+    const source = JSON.stringify({ version: 2, host: {
+      pid: 71079, executablePath: RUNTIME.executablePath,
+      executableVersion: "0.149.0-alpha.4.1",
+      endpoint: endpointFor(legacy), startedAt: "2026-08-26T13:35:03.291Z",
+    } });
+    await writeFile(path.join(legacy, "host.json"), source);
+    const result = await ensureCodexAppServerHost({
+      codexHome, resolveRuntime: async () => RUNTIME,
+      hostPlatform: fakePlatform(), processProbe: () => true,
+    });
+    assert.equal(result.reused, false);
+    assert.notDeepEqual(result.endpoint, endpointFor(legacy));
+    assert.equal(await readFile(path.join(legacy, "host.json"), "utf8"), source);
+  });
+});
+
+test("rejects contradictory runtime metadata without cleaning or launching", async () => {
+  await withHost(async (codexHome) => {
+    const store = createHostStore(codexHome);
+    const options = {
+      codexHome, store, resolveRuntime: async () => RUNTIME,
+      hostPlatform: fakePlatform(), processProbe: () => true,
+    };
+    await ensureCodexAppServerHost(options);
+    await store.transact((state) => ({
+      state: { ...state, host: { ...state.host, executableVersion: "wrong" } },
+    }));
+    await assert.rejects(ensureCodexAppServerHost({
+      ...options,
+      hostPlatform: fakePlatform({
+        onLaunch: () => assert.fail("must not launch"),
+        onCleanup: () => assert.fail("must not clean"),
+      }),
+    }), { code: "APP_SERVER_HOST_RUNTIME_MISMATCH" });
+  });
+});
+
 test("migrates and reuses a live version 1 macOS host", async () => {
   await withHost(async (codexHome) => {
-    const directory = path.join(codexHome, "codex-small-loop", "app-server");
+    const directory = codexAppServerHostDirectory(codexHome, RUNTIME);
     const socketPath = endpointFor(directory).socketPath;
     await mkdir(directory, { recursive: true });
     await writeFile(path.join(directory, "host.json"), `${JSON.stringify({
@@ -168,9 +247,7 @@ test("migrates and reuses a live version 1 macOS host", async () => {
     const result = await ensureCodexAppServerHost({
       codexHome,
       store: createHostStore(codexHome),
-      resolveRuntime: async () => {
-        throw new Error("runtime resolution must not run");
-      },
+      resolveRuntime: async () => RUNTIME,
       hostPlatform: fakePlatform(),
       processProbe: () => true,
     });
@@ -189,7 +266,7 @@ test("migrates and reuses a live version 1 macOS host", async () => {
 
 test("replaces a dead recorded host after platform cleanup", async () => {
   await withHost(async (codexHome) => {
-    const directory = path.join(codexHome, "codex-small-loop", "app-server");
+    const directory = codexAppServerHostDirectory(codexHome, RUNTIME);
     const endpoint = endpointFor(directory);
     await mkdir(directory, { recursive: true });
     await writeFile(path.join(directory, "host.json"), `${JSON.stringify({
@@ -224,7 +301,7 @@ test("replaces a dead recorded host after platform cleanup", async () => {
 
 test("rejects a live host whose executable identity does not match", async () => {
   await withHost(async (codexHome) => {
-    const directory = path.join(codexHome, "codex-small-loop", "app-server");
+    const directory = codexAppServerHostDirectory(codexHome, RUNTIME);
     await mkdir(directory, { recursive: true });
     await writeFile(path.join(directory, "host.json"), `${JSON.stringify({
       version: 2,

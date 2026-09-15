@@ -124,7 +124,10 @@ function harness(
               threadSource,
             };
           },
-          async resumeTask({ taskId }) {
+          async resumeTask() {
+            assert.fail("notification metadata must not resume the target");
+          },
+          async readTaskProfile({ taskId }) {
             return {
               taskId,
               cwd: targetCwd,
@@ -327,35 +330,15 @@ test("an accepted Conversation cannot continue and points to a new start", async
   );
 });
 
-test("queues the message and state transition together for App-owned Tasks", async () => {
+test("managed Tasks remain on direct delivery even if threadSource reports user", async () => {
   const current = harness(ledger(), "user");
-  const started = await run([
-    "start",
-    "--task",
-    "review-task",
-  ], current, {
-    body: "Review this.",
-  });
-
+  const started = await run(["start", "--task", "review-task"], current, { body: "Review this." });
   assert.equal(started.exitCode, 0);
-  assert.equal(started.result.delivery, "queued");
-  assert.equal(started.result.conversationId, "generated-1");
-  assert.equal(started.result.messageId, "generated-2");
-  assert.equal(current.sent.length, 0);
+  assert.equal(started.result.delivery, "started");
+  assert.equal(current.state().appMessages.length, 0);
   assert.equal(current.state().conversations[0].state, "awaiting_reply");
-  assert.equal(current.state().appMessages[0].id, "generated-2");
-  assert.equal(current.state().appMessages[0].sourceTaskId, "interviewer-task");
-  const queuedText = current.state().appMessages[0].text;
-  assert.match(queuedText, /Interviewer → Review/);
-  assert.equal(
-    queuedText.match(/^=== Next Actions ===$/gm)?.length,
-    1,
-  );
-  assert.match(
-    queuedText,
-    /1\. Delete this delivery schedule[\s\S]*schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task review-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task review-task --if-match <returned-etag>[\s\S]*2\. Reply to this Conversation/,
-  );
-  assert.equal(current.supervisorStarts(), 1);
+  assert.match(current.sent[0].text, /Interviewer → Review/);
+  assert.doesNotMatch(current.sent[0].text, /schedule delete/);
 });
 
 test("an unmanaged App Controller starts a Controller to Primary Conversation", async () => {
@@ -386,7 +369,7 @@ test("an unmanaged App Controller starts a Controller to Primary Conversation", 
   assert.equal(started.exitCode, 0);
   assert.equal(current.state().conversations[0].initiatorRole, "controller");
   assert.equal(current.state().conversations[0].responderRole, "primary");
-  assert.match(current.state().appMessages[0].text, /Controller → Primary/);
+  assert.match(current.sent[0].text, /Controller → Primary/);
 });
 
 test("replies to an App Controller without reading its locked session", async () => {
@@ -788,8 +771,26 @@ test("closes App control and bounds direct delivery failures", async () => {
   assert.equal(result.exitCode, 2);
   assert.equal(result.result.run, "partial");
   assert.equal(result.result.code, "DELIVERY_FAILED");
-  assert.equal(result.result.delivery, "queued");
-  assert.equal(current.state().appMessages.length, 1);
+  assert.equal(result.result.delivery, "not_queued");
+  assert.equal(current.state().appMessages.length, 0);
   assert.ok(result.result.message.length <= 512);
   assert.equal(closed, 1);
+});
+
+test("notification authority mismatch is reported without heartbeat fallback", async () => {
+  const current = harness();
+  const expectedContext = { permission: { type: "sandbox", policy: { type: "dangerFullAccess" } } };
+  const actualContext = { permission: { type: "sandbox", policy: { type: "readOnly" } } };
+  current.options.send = async () => {
+    throw Object.assign(new Error("authority changed"), {
+      code: "TASK_RUN_CONTEXT_MISMATCH", expectedContext, actualContext,
+    });
+  };
+  const result = await run(["notify", "--task", "review-task"], current, { body: "Interview." });
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.result.code, "TASK_RUN_CONTEXT_MISMATCH");
+  assert.deepEqual(result.result.expectedContext, expectedContext);
+  assert.deepEqual(result.result.actualContext, actualContext);
+  assert.equal(current.state().appMessages.length, 0);
+  assert.equal(current.supervisorStarts(), 0);
 });

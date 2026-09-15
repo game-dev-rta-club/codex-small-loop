@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Refresh the configured marketplace, reinstall Codex Small Loop, and verify the
   immutable installed plugin snapshot before starting new work.
 ---

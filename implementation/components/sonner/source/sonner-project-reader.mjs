@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { readPortableSonnerProject } from "./sonner-portable-io.mjs";
 import { isExcludedSonnerProjectPath } from "./sonner-path-policy.mjs";
 
-export const SONNER_READER_PROTOCOL_VERSION = 2;
+export const SONNER_READER_PROTOCOL_VERSION = 3;
 export const SONNER_READER_TIMEOUT_MS = 5_000;
 export const SONNER_READER_MAX_PATHS = 100_000;
 export const SONNER_READER_MAX_PATH_BYTES = 4096;
@@ -24,6 +24,7 @@ const FRAME_PATH = 2;
 const FRAME_WORK = 3;
 const FRAME_WORK_UNSAFE = 4;
 const FRAME_FINAL = 5;
+const FRAME_LEGACY_WORK = 6;
 const TYPE_FILE = 1;
 const TYPE_SYMLINK = 2;
 const ARM64 = 0x0100000c;
@@ -386,12 +387,26 @@ function parseFrame(frame, state, requested, maxWorkBytes) {
   if (type === FRAME_WORK) {
     const cursor = { offset: 1 };
     const relativePath = readString(frame, cursor);
-    if (!isValidSonnerProjectPath(relativePath) || !relativePath.endsWith("/WORK_NODE.xml")
+    if (!isValidSonnerProjectPath(relativePath)
+        || (relativePath !== ".WORK_NODE.xml" && !relativePath.endsWith("/.WORK_NODE.xml"))
         || state.seenWorks.has(relativePath)
         || (state.lastWork !== null && compareText(state.lastWork, relativePath) >= 0)) throw readerError("Invalid Sonner Work frame.");
     const raw = readBytes(frame, cursor, maxWorkBytes);
     state.seenWorks.add(relativePath); state.lastWork = relativePath;
     state.works.push({ relativePath, xml: new TextDecoder("utf-8", { fatal: true }).decode(raw) });
+    return;
+  }
+  if (type === FRAME_LEGACY_WORK) {
+    const cursor = { offset: 1 };
+    const relativePath = readString(frame, cursor);
+    if (!isValidSonnerProjectPath(relativePath)
+        || (relativePath !== "WORK_NODE.xml" && !relativePath.endsWith("/WORK_NODE.xml"))
+        || cursor.offset !== frame.length || state.seenLegacyWorks.has(relativePath)
+        || (state.lastLegacyWork !== null && compareText(state.lastLegacyWork, relativePath) >= 0)) {
+      throw readerError("Invalid Sonner legacy Work frame.");
+    }
+    state.seenLegacyWorks.add(relativePath); state.lastLegacyWork = relativePath;
+    state.legacyWorkNodes.push(relativePath);
     return;
   }
   if (type === FRAME_WORK_UNSAFE) {
@@ -400,8 +415,10 @@ function parseFrame(frame, state, requested, maxWorkBytes) {
     return;
   }
   if (type === FRAME_FINAL) {
-    if (frame.length !== 10 || frame.readUInt32BE(1) !== state.entries.length
-        || frame.readUInt32BE(5) !== state.works.length || Boolean(frame[9]) !== state.workUnsafe) {
+    if (frame.length !== 14 || frame.readUInt32BE(1) !== state.entries.length
+        || frame.readUInt32BE(5) !== state.works.length
+        || frame.readUInt32BE(9) !== state.legacyWorkNodes.length
+        || Boolean(frame[13]) !== state.workUnsafe) {
       throw readerError("Invalid Sonner helper final counts.");
     }
     state.final = true;
@@ -480,8 +497,9 @@ export async function readSonnerProject({
       env: onTransition ? { SONNER_PROJECT_READER_CONTROL_FD: "4" } : {},
     });
     const requested = new Map(normalized.map((entry) => [entry.path, entry.maxBytes]));
-    const state = { hello: false, final: false, entries: [], works: [], workUnsafe: false,
-      seenPaths: new Set(), seenWorks: new Set(), lastPath: null, lastWork: null };
+    const state = { hello: false, final: false, entries: [], works: [], legacyWorkNodes: [], workUnsafe: false,
+      seenPaths: new Set(), seenWorks: new Set(), seenLegacyWorks: new Set(),
+      lastPath: null, lastWork: null, lastLegacyWork: null };
     let buffered = Buffer.alloc(0);
     let outputBytes = 0;
     let stderrBytes = 0;
@@ -546,7 +564,8 @@ export async function readSonnerProject({
     activeSession.signal.removeEventListener("abort", abort);
     if (failure || result.code !== 0 || result.signal || !requestFinished || buffered.length !== 0
         || controlBuffered.length !== 0 || controlActive || !state.hello || !state.final) throw readerError("Sonner project reader unavailable.");
-    return { entries: state.entries, works: state.works, workUnsafe: state.workUnsafe, admittedPaths };
+    return { entries: state.entries, works: state.works, legacyWorkNodes: state.legacyWorkNodes,
+      workUnsafe: state.workUnsafe, admittedPaths };
   } catch (error) {
     if (error?.code === "SONNER_PROJECT_READER_UNAVAILABLE" || isSonnerOperationAbort(error)) throw error;
     throw readerError("Sonner project reader unavailable.");

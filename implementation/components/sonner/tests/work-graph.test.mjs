@@ -12,12 +12,12 @@ async function fixture(t) {
   return root;
 }
 
-async function writeWork(root, folder, { id = folder, type, summary, inputs = [] }) {
+async function writeWork(root, folder, { id = folder, type, keyPoints, inputs = [] }) {
   const directory = path.join(root, folder);
   await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, "WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
+  await writeFile(path.join(directory, ".WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
 <work-node id="${id}" type="${type}">
-  <summary>${summary}</summary>
+  <keyPoints>${keyPoints}</keyPoints>
   <inputs>
 ${inputs.map((input) => `    <input ref="${input}" />\n`).join("")}  </inputs>
 </work-node>
@@ -35,97 +35,109 @@ async function rejection(root, pattern) {
 
 test("orders an Overview-rooted graph deterministically across branches and merges", async (t) => {
   const root = await fixture(t);
-  await writeWork(root, "distribution", { type: "Distribution", summary: "Ships the verified result.", inputs: ["verification", "guide"] });
-  await writeWork(root, "overview", { type: "Overview", summary: "Defines the outcome." });
-  await writeWork(root, "verification", { type: "Verification", summary: "Proves the result.", inputs: ["implementation"] });
-  await writeWork(root, "guide", { type: "Guide", summary: "Explains the result.", inputs: ["overview", "implementation"] });
-  await writeWork(root, "implementation", { type: "Implementation", summary: "Realizes the result.", inputs: ["overview"] });
+  await writeWork(root, "distribution", { type: "Distribution", keyPoints: "Ships the verified result.", inputs: ["verification", "guide"] });
+  await writeWork(root, "overview", { type: "Overview", keyPoints: "Defines the outcome." });
+  await writeWork(root, "verification", { type: "Verification", keyPoints: "Proves the result.", inputs: ["implementation"] });
+  await writeWork(root, "guide", { type: "Guide", keyPoints: "Explains the result.", inputs: ["overview", "implementation"] });
+  await writeWork(root, "implementation", { type: "Implementation", keyPoints: "Realizes the result.", inputs: ["overview"] });
 
   const first = await loadWorkGraph(root);
   const second = await loadWorkGraph(root);
   assert.deepEqual(first, second);
   assert.deepEqual(first.map(({ id, nodePath }) => ({ id, nodePath })), [
-    { id: "overview", nodePath: "overview/WORK_NODE.xml" },
-    { id: "implementation", nodePath: "implementation/WORK_NODE.xml" },
-    { id: "guide", nodePath: "guide/WORK_NODE.xml" },
-    { id: "verification", nodePath: "verification/WORK_NODE.xml" },
-    { id: "distribution", nodePath: "distribution/WORK_NODE.xml" },
+    { id: "overview", nodePath: "overview/.WORK_NODE.xml" },
+    { id: "implementation", nodePath: "implementation/.WORK_NODE.xml" },
+    { id: "guide", nodePath: "guide/.WORK_NODE.xml" },
+    { id: "verification", nodePath: "verification/.WORK_NODE.xml" },
+    { id: "distribution", nodePath: "distribution/.WORK_NODE.xml" },
   ]);
 });
 
 test("discovers nested Works, ignores generated roots, and decodes XML entities", async (t) => {
   const root = await fixture(t);
-  await writeWork(root, ".git/stale", { id: "stale", type: "Overview", summary: "Ignored." });
-  await writeWork(root, "overview", { type: "Overview", summary: "Defines &amp; constrains." });
-  await writeWork(root, "components/implementation", { id: "implementation", type: "Implementation", summary: "Realizes &#x41;.", inputs: ["overview"] });
+  await writeWork(root, ".git/stale", { id: "stale", type: "Overview", keyPoints: "Ignored." });
+  await writeWork(root, "overview", { type: "Overview", keyPoints: "Defines &amp; constrains." });
+  await writeWork(root, "components/implementation", { id: "implementation", type: "Implementation", keyPoints: "Realizes &#x41;.", inputs: ["overview"] });
   const works = await loadWorkGraph(root);
-  assert.deepEqual(works.map(({ id, summary, nodePath }) => ({ id, summary, nodePath })), [
-    { id: "overview", summary: "Defines & constrains.", nodePath: "overview/WORK_NODE.xml" },
-    { id: "implementation", summary: "Realizes A.", nodePath: "components/implementation/WORK_NODE.xml" },
+  assert.deepEqual(works.map(({ id, keyPoints, nodePath }) => ({ id, keyPoints, nodePath })), [
+    { id: "overview", keyPoints: "Defines & constrains.", nodePath: "overview/.WORK_NODE.xml" },
+    { id: "implementation", keyPoints: "Realizes A.", nodePath: "components/implementation/.WORK_NODE.xml" },
   ]);
 });
 
 test("rejects malformed metadata and allows Work IDs independent of directory names", async (t) => {
   const root = await fixture(t);
   await mkdir(path.join(root, "overview"));
-  await writeFile(path.join(root, "overview", "WORK_NODE.xml"), "<work-node><summary>Broken</summary></work-node>\n");
-  await rejection(root, /overview\/WORK_NODE\.xml.*id.*attribute/i);
+  await writeFile(path.join(root, "overview", ".WORK_NODE.xml"), "<work-node><keyPoints>Broken</keyPoints></work-node>\n");
+  await rejection(root, /overview\/\.WORK_NODE\.xml.*id.*attribute/i);
 
   await rm(path.join(root, "overview"), { recursive: true });
   await writeWork(root, "system", {
     id: "system-specification",
     type: "SystemSpecification",
-    summary: "Defines the system.",
+    keyPoints: "Defines the system.",
     inputs: ["overview"],
   });
-  await writeWork(root, "overview", { type: "Overview", summary: "Root." });
+  await writeWork(root, "overview", { type: "Overview", keyPoints: "Root." });
   const works = await loadWorkGraph(root);
   assert.deepEqual(
     works.map(({ id, nodePath }) => ({ id, nodePath })),
     [
-      { id: "overview", nodePath: "overview/WORK_NODE.xml" },
-      { id: "system-specification", nodePath: "system/WORK_NODE.xml" },
+      { id: "overview", nodePath: "overview/.WORK_NODE.xml" },
+      { id: "system-specification", nodePath: "system/.WORK_NODE.xml" },
     ],
   );
 });
 
+test("requires Work keyPoints without interpreting summary as an alias", async (t) => {
+  const root = await fixture(t);
+  await mkdir(path.join(root, "overview"));
+  await writeFile(path.join(root, "overview", ".WORK_NODE.xml"), `<?xml version="1.0" encoding="UTF-8"?>
+<work-node id="overview" type="Overview">
+  <summary>Legacy metadata.</summary>
+  <inputs />
+</work-node>
+`);
+  await rejection(root, /keyPoints must be a non-empty element/i);
+});
+
 test("rejects duplicate IDs and duplicate inputs", async (t) => {
   const root = await fixture(t);
-  await writeWork(root, "overview", { type: "Overview", summary: "Root." });
-  await writeWork(root, "copy/overview", { id: "overview", type: "Concept", summary: "Duplicate.", inputs: ["overview"] });
+  await writeWork(root, "overview", { type: "Overview", keyPoints: "Root." });
+  await writeWork(root, "copy/overview", { id: "overview", type: "Concept", keyPoints: "Duplicate.", inputs: ["overview"] });
   await rejection(root, /duplicate Work ID.*overview/i);
 
   await rm(path.join(root, "copy"), { recursive: true });
-  await writeWork(root, "concept", { type: "Concept", summary: "Concept.", inputs: ["overview", "overview"] });
+  await writeWork(root, "concept", { type: "Concept", keyPoints: "Concept.", inputs: ["overview", "overview"] });
   await rejection(root, /duplicate input.*overview/i);
 });
 
 test("rejects missing inputs, invalid Overview roots, cycles, and unreachable Works", async (t) => {
   const root = await fixture(t);
-  await writeWork(root, "overview", { type: "Overview", summary: "Root." });
-  await writeWork(root, "concept", { type: "Concept", summary: "Concept.", inputs: ["missing"] });
+  await writeWork(root, "overview", { type: "Overview", keyPoints: "Root." });
+  await writeWork(root, "concept", { type: "Concept", keyPoints: "Concept.", inputs: ["missing"] });
   await rejection(root, /concept.*missing input Work.*missing/i);
 
   await rm(path.join(root, "concept"), { recursive: true });
-  await writeWork(root, "second", { type: "Overview", summary: "Second root." });
+  await writeWork(root, "second", { type: "Overview", keyPoints: "Second root." });
   await rejection(root, /exactly one Overview Work.*found 2/i);
 
   await rm(path.join(root, "second"), { recursive: true });
-  await writeWork(root, "overview", { type: "Overview", summary: "Root.", inputs: ["alpha"] });
-  await writeWork(root, "alpha", { type: "Design", summary: "Alpha.", inputs: ["overview"] });
+  await writeWork(root, "overview", { type: "Overview", keyPoints: "Root.", inputs: ["alpha"] });
+  await writeWork(root, "alpha", { type: "Design", keyPoints: "Alpha.", inputs: ["overview"] });
   await rejection(root, /Overview Work must not declare inputs|cycle/i);
 
   await rm(path.join(root, "alpha"), { recursive: true });
-  await writeWork(root, "overview", { type: "Overview", summary: "Root." });
-  await writeWork(root, "orphan", { type: "Concept", summary: "Orphan." });
+  await writeWork(root, "overview", { type: "Overview", keyPoints: "Root." });
+  await writeWork(root, "orphan", { type: "Concept", keyPoints: "Orphan." });
   await rejection(root, /unreachable from Overview.*orphan/i);
 });
 
 test("reports missing graphs and accepts marker-only future Works", async (t) => {
   const root = await fixture(t);
   await assert.rejects(loadWorkGraph(root), (error) => error.code === "NO_GRAPH");
-  await writeWork(root, "overview", { type: "Overview", summary: "Defines the outcome." });
-  await writeWork(root, "future-release", { type: "Distribution", summary: "Will package the result.", inputs: ["overview"] });
+  await writeWork(root, "overview", { type: "Overview", keyPoints: "Defines the outcome." });
+  await writeWork(root, "future-release", { type: "Distribution", keyPoints: "Will package the result.", inputs: ["overview"] });
   assert.deepEqual((await loadWorkGraph(root)).map(({ id }) => id), ["overview", "future-release"]);
 });
 
@@ -133,7 +145,7 @@ test("loads Work Graph metadata without Git admission", async (t) => {
   const root = await fixture(t);
   await writeWork(root, "overview", {
     type: "Overview",
-    summary: "Defines the outcome.",
+    keyPoints: "Defines the outcome.",
   });
 
   const works = await loadWorkGraph(root, {

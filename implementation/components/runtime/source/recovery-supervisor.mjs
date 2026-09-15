@@ -1,3 +1,5 @@
+import { AtomicJsonStore } from "./atomic-json-store.mjs";
+import { verifyDaemonCaller } from "./daemon-permissions.mjs";
 import { randomUUID } from "node:crypto";
 import { spawn as spawnProcess } from "node:child_process";
 import {
@@ -223,10 +225,19 @@ export function supervisorHasWork(report) {
       || summary.activeConversations > 0
       || summary.pendingDeliveries > 0
       || summary.pendingAppMessages > 0
+      || summary.pendingScheduleDeletes > 0
       || summary.recoveryCandidates > 0
       || summary.unresolvedRecoveries > 0
     )
   );
+}
+
+async function admissionStore(projectRoot) {
+  const store = new AtomicJsonStore(path.join(projectRoot, ".codex-small-loop", "supervisor-admission.json"), {
+    lockTimeoutMs: 10_000,
+  });
+  await store.initialize({ wake: null });
+  return store;
 }
 
 export async function runRecoverySupervisor(input, options = {}) {
@@ -252,13 +263,16 @@ export async function runRecoverySupervisor(input, options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const wait = options.wait ?? ((duration) =>
     waitFor(duration, undefined, { signal: options.signal }));
+  let released = false;
   let iterations = 0;
   let consecutiveDiagnostics = 0;
   let consecutiveHeartbeatFailures = 0;
 
   try {
+    const admission = await admissionStore(projectRoot);
     while (!options.signal?.aborted) {
       try {
+        const observedWake = (await admission.read()).wake;
         const report = await heartbeat(
           { projectRoot },
         );
@@ -281,6 +295,16 @@ export async function runRecoverySupervisor(input, options = {}) {
           consecutiveDiagnostics = 0;
         }
         if (!supervisorHasWork(report)) {
+          // The starter publishes a wake ticket while holding this same lock.
+          // Release ownership here so a later starter cannot mistake an exiting
+          // supervisor for one that will process its newly queued work.
+          const exit = await admission.transact(async (state) => {
+            if (state.wake !== observedWake) return { state, result: false, commit: false };
+            await ownership.release();
+            released = true;
+            return { state, result: true, commit: false };
+          });
+          if (!exit.result) continue;
           return {
             run: "ok",
             state: "idle",
@@ -318,7 +342,7 @@ export async function runRecoverySupervisor(input, options = {}) {
       iterations,
     };
   } finally {
-    await ownership.release();
+    if (!released) await ownership.release();
   }
 }
 
@@ -372,6 +396,17 @@ export async function waitForSupervisorStart(
 }
 
 export async function startRecoverySupervisor(projectRoot, options = {}) {
+  const root = requireProjectRoot(projectRoot);
+  await (options.verifyCaller ?? verifyDaemonCaller)({ env: options.env ?? process.env });
+  const admission = await admissionStore(root);
+  const result = await admission.transact(async () => ({
+    state: { wake: randomUUID() },
+    result: await startSupervisorProcess(root, options),
+  }));
+  return result.result;
+}
+
+async function startSupervisorProcess(projectRoot, options = {}) {
   const root = requireProjectRoot(projectRoot);
   const executable = options.executable ?? process.execPath;
   const script = options.script ?? SUPERVISOR_SCRIPT;

@@ -5,7 +5,7 @@ import { formatSonnerText, unsafeTextCodePoint } from "../source/sonner-text.mjs
 
 function projection(overrides = {}) {
   return {
-    version: 10,
+    version: 12,
     workGraph: { status: "missing" },
     files: {
       root: { path: ".", name: ".", type: "directory", children: [] },
@@ -17,7 +17,7 @@ function projection(overrides = {}) {
 
 test("formats every Sonner section in canonical order with explicit empty states", () => {
   assert.equal(formatSonnerText(projection()), [
-    "Sonner v10",
+    "Sonner v12",
     "Work Graph: missing",
     "Files: empty",
     "Runtime: missing",
@@ -28,7 +28,7 @@ test("formats every Sonner section in canonical order with explicit empty states
     workGraph: { status: "invalid" },
     runtime: { status: "invalid" },
   })), [
-    "Sonner v10",
+    "Sonner v12",
     "Work Graph: invalid",
     "Files: empty",
     "Runtime: invalid",
@@ -39,7 +39,7 @@ test("formats every Sonner section in canonical order with explicit empty states
     workGraph: { status: "valid", works: [] },
     runtime: { status: "available", health: "ok", reasons: [], tasks: [] },
   })), [
-    "Sonner v10",
+    "Sonner v12",
     "Work Graph: valid",
     "  Works: empty",
     "Files: empty",
@@ -49,15 +49,15 @@ test("formats every Sonner section in canonical order with explicit empty states
   ].join("\n"));
 });
 
-test("formats Works, summarized files, compact counts, and active Runtime Tasks without ambiguity", () => {
+test("formats Works, files with key points, compact counts, and active Runtime Tasks without ambiguity", () => {
   const value = projection({
     workGraph: {
       status: "valid",
       works: [{
         id: "overview",
         type: "Overview",
-        summary: "Project overview.",
-        nodePath: "overview/WORK_NODE.xml",
+        keyPoints: "Project overview.",
+        nodePath: "overview/.WORK_NODE.xml",
         inputs: [],
         outputs: ["implementation"],
       }],
@@ -68,7 +68,10 @@ test("formats Works, summarized files, compact counts, and active Runtime Tasks 
         name: ".",
         type: "directory",
         children: [
-          { path: "docs", name: "docs", type: "directory", children: [] },
+          { path: "docs", name: "docs", type: "directory", children: [
+            { path: "docs/WORK_NODE.xml", name: "WORK_NODE.xml", type: "warning",
+              code: "legacy-work-node", renameTo: "docs/.WORK_NODE.xml" },
+          ] },
           {
             path: "src",
             name: "src",
@@ -80,7 +83,7 @@ test("formats Works, summarized files, compact counts, and active Runtime Tasks 
               ] },
             ],
           },
-          { path: "README.md", name: "README.md", type: "file", summary: "Project summary." },
+          { path: "README.md", name: "README.md", type: "file", keyPoints: "Project keyPoints." },
           { type: "file-counts", counts: [{ extension: null, count: 1 }] },
         ],
       },
@@ -97,16 +100,19 @@ test("formats Works, summarized files, compact counts, and active Runtime Tasks 
   });
   const text = formatSonnerText(value);
   assert.equal(text, [
-    "Sonner v10",
+    "Sonner v12",
     "Work Graph: valid",
-    "  Work id=\"overview\" type=\"Overview\" node=\"overview/WORK_NODE.xml\" inputs=[] outputs=[\"implementation\"] summary=\"Project overview.\"",
+    "  overview",
+    "    Project overview.",
+    "    nodeDir: overview/",
+    "    input: none",
+    "    output: implementation",
     "Files:",
-    "  Directory path=\".\"",
-    "    Directory path=\"docs\"",
-    "    Directory path=\"src\"",
-    "      53 meta, 53 png",
-    "    File path=\"README.md\" summary=\"Project summary.\"",
-    "    1 extensionless",
+    "  ./ 1 extensionless",
+    "    docs/",
+    "      Warning code=legacy-work-node path=\"docs/WORK_NODE.xml\" renameTo=\"docs/.WORK_NODE.xml\"",
+    "    src/ 53 meta, 53 png",
+    "    README.md keyPoints=\"Project keyPoints.\"",
     "Runtime: available health=attention reasons=[\"task_aborted\",\"runtime_diagnostic\"]",
     "  Task id=\"task-a\" name=null role=\"execute\" state=running",
     "  Task id=\"task-b\" name=\"review\" role=\"review\" state=unknown",
@@ -123,7 +129,7 @@ test("escapes every repository-derived string as one safe JSON-style field", () 
       works: [{
         id: unsafe,
         type: unsafe,
-        summary: unsafe,
+        keyPoints: unsafe,
         nodePath: unsafe,
         inputs: [unsafe],
         outputs: [unsafe],
@@ -136,7 +142,7 @@ test("escapes every repository-derived string as one safe JSON-style field", () 
         type: "directory",
         children: [
           { path: unsafe, name: unsafe, type: "directory", children: [] },
-          { path: `${unsafe}/file`, name: unsafe, type: "file", summary: unsafe },
+          { path: `${unsafe}/file`, name: unsafe, type: "file", keyPoints: unsafe },
         ],
       },
     },
@@ -147,7 +153,7 @@ test("escapes every repository-derived string as one safe JSON-style field", () 
       tasks: [{ id: unsafe, name: unsafe, role: unsafe, turnState: "unknown" }],
     },
   }));
-  assert.equal(text.split("\n").length, 10, "embedded separators never create records");
+  assert.equal(text.split("\n").length, 14, "embedded separators never create records");
   assert.doesNotMatch(text, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]/);
   assert.match(text, /\\nnext\\r\\t\\\\quote\\"\\u0000\\u0001\\u007f\\u0085\\u2028\\u2029눈/);
   assert.equal(text.endsWith("\n"), true);
@@ -192,14 +198,14 @@ test("uses exact lowercase Unicode 16 visible escapes for hostile display scalar
         works: [{
           id: source,
           type: "Overview",
-          summary: "summary",
-          nodePath: "WORK_NODE.xml",
+          keyPoints: "keyPoints",
+          nodePath: ".WORK_NODE.xml",
           inputs: [],
           outputs: [],
         }],
       },
     }));
-    const literal = text.match(/Work id=("(?:\\.|[^"\\])*") type=/)[1];
+    const literal = text.match(/^  ("(?:\\.|[^"\\])*")$/m)[1];
     assert.equal(literal, `"a${expected}b"`, `U+${codePoint.toString(16)}`);
     assert.equal(JSON.parse(literal), source);
   }
@@ -211,10 +217,10 @@ test("uses exact lowercase Unicode 16 visible escapes for hostile display scalar
     const text = formatSonnerText(projection({
       workGraph: {
         status: "valid",
-        works: [{ id: source, type: "Overview", summary: "summary", nodePath: "node", inputs: [], outputs: [] }],
+        works: [{ id: source, type: "Overview", keyPoints: "keyPoints", nodePath: "node", inputs: [], outputs: [] }],
       },
     }));
-    const literal = text.match(/Work id=("(?:\\.|[^"\\])*") type=/)[1];
+    const literal = text.match(/^  ("(?:\\.|[^"\\])*")$/m)[1];
     assert.equal(literal, expected);
     assert.equal(JSON.parse(literal), source);
   }
@@ -228,7 +234,7 @@ test("routes every free-form field through one reversible quoted primitive", () 
       works: [{
         id: hostile,
         type: hostile,
-        summary: hostile,
+        keyPoints: hostile,
         nodePath: hostile,
         inputs: [hostile],
         outputs: [hostile],
@@ -241,7 +247,7 @@ test("routes every free-form field through one reversible quoted primitive", () 
         type: "directory",
         children: [
           { path: hostile, name: hostile, type: "directory", children: [] },
-          { path: `${hostile}/file`, name: hostile, type: "file", summary: hostile },
+          { path: `${hostile}/file`, name: hostile, type: "file", keyPoints: hostile },
           { type: "file-counts", counts: [{ extension: hostile, count: 2 }] },
         ],
       },
@@ -258,7 +264,7 @@ test("routes every free-form field through one reversible quoted primitive", () 
   }));
 
   const lines = text.split("\n");
-  assert.equal(lines.length, 12, "hostile values cannot create physical records");
+  assert.equal(lines.length, 15, "hostile values cannot create physical records");
   assert.deepEqual(lines.filter((line) => /^(Sonner|Work Graph:|Files:|Runtime:)/.test(line)).map((line) => line.split(" ")[0]), [
     "Sonner", "Work", "Files:", "Runtime:",
   ]);
@@ -268,11 +274,11 @@ test("routes every free-form field through one reversible quoted primitive", () 
     }
   }
   const literals = [...text.matchAll(/"(?:\\.|[^"\\])*"/g)].map((match) => match[0]);
-  assert.equal(literals.length, 17);
+  assert.equal(literals.length, 13);
   for (const literal of literals) assert.doesNotThrow(() => JSON.parse(literal));
   const decoded = literals.map((literal) => JSON.parse(literal));
-  assert.equal(decoded.filter((value) => value === hostile).length, 14);
-  for (const value of [".", `${hostile}/file`, `${hostile}-null`]) {
+  assert.equal(decoded.filter((value) => value === hostile).length, 11);
+  for (const value of [`${hostile}-null`]) {
     assert.ok(decoded.includes(value));
   }
   assert.match(text, /\\u202eLEAD\\u2066nested\\u2069\\u200d\\ufe0f\\udb40\\udd00\\udbff\\udfff\\ud800X\\udfff\\nWork id=\\"fake\\"\\\\TAIL\\u061c/);
@@ -287,16 +293,16 @@ test("preserves ordinary Unicode while making only invisible shaping controls vi
       works: [{
         id: ordinary,
         type: "Overview",
-        summary: "👩‍💻 ❤️",
+        keyPoints: "👩‍💻 ❤️",
         nodePath: "보통/😀",
         inputs: [],
         outputs: [],
       }],
     },
   }));
-  assert.match(text, /id="한국어 Hangul 눈 😀 עברית é"/);
-  assert.match(text, /summary="👩\\u200d💻 ❤\\ufe0f"/);
-  assert.match(text, /node="보통\/😀"/);
+  assert.match(text, /^  한국어 Hangul 눈 😀 עברית é$/m);
+  assert.match(text, /"👩\\u200d💻 ❤\\ufe0f"/);
+  assert.match(text, /nodeDir: 보통\//);
   assert.doesNotMatch(text, /\\u65e5|\\ud83d\\ude00|e\\u0301/);
 });
 
@@ -308,7 +314,7 @@ test("fails closed for every unknown fixed grammar token", () => {
     runtime: { status: "available", health: "ok", reasons: [], tasks: [{ id: "a", name: null, role: "execute", turnState: "running\nFiles:" }] },
   })), /Unknown Runtime Task state token/);
   assert.throws(() => formatSonnerText(projection({
-    files: { root: { path: ".", name: ".", type: "directory", children: [{ path: "x", name: "x", type: "file\nRuntime:", summary: null }] } },
+    files: { root: { path: ".", name: ".", type: "directory", children: [{ path: "x", name: "x", type: "file\nRuntime:", keyPoints: null }] } },
   })), /Unknown Files node type token/);
   assert.throws(() => formatSonnerText(projection({
     files: { root: { path: ".", name: ".", type: "file", children: [] } },

@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Keep automated tests fast by testing implementation parts independently and
   reserve real agent/browser workflows for final manual verification.
 ---
@@ -50,8 +50,8 @@ Focused Activity tests cover:
 
 Sonner focused tests cover Git tracked and non-ignored untracked discovery,
 dependency/generated/cache exclusions, symbolic-link non-following, leading
-Markdown summary extraction, complete Work Graph XML validation and topological
-ordering, version-10 valid/missing/invalid states, summary-only individual file
+Markdown `keyPoints` extraction, complete Work Graph XML validation and topological
+ordering, version-12 valid/missing/invalid states, key-points-only individual file
 projection, direct-parent compact extension counts, active-only Runtime
 health and bounded coarse reasons, deterministic default Agent text, JSON-string escaping,
 the pinned Unicode 16.0 unsafe-display boundary and ordinary-Unicode
@@ -80,7 +80,7 @@ exact/over bounds, descriptor cleanup, and the packaged helper's universal
 architecture and signature.
 
 Win32 simulation drives the portable Sonner reader through real Git admission,
-Work Graph parsing, Markdown summary extraction, Files projection, and Runtime
+Work Graph parsing, Markdown `keyPoints` extraction, Files projection, and Runtime
 fallback without executing a packaged Mach-O helper. Portable Signal tests
 exercise no-link reads, Root/ancestor/file identity revalidation, bounds, and
 typed partial behavior. Windows Open tests prove the API returns a bounded
@@ -137,6 +137,17 @@ projects when changing lifecycle behavior to confirm one shared PID and distinct
 project URLs. A real Windows Browser run remains an explicit environment LIMIT
 when no Windows machine is available.
 
+## Standalone CLI
+
+The CLI package tests pack and extract the actual npm tarball outside the
+checkout, then inspect a separate Git project with an empty Codex location.
+They cover the shared dispatcher, hidden Work markers, project-only and explicit
+Runtime output, portable-reader parity, and invalid arguments. Bootstrap tests
+cover initial acquisition, refresh, offline fallback, broken/incompatible
+updates, retry delays, and concurrent publication without registry access.
+The normal macOS and Windows suites include these tests. Before a release,
+manually install the tarball and invoke its `small-loop sonner` executable.
+
 ## Completion commands
 
 Tests under `tests/shared/`, and legacy tests directly under `tests/`, form the
@@ -159,3 +170,59 @@ ordinary iteration remains fast and deterministic.
 
 - [Implementation contracts](/implementation/components/contract-tests/tests/codex-small-loop-contracts.test.mjs)
 - [Board server](/implementation/components/board/server.mjs)
+
+## Schedule deletion requests
+
+Focused tests cover project-local atomic request publication, deduplication,
+etag and target checks at processing time, bounded retries, restart after an
+already completed deletion, and deletion without creator-runtime membership.
+Heartbeat tests check draining before lifecycle observation and retaining work
+while deletion retries are pending. Manual validation uses isolated schedule
+files with writes denied to the receiver and allowed to the runtime; no live
+notification is resumed for testing.
+
+## Heartbeat permissions and retry budgets
+
+Regression tests cover anonymous managed workspace permissions, preservation
+of network/tmp/root settings in fork requests, rejection of custom filesystem
+exceptions, latest-context selection without fallback to older authority,
+50-attempt boundaries, persistent counters, healthy siblings, early preflight
+failures, and explicit rearming of one exhausted operation. The standalone npm
+package includes the new shared runtime dependencies.
+
+On 2026-09-14, the previously failing Primary rollout parsed successfully and
+produced restricted workspace-write settings. An isolated App Server
+thread/start returned matching sandbox details without starting an AI turn.
+An initial standalone CLI 0.145.0 probe returned
+`-32601: paginated_threads is not supported yet`. That probe did not use the
+production transport. Repeating the check through the actual
+`CodexAppServerClient` and its shared WebSocket bridge selected the Desktop
+bundled runtime 0.154.0-alpha.6.2 and successfully forked the same Primary with
+matching workspace/network/tmp authority. No AI turn was started in the test
+Child, and the existing E2E was not resumed. Use the production runtime resolver
+and bridge for future live protocol checks rather than spawning PATH Codex.
+
+## Full-access notification resume regression
+
+Notification metadata uses read-only profile lookup; direct runtime failures
+must not enqueue heartbeat schedules, even when a managed target reports a
+user source. Tests verify first-resume authority, explicit full-access profiles,
+rejection before restricted fork, caller permission checks, and preservation of
+expected/actual mismatch evidence. On 2026-09-14 an isolated Desktop
+`0.154.0-alpha.6.2` app-server loaded copied pre-failure histories through the
+updated client: `readTaskProfile` followed by `resumeTask` preserved
+`dangerFullAccess`. No AI turn was started and the stopped E2E was not resumed.
+This checks the resume regression, not completion of the full Execute/Review E2E.
+
+Schedule deletion regression tests cover wake after idle exit, wake during the
+last heartbeat, wake during ownership release, restricted startup rejection,
+and retry of the same durable receipt after startup failure. An isolated CLI
+apply/delete test verifies that a fresh supervisor drains the deletion and
+confirms schedule absence without starting an AI turn.
+
+The subsequent `051234` E2E completed the 101 → Review finding → 55 → four-role
+Review PASS sequence. All eight managed Tasks retained full access and all
+16 Conversations were accepted. Its terminal monitor deletion stalled in a
+queued receipt and needed App-tool cleanup; the wake/idle regression tests
+above cover that separately repaired path. The final macOS suite passed
+831 tests on 2026-09-15.

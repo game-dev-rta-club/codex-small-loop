@@ -74,7 +74,7 @@ test("installed role command loads the Controller role directly", () => {
   });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /^---\nsummary:/);
+  assert.match(result.stdout, /^---\nkeyPoints:/);
   assert.match(result.stdout, /# Controller Job Role/);
   assert.equal(result.stderr, "");
 });

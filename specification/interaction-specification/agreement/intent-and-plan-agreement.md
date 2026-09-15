@@ -1,7 +1,9 @@
 ---
-summary: >-
-  Define how discoverable evidence, focused interview, intent confirmation,
-  and plan approval turn a request into an executable agreement.
+keyPoints: >-
+  Controller investigates discoverable evidence before asking one focused
+  question at a time about material ambiguity. The user confirms the intended
+  result and approves its outcome, authority boundary, and acceptance evidence
+  before Controller divides delivery into internal Milestones.
 ---
 
 # Intent And Plan Agreement

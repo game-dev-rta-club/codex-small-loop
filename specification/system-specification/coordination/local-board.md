@@ -1,7 +1,8 @@
 ---
-summary: >-
-  Define the Board shell, Activity projection, shared local Host boundary, and
-  ownership between Controller, browser, runtime state, and retained history.
+keyPoints: >-
+  Controller opens one project-scoped Board after plan agreement. Activity and
+  Sonner remain separate read-only views backed by retained runtime evidence and
+  one leased loopback Host that exits after its final browser lease.
 ---
 
 # Local Board System Boundary
@@ -59,7 +60,7 @@ deterministic text by default and serializes canonical JSON only for explicit
 `--json`; the Browser API always uses that same JSON serializer. It admits Git tracked and
 non-ignored untracked project files, excludes runtime/dependency/generated/cache
 boundaries, never follows symbolic-link targets, and reads only the leading
-Atomic Documentation `summary` from Markdown. It never participates in Task
+Atomic Documentation `keyPoints` from Markdown. It never participates in Task
 mutation or Activity history projection.
 
 The Runtime portion reads only the current validated project ledger, open Task
@@ -78,12 +79,12 @@ same projection and never expose file bodies.
 
 Work discovery, XML parsing, complete validation, and deterministic topological
 ordering belong to Sonner. A valid public graph contains Work identity, type,
-summary, node path, direct inputs, and direct outputs. Missing and invalid
+key points, node path, direct inputs, and direct outputs. Missing and invalid
 states expose status only, never diagnostics.
 
 The Files projection preserves every admitted directory route independently of
 Work Graph validity. A regular Markdown file remains individually visible only
-when its bounded leading frontmatter contains a non-empty summary. Every other
+when its bounded leading frontmatter contains non-empty `keyPoints`. Every other
 regular file and symbolic link is omitted by name and represented in one
 deterministic extension/count node in its direct parent directory. Files
 directory nodes do not duplicate Work metadata or graph status.

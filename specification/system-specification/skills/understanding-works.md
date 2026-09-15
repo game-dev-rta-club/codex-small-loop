@@ -1,7 +1,7 @@
 ---
-summary: >-
+keyPoints: >-
   codex-small-loop:understanding-works builds sufficient project context from
-  Work Graph paths, repository structure, atomic summaries, links, backlinks,
+  Work Graph paths, repository structure, atomic key points, links, backlinks,
   and shared descriptive names.
 ---
 
@@ -14,8 +14,9 @@ upstream decisions and downstream consumers relevant to that result. Controller
 passes the selected context to Primary; Primary, Execute, Review, and Interviewer
 do not rerun the Skill for that Milestone.
 
-Within selected Works, it reads directory names, filenames, Work summaries,
-and atomic document summaries before opening full bodies. It follows explicit
+Within selected Works, it reads directory names, filenames, Work key points,
+and atomic-document key points before opening full bodies. These provide the
+main current model; full bodies supply supporting detail. It follows explicit
 repository-root-relative Markdown links and backlinks first, then shared
 descriptive names and Work Graph paths. This loose trace connects documents,
 code, tests, images, video, audio, and other media without requiring identical
@@ -35,5 +36,5 @@ explicit canonical `--json` form instead.
 - [Runtime Skill](/implementation/skills/understanding-works/SKILL.md)
 - [Work Graph knowledge](/implementation/skills/understanding-works/references/work-graph.md)
 - [Codex UI metadata](/implementation/skills/understanding-works/agents/openai.yaml)
-- [Sonner command](/implementation/components/commands/sonner.mjs)
+- [Sonner command](/implementation/components/commands/small-loop.mjs)
 - [Sonner Work Graph tests](/implementation/components/sonner/tests/work-graph.test.mjs)

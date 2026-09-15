@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<work-node id="user-documentation" type="UserDocumentationOutput">
+  <keyPoints>Users install or update the immutable plugin through its Git marketplace, explicitly start a task, confirm the proposed model and speed, answer focused questions, approve the plan, and let Controller supervise verified delivery.</keyPoints>
+  <inputs>
+    <input ref="interaction-specification" />
+    <input ref="system-specification" />
+    <input ref="technical-specification" />
+    <input ref="implementation" />
+  </inputs>
+</work-node>

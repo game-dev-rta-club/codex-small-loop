@@ -67,6 +67,13 @@ node <plugin-root>/components/commands/schedule.mjs delete \
   --if-match <returned-etag>
 ```
 
+Run deletion from the project root (or pass `--project-root`).
+`deletion_queued` acknowledges a durable request, not completed removal. The
+project runtime performs the deletion; if it is stopped, the request remains
+pending until it runs again. Preserve the current lifecycle state while pending;
+only an absent read permits a transition that requires removal. Do not spin or
+retry repeatedly in the same turn.
+
 Resume a previously paused definition only through a new `apply` with
 `if-match=absent` and its complete preserved prompt and cadence. Never edit,
 move, or enumerate automation TOML directly. Never retry an etag mismatch

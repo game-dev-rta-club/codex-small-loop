@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<work-node id="implementation" type="PluginOutput">
+  <keyPoints>The installable plugin explicitly activates on request, coordinates five roles through seven skills and a private local runtime, exposes Board and Sonner inspection, and ships its focused tests, assets, and third-party source as one Plugin Output.</keyPoints>
+  <inputs>
+    <input ref="interaction-specification" />
+    <input ref="system-specification" />
+    <input ref="technical-specification" />
+  </inputs>
+</work-node>

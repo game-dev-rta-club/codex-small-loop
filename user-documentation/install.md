@@ -1,5 +1,5 @@
 ---
-summary: >-
+keyPoints: >-
   Install Codex Small Loop as a Codex plugin, then start it explicitly from the
   Codex Desktop + menu or with a direct natural-language instruction. Refresh
   an inactive installed copy by upgrading its Git marketplace, removing and
@@ -25,7 +25,9 @@ Then install Codex Small Loop:
 codex plugin add codex-small-loop@codex-small-loop
 ```
 
-The Codex plugin is the distribution boundary. It installs the skills together
+The Codex plugin is the distribution boundary for managed agent work. For
+Sonner without a Plugin or Codex installation, see [Standalone CLI](/user-documentation/cli.md).
+The plugin installs the skills together
 with the role definitions and shared runtime scripts they use.
 
 ## Desktop Runtime Requirements
@@ -91,7 +93,7 @@ Task's first Codex Small Loop turn, it shows one complete inline Welcome guide i
 the user's language before investigating the project or requested deliverable.
 The guide contains the complete model and speed comparison and always includes
 the optional Slack and Obsidian recommendations. When no model was supplied, a
-plain-text line proposes Terra Medium and asks for explicit agreement. Speed
+plain-text line proposes Terra High and asks for explicit agreement. Speed
 defaults to 1x without a separate follow-up and changes to 1.5x only when the
 user explicitly selects it. When a model was supplied, the Skill records it
 with the explicit or default speed without asking again. On the next

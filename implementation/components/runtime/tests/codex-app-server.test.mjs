@@ -68,6 +68,12 @@ function responseAuthority(params) {
           : params.sandbox === "workspace-write"
             ? "workspaceWrite"
             : "dangerFullAccess",
+        ...(params.config?.sandbox_workspace_write ? {
+          writableRoots: params.config.sandbox_workspace_write.writable_roots,
+          networkAccess: params.config.sandbox_workspace_write.network_access,
+          excludeSlashTmp: params.config.sandbox_workspace_write.exclude_slash_tmp,
+          excludeTmpdirEnvVar: params.config.sandbox_workspace_write.exclude_tmpdir_env_var,
+        } : {}),
       },
       activePermissionProfile: null,
     };
@@ -200,9 +206,7 @@ reader.on("line", (line) => {
         name: "Readable task name",
         threadSource,
         cwd: process.env.MOCK_CWD,
-        path: scenario === "source-null-path" || scenario === "profile-read"
-          ? process.env.MOCK_SESSION
-          : null,
+        path: process.env.MOCK_SESSION,
       },
     });
     return;
@@ -239,7 +243,7 @@ reader.on("line", (line) => {
           ? message.params.serviceTier ?? null
           : "priority",
       activePermissionProfile: scenario === "resume-profile"
-        ? { id: "trusted-profile", extends: null }
+        ? { id: ":danger-full-access", extends: null }
         : hasOverrides
           ? responseAuthority(message.params).activePermissionProfile
           : null,
@@ -319,6 +323,7 @@ reader.on("line", (line) => {
 async function withMock(scenario, run, options = {}) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "whole-job-app-server-"));
   const transcript = path.join(directory, "transcript.jsonl");
+  await writeFile(transcript, "");
   const session = path.join(
     directory,
     "rollout-2026-07-28T00-00-00-existing-task.jsonl",
@@ -778,7 +783,7 @@ test("forks with a named permission profile and no sandbox override", async () =
       approvalPolicy: "on-request",
       permission: {
         type: "profile",
-        id: "project-maintainer",
+        id: ":danger-full-access",
       },
     };
     assert.deepEqual(await client.forkTask({
@@ -793,7 +798,7 @@ test("forks with a named permission profile and no sandbox override", async () =
     const request = (await readTranscript(transcript))
       .find(({ method }) => method === "thread/fork");
     assert.equal(request.params.approvalPolicy, "on-request");
-    assert.equal(request.params.permissions, "project-maintainer");
+    assert.equal(request.params.permissions, ":danger-full-access");
     assert.equal(Object.hasOwn(request.params, "sandbox"), false);
   });
 });
@@ -858,13 +863,12 @@ test("fails before creation when sandbox authority would lose details", async ()
             policy: {
               type: "workspaceWrite",
               writableRoots: ["/project"],
+              customRestriction: true,
             },
           },
         }),
       }),
-      (error) => error instanceof CodexAppServerError
-        && error.code === "TASK_RUN_CONTEXT_INVALID"
-        && error.operation === "createTask",
+      (error) => error.code === "DAEMON_FULL_ACCESS_REQUIRED",
     );
     assert.equal(
       (await readTranscript(transcript))
@@ -936,7 +940,7 @@ test("rejects a fork response without a durable Child Task ID", async () => {
 test("steers the exact active turn and normalizes semantic rejections", async () => {
   await withMock("success", async ({ client, transcript }) => {
     const steered = await client.steerTurn({
-      taskId: "task-1",
+      taskId: "existing-task",
       turnId: "turn-1",
       text: "Updated direction",
       cwd: "/project",
@@ -945,7 +949,7 @@ test("steers the exact active turn and normalizes semantic rejections", async ()
     const request = (await readTranscript(transcript))
       .find(({ method }) => method === "turn/steer");
     assert.deepEqual(request.params, {
-      threadId: "task-1",
+      threadId: "existing-task",
       expectedTurnId: "turn-1",
       input: [{ type: "text", text: "Updated direction" }],
     });
@@ -960,7 +964,7 @@ test("steers the exact active turn and normalizes semantic rejections", async ()
     await withMock(scenario, async ({ client }) => {
       await assert.rejects(
         client.steerTurn({
-          taskId: "task-1",
+          taskId: "existing-task",
           turnId: "turn-1",
           text: "Updated direction",
           cwd: "/project",
@@ -998,8 +1002,9 @@ test("resumes an existing task before starting or interrupting its turns", async
       ],
     );
     assert.deepEqual(messages[2].params, {
-      threadId: "existing-task",
-      excludeTurns: true,
+      threadId: "existing-task", excludeTurns: true,
+      model: "gpt-5.6-sol", config: { model_reasoning_effort: "high" },
+      serviceTier: "priority", approvalPolicy: "never", sandbox: "danger-full-access",
     });
     assert.deepEqual(messages[3].params, {
       threadId: "existing-task",
@@ -1054,29 +1059,15 @@ test("recovers missing threadSource from the Task session metadata", async () =>
   });
 });
 
-test("returns the current cwd and permission snapshot from metadata-only resume", async () => {
-  await withMock("resume-profile", async ({ client, transcript }) => {
-    assert.deepEqual(await client.resumeTask({
-      taskId: "existing-task",
-    }), {
-      taskId: "existing-task",
-      cwd: path.normalize("/project"),
-      runContext: {
-        ...HIGH_PROFILE,
-        approvalPolicy: "never",
-        permission: {
-          type: "profile",
-          id: "trusted-profile",
-        },
-      },
-    });
-
-    const request = (await readTranscript(transcript))
-      .find(({ method }) => method === "thread/resume");
-    assert.deepEqual(request.params, {
-      threadId: "existing-task",
-      excludeTurns: true,
-    });
+test("loads persisted authority before the first resume when context is omitted", async () => {
+  await withMock("success", async ({ client, transcript }) => {
+    const result = await client.resumeTask({ taskId: "existing-task" });
+    assert.equal(result.runContext.permission.policy.type, "dangerFullAccess");
+    const messages = await readTranscript(transcript);
+    assert.ok(messages.findIndex(x => x.method === "thread/read") < messages.findIndex(x => x.method === "thread/resume"));
+    const request = messages.find(x => x.method === "thread/resume");
+    assert.equal(request.params.sandbox, "danger-full-access");
+    assert.equal(request.params.approvalPolicy, "never");
   });
 });
 
@@ -1084,6 +1075,7 @@ test("retries the bounded rollout visibility race while resuming a new task", as
   await withMock("resume-rollout-race", async ({ client, transcript }) => {
     assert.equal((await client.resumeTask({
       taskId: "new-task",
+      runContext: sandboxRunContext(),
     })).taskId, "new-task");
 
     const messages = await readTranscript(transcript);
@@ -1134,7 +1126,7 @@ test("preserves default tier and named authority while resuming a task", async (
     }, {
       permission: {
         type: "profile",
-        id: "project-maintainer",
+        id: ":danger-full-access",
       },
     });
 
@@ -1156,7 +1148,7 @@ test("preserves default tier and named authority while resuming a task", async (
       config: { model_reasoning_effort: "medium" },
       serviceTier: null,
       approvalPolicy: "never",
-      permissions: "project-maintainer",
+      permissions: ":danger-full-access",
     });
   });
 });
@@ -1209,7 +1201,7 @@ test("starts a turn with a named permission profile without sandbox override", a
         approvalPolicy: "never",
         permission: {
           type: "profile",
-          id: "trusted-profile",
+          id: ":danger-full-access",
         },
       },
     });
@@ -1224,7 +1216,7 @@ test("starts a turn with a named permission profile without sandbox override", a
       effort: "high",
       serviceTier: "priority",
       approvalPolicy: "never",
-      permissions: "trusted-profile",
+      permissions: ":danger-full-access",
     });
   });
 });
@@ -1641,4 +1633,15 @@ test("bridge reports client requests above 1 MiB with structured size details", 
     await server.close();
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("restricted fork fails before acquiring a writer", async () => {
+  await withMock("success", async ({ client, transcript }) => {
+    const context = sandboxRunContext(HIGH_PROFILE, { permission: {
+      type: "sandbox", policy: { type: "workspaceWrite" },
+    } });
+    await assert.rejects(client.forkTask({ taskId: "parent-task", cwd: "/project", runContext: context }),
+      { code: "DAEMON_FULL_ACCESS_REQUIRED" });
+    assert.equal((await readTranscript(transcript)).some(x => x.method === "thread/fork"), false);
+  });
 });

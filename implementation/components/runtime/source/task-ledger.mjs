@@ -1,3 +1,4 @@
+import { retryExhausted } from "./retry-budget.mjs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
@@ -411,13 +412,16 @@ function validatePendingLaunches(value, project, operation) {
   for (const launch of launches) {
     requireExactObject(
       launch,
-      Object.hasOwn(launch, "sourceTaskId")
+      [...(Object.hasOwn(launch, "sourceTaskId")
         ? SOURCED_PENDING_LAUNCH_KEYS
-        : PENDING_LAUNCH_KEYS,
+        : PENDING_LAUNCH_KEYS), ...(Object.hasOwn(launch, "attemptCount") ? ["attemptCount"] : [])],
       "pendingLaunch",
       project,
       operation,
     );
+    if (launch.attemptCount !== undefined && (!Number.isSafeInteger(launch.attemptCount) || launch.attemptCount < 0)) {
+      throw schemaError("Invalid launch attemptCount", project, operation);
+    }
     requireId(launch.id, "pendingLaunch.id", project, operation);
     requireId(
       launch.parentTaskId,
@@ -1787,6 +1791,7 @@ export function leaseDeliveries(state, options = {}) {
 
   const eligibleIds = state.deliveries
     .filter((delivery) => {
+      if (retryExhausted(delivery)) return false;
       if (requestedIds && !requestedIds.has(delivery.id)) {
         return false;
       }
@@ -2080,6 +2085,7 @@ export function leaseAppMessages(state, options = {}) {
   }
   const selectedIds = new Set(
     state.appMessages
+      .filter((message) => !retryExhausted(message))
       .filter((message) =>
         message.status === "ready"
         || (
