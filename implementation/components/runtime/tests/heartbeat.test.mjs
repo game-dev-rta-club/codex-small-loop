@@ -328,7 +328,7 @@ test("runs only the deferred forks selected from accepted Parent turns", async (
     },
     async readTaskLedger(store, project) {
       assert.equal(store, "store");
-      assert.equal(project.root, path.normalize("/project"));
+      assert.equal(path.normalize(project.root), path.normalize("/project"));
       return finalState;
     },
   });
@@ -1699,7 +1699,7 @@ test("runs the one-shot heartbeat pipeline in its required order", async () => {
     },
     async processScheduleDeletions(project) {
       events.push("schedule-deletions");
-      assert.equal(project.root, path.normalize("/project"));
+      assert.equal(path.normalize(project.root), path.normalize("/project"));
       return { pending: 1, events: [{ type: "schedule_deleted", requestId: "request" }] };
     },
     async assertRuntimeAvailable(project, options) {
