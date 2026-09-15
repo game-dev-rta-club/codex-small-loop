@@ -141,16 +141,14 @@ test("reports missing graphs and accepts marker-only future Works", async (t) =>
   assert.deepEqual((await loadWorkGraph(root)).map(({ id }) => id), ["overview", "future-release"]);
 });
 
-test("loads Work Graph metadata without Git admission", async (t) => {
+test("Work-only metadata does not bypass unavailable Git selection", async (t) => {
   const root = await fixture(t);
   await writeWork(root, "overview", {
     type: "Overview",
     keyPoints: "Defines the outcome.",
   });
 
-  const works = await loadWorkGraph(root, {
-    readerOptions: { environment: { PATH: "" } },
-  });
-
-  assert.deepEqual(works.map(({ id }) => id), ["overview"]);
+  await assert.rejects(loadWorkGraph(root, {
+    readerOptions: { platform: "win32", environment: { PATH: "" } },
+  }), { code: "SONNER_PROJECT_READER_UNAVAILABLE" });
 });
