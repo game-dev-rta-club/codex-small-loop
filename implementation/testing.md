@@ -201,3 +201,28 @@ bundled runtime 0.154.0-alpha.6.2 and successfully forked the same Primary with
 matching workspace/network/tmp authority. No AI turn was started in the test
 Child, and the existing E2E was not resumed. Use the production runtime resolver
 and bridge for future live protocol checks rather than spawning PATH Codex.
+
+## Full-access notification resume regression
+
+Notification metadata uses read-only profile lookup; direct runtime failures
+must not enqueue heartbeat schedules, even when a managed target reports a
+user source. Tests verify first-resume authority, explicit full-access profiles,
+rejection before restricted fork, caller permission checks, and preservation of
+expected/actual mismatch evidence. On 2026-09-14 an isolated Desktop
+`0.154.0-alpha.6.2` app-server loaded copied pre-failure histories through the
+updated client: `readTaskProfile` followed by `resumeTask` preserved
+`dangerFullAccess`. No AI turn was started and the stopped E2E was not resumed.
+This checks the resume regression, not completion of the full Execute/Review E2E.
+
+Schedule deletion regression tests cover wake after idle exit, wake during the
+last heartbeat, wake during ownership release, restricted startup rejection,
+and retry of the same durable receipt after startup failure. An isolated CLI
+apply/delete test verifies that a fresh supervisor drains the deletion and
+confirms schedule absence without starting an AI turn.
+
+The subsequent `051234` E2E completed the 101 → Review finding → 55 → four-role
+Review PASS sequence. All eight managed Tasks retained full access and all
+16 Conversations were accepted. Its terminal monitor deletion stalled in a
+queued receipt and needed App-tool cleanup; the wake/idle regression tests
+above cover that separately repaired path. The final macOS suite passed
+831 tests on 2026-09-15.

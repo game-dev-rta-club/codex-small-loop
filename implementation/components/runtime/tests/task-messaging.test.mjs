@@ -416,9 +416,7 @@ test("sends one message to an existing task without waiting for completion", asy
       permission: {
         type: "sandbox",
         policy: {
-          type: "workspaceWrite",
-          writableRoots: ["/project"],
-          networkAccess: false,
+          type: "dangerFullAccess",
         },
       },
       model: "gpt-5.6-sol",
@@ -475,9 +473,7 @@ test("sends one message to an existing task without waiting for completion", asy
       permission: {
         type: "sandbox",
         policy: {
-          type: "workspaceWrite",
-          writableRoots: ["/project"],
-          networkAccess: false,
+          type: "dangerFullAccess",
         },
       },
       model: "gpt-5.6-sol",
@@ -508,7 +504,7 @@ test("uses the active named permission profile instead of a sandbox override", a
             approvalPolicy: "never",
             permission: {
               type: "profile",
-              id: "project-maintainer",
+              id: ":danger-full-access",
             },
             model: "gpt-5.6-sol",
             reasoningEffort: "medium",
@@ -544,7 +540,7 @@ test("uses the active named permission profile instead of a sandbox override", a
       approvalPolicy: "never",
       permission: {
         type: "profile",
-        id: "project-maintainer",
+        id: ":danger-full-access",
       },
       model: "gpt-5.6-sol",
       reasoningEffort: "medium",

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { startRecoverySupervisor } from "../runtime/source/recovery-supervisor.mjs";
 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -129,6 +130,7 @@ export async function runScheduleCli(argv, options = {}) {
   const stdout = options.stdout ?? process.stdout;
   const env = options.env ?? process.env;
   let operation = "schedule";
+  let queuedDeletion = null;
   try {
     if (argv.length === 1 && new Set(["help", "--help"]).has(argv[0])) {
       stdout.write(HELP);
@@ -158,6 +160,10 @@ export async function runScheduleCli(argv, options = {}) {
         targetTaskId: parsed.targetTaskId,
         ifMatch: parsed.ifMatch,
       });
+      if (!result.completed) {
+        queuedDeletion = result;
+        await (options.startSupervisor ?? startRecoverySupervisor)(project.root, { env });
+      }
     } else {
       const prompt = parsed.message === undefined
         ? await readPrompt(options.stdin ?? process.stdin)
@@ -176,12 +182,13 @@ export async function runScheduleCli(argv, options = {}) {
     return 0;
   } catch (error) {
     stdout.write(`${JSON.stringify({
-      run: "failed",
+      run: queuedDeletion ? "partial" : "failed",
       operation,
+      ...(queuedDeletion ? { ...queuedDeletion, recommendedAction: "start_supervisor" } : {}),
       code: bounded(error?.code ?? "SCHEDULE_FAILED", 128),
       message: bounded(error?.message ?? "Schedule operation failed"),
     })}\n`);
-    return 1;
+    return queuedDeletion ? 2 : 1;
   }
 }
 

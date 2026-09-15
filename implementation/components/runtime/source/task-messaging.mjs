@@ -1,3 +1,4 @@
+import { requireFullAccess } from "./daemon-permissions.mjs";
 import path from "node:path";
 
 import {
@@ -522,8 +523,9 @@ export async function sendTaskMessage(input, options) {
         );
       }
       try {
-        persistedRunContext = requireTaskRunContext(persisted.runContext);
+        persistedRunContext = requireFullAccess(requireTaskRunContext(persisted.runContext));
       } catch (cause) {
+        if (cause.code === "DAEMON_FULL_ACCESS_REQUIRED") throw cause;
         throw stateError(
           "TASK_PERMISSION_UNKNOWN",
           "Persisted task run context is missing or invalid.",
@@ -560,8 +562,9 @@ export async function sendTaskMessage(input, options) {
       );
     }
     try {
-      return requireTaskRunContext(settings.runContext);
+      return requireFullAccess(requireTaskRunContext(settings.runContext));
     } catch (cause) {
+      if (cause.code === "DAEMON_FULL_ACCESS_REQUIRED") throw cause;
       throw stateError(
         "TASK_PERMISSION_UNKNOWN",
         "Target task run context is missing or invalid.",

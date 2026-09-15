@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 
 import {
   acquireProjectSupervisorLock,
@@ -19,7 +19,8 @@ import {
   waitForSupervisorStart,
 } from "../source/recovery-supervisor.mjs";
 
-const NORMALIZED_PROJECT_ROOT = path.normalize("/project");
+const NORMALIZED_PROJECT_ROOT = await mkdtemp(path.join(os.tmpdir(), "supervisor-admission-tests-"));
+after(() => rm(NORMALIZED_PROJECT_ROOT, { recursive: true, force: true }));
 import {
   runRecoverySupervisorCli,
 } from "../internal/recovery-supervisor.mjs";
@@ -86,7 +87,7 @@ test("runs mechanical heartbeats until project work becomes idle", async () => {
   ];
 
   const result = await runRecoverySupervisor({
-    projectRoot: "/project",
+    projectRoot: NORMALIZED_PROJECT_ROOT,
   }, {
     intervalMs: 250,
     acquireLock: async () => ({
@@ -122,7 +123,7 @@ test("runs mechanical heartbeats until project work becomes idle", async () => {
 test("returns without scanning when another project supervisor owns the lock", async () => {
   let heartbeatCalled = false;
   const result = await runRecoverySupervisor({
-    projectRoot: "/project",
+    projectRoot: NORMALIZED_PROJECT_ROOT,
   }, {
     acquireLock: async () => ({ state: "already_running" }),
     async heartbeat() {
@@ -219,7 +220,7 @@ test("retries a failed heartbeat and releases ownership when stopped", async () 
   const waits = [];
 
   const result = await runRecoverySupervisor({
-    projectRoot: "/project",
+    projectRoot: NORMALIZED_PROJECT_ROOT,
   }, {
     signal: controller.signal,
     intervalMs: 250,
@@ -387,7 +388,7 @@ test("starts one detached supervisor process and confirms project ownership", as
     },
   };
 
-  const result = await startRecoverySupervisor("/project", {
+  const result = await startRecoverySupervisor(NORMALIZED_PROJECT_ROOT, {
     executable: "/node",
     script: "/plugin/recovery-supervisor.mjs",
     async readOwner() {
@@ -451,7 +452,7 @@ test("cleans the exact detached child when startup confirmation fails", async ()
   };
 
   await assert.rejects(
-    startRecoverySupervisor("/project", {
+    startRecoverySupervisor(NORMALIZED_PROJECT_ROOT, {
       async readOwner() {
         return null;
       },
@@ -522,7 +523,7 @@ test("cleans the losing child when another supervisor wins startup", async () =>
     },
   };
 
-  const result = await startRecoverySupervisor("/project", {
+  const result = await startRecoverySupervisor(NORMALIZED_PROJECT_ROOT, {
     async readOwner() {
       return null;
     },
@@ -574,7 +575,7 @@ test("waits until the detached process owns the project lock", async () => {
 
 test("does not spawn when a live project supervisor already owns the lock", async () => {
   let spawned = false;
-  const result = await startRecoverySupervisor("/project", {
+  const result = await startRecoverySupervisor(NORMALIZED_PROJECT_ROOT, {
     async readOwner() {
       return { pid: 456 };
     },
@@ -640,4 +641,71 @@ test("supervisor CLI accepts only an explicit project root", async () => {
     JSON.parse(invalidOutput.join("")).code,
     "RECOVERY_SUPERVISOR_CLI_USAGE",
   );
+});
+
+test("a wake arriving after the last heartbeat makes the live supervisor drain again", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "supervisor-wake-race-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let beats = 0;
+  let pendingDeletion = false;
+  let deleted = false;
+  const result = await runRecoverySupervisor({ projectRoot: root }, {
+    async heartbeat() {
+      beats++;
+      if (beats === 1) {
+        pendingDeletion = true; // Arrives after this heartbeat's queue snapshot.
+        const started = await startRecoverySupervisor(root, {
+          verifyCaller: async () => {},
+          spawn() { assert.fail("live owner must be reused"); },
+        });
+        assert.equal(started.state, "already_running");
+      } else if (pendingDeletion) {
+        pendingDeletion = false;
+        deleted = true;
+      }
+      return report({ activeConversations: 0 });
+    },
+  });
+  assert.equal(result.state, "idle");
+  assert.equal(beats, 2);
+  assert.equal(deleted, true);
+});
+
+test("a wake during ownership release starts a replacement instead of accepting the exiting owner", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "supervisor-exit-race-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let releaseEntered, allowRelease;
+  const entered = new Promise(resolve => { releaseEntered = resolve; });
+  const allowed = new Promise(resolve => { allowRelease = resolve; });
+  const running = runRecoverySupervisor({ projectRoot: root }, {
+    async acquireLock(project) {
+      const ownership = await acquireProjectSupervisorLock(project);
+      return { state: "acquired", async release() {
+        releaseEntered();
+        await allowed;
+        await ownership.release();
+      } };
+    },
+    async heartbeat() { return report({ activeConversations: 0 }); },
+  });
+  await entered;
+  let spawns = 0;
+  const starting = startRecoverySupervisor(root, {
+    verifyCaller: async () => {},
+    spawn() { spawns++; return { pid: 987654, unref() {} }; },
+    async waitForStart() { return { state: "started", pid: 987654 }; },
+  });
+  allowRelease();
+  assert.equal((await running).state, "idle");
+  assert.equal((await starting).state, "started");
+  assert.equal(spawns, 1);
+});
+
+test("restricted caller cannot start a supervisor", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "supervisor-denied-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await assert.rejects(startRecoverySupervisor(root, {
+    env: { CODEX_SANDBOX: "seatbelt" },
+    spawn() { assert.fail("must not spawn"); },
+  }), { code: "DAEMON_FULL_ACCESS_REQUIRED" });
 });

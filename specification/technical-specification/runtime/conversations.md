@@ -169,7 +169,7 @@ include the exact Conversation ID and `conversation reply` command.
 
 ## Routing
 
-The target Task's `threadSource` chooses only transport:
+Managed Tasks always use direct runtime transport. For other Tasks, `threadSource` chooses transport:
 
 ```text
 codex-small-loop
@@ -186,8 +186,7 @@ missing or unknown
   → fail closed
 ```
 
-Task position, project membership, and Conversation position do not choose
-transport. A new Conversation still requires a managed same-project target;
+Managed ledger membership prevents a Task from being rerouted through an App heartbeat. Conversation position does not otherwise choose transport. A new Conversation still requires a managed same-project target;
 Notification accepts any readable active Task.
 
 Direct routing uses metadata-only `thread/read`, profile-preserving
@@ -199,6 +198,21 @@ falling back to Codex's default service tier. It waits for externally owned or
 non-steerable turns, reobserves races, and passes the confirmed profile
 explicitly to every new turn. The WebSocket bridge keeps a 32 MiB bounded
 server-response limit.
+
+Notifications obtain the target cwd through read-only `readTaskProfile`, never
+through `thread/resume`. Every necessary resume includes persisted authority
+from its first request, including implicit resumes before steer or interrupt.
+A resume without explicit caller-supplied context first reads that context;
+it never asks the server to choose defaults. Direct delivery failures, including
+permission mismatches and active-writer conflicts, never enqueue a heartbeat.
+Committed Conversation evidence is retained with `delivery: not_queued`.
+
+Daemon callers inside Codex must have a verifiable full-access turn before the
+bridge starts or connects. Unknown or restricted authority fails closed with
+`DAEMON_FULL_ACCESS_REQUIRED`. Managed creation, fork, and resume likewise
+require full access. A standalone shell remains governed by OS permissions.
+Custom named profiles are not assumed to grant full access. Permission mismatch
+diagnostics retain expected and actual contexts without changing authority.
 
 ## App Message Schedule
 

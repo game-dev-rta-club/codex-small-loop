@@ -1,3 +1,4 @@
+import { requireFullAccess, verifyDaemonCaller } from "./daemon-permissions.mjs";
 import { spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import path from "node:path";
@@ -300,6 +301,7 @@ export class CodexAppServerClient {
   }
 
   async createTask({ cwd, runContext }) {
+    requireFullAccess(runContext);
     await this.connect();
     const { context: expectedContext, settings } = readThreadStartSettings(
       runContext,
@@ -345,6 +347,7 @@ export class CodexAppServerClient {
     cwd,
     runContext,
   }) {
+    requireFullAccess(runContext);
     await this.connect();
     taskId = requireIdentifier(taskId, "taskId");
     cwd = requireCwd(cwd);
@@ -411,10 +414,11 @@ export class CodexAppServerClient {
     cwd,
     runContext,
   }) {
+    requireFullAccess(runContext);
     await this.connect();
     taskId = requireIdentifier(taskId, "taskId");
     cwd = requireCwd(cwd);
-    await this.#ensureTask(taskId);
+    await this.#ensureTask(taskId, runContext);
     const settings = turnSettingsFromTaskRunContext(runContext);
     const params = {
       threadId: taskId,
@@ -702,9 +706,13 @@ export class CodexAppServerClient {
   async resumeTask({ taskId, runContext = null }) {
     await this.connect();
     taskId = requireIdentifier(taskId, "taskId");
-    const expected = runContext === null
-      ? null
-      : readThreadStartSettings(runContext, "resumeTask");
+    // thread/resume loads a writer; it is not a metadata read. An omitted
+    // authority may load server defaults that later resume calls cannot change.
+    if (runContext === null) {
+      runContext = (await this.readTaskProfile({ taskId })).runContext;
+    }
+    requireFullAccess(runContext);
+    const expected = readThreadStartSettings(runContext, "resumeTask");
     if (this.taskResumes.has(taskId)) {
       return this.taskResumes.get(taskId);
     }
@@ -823,11 +831,11 @@ export class CodexAppServerClient {
     }
   }
 
-  async #ensureTask(taskId) {
+  async #ensureTask(taskId, runContext = null) {
     if (this.knownTasks.has(taskId)) {
       return;
     }
-    await this.resumeTask({ taskId });
+    await this.resumeTask({ taskId, runContext });
   }
 
   async close() {
@@ -897,6 +905,7 @@ export class CodexAppServerClient {
   }
 
   async #connect() {
+    if (this.args.includes(DEFAULT_BRIDGE)) await verifyDaemonCaller({ env: this.env });
     let child;
     try {
       child = this.spawnProcess(this.command, this.args, {

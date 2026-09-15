@@ -405,6 +405,8 @@ function errorResult(error, operation = "message") {
       ? bounded(error.code, 128)
       : "MESSAGE_SEND_FAILED",
     message: bounded(error?.message ?? "Task message failed"),
+    ...(error?.expectedContext ? { expectedContext: error.expectedContext } : {}),
+    ...(error?.actualContext ? { actualContext: error.actualContext } : {}),
   };
 }
 
@@ -541,7 +543,8 @@ async function runCommunicationCli(namespace, argv, options = {}) {
         "Codex App returned no matching target Task source",
       );
     }
-    const scheduleDelivery = scheduleDeliveryFor(target.threadSource);
+    const sourceUsesSchedule = scheduleDeliveryFor(target.threadSource);
+    const scheduleDelivery = !isManagedTask(ledger, route.targetTaskId) && sourceUsesSchedule;
     const messageId = scheduleDelivery ? createId() : null;
     const scheduleId = messageId === null
       ? null
@@ -624,13 +627,13 @@ async function runCommunicationCli(namespace, argv, options = {}) {
 
     let deliveryCwd = parsed.projectRoot;
     if (parsed.operation === "notify") {
-      if (typeof appServer?.resumeTask !== "function") {
+      if (typeof appServer?.readTaskProfile !== "function") {
         throw messageError(
           "MESSAGE_TASK_CWD_UNAVAILABLE",
           "Codex App control cannot read the notification target cwd",
         );
       }
-      const settings = await appServer.resumeTask({
+      const settings = await appServer.readTaskProfile({
         taskId: route.targetTaskId,
       });
       if (
@@ -653,49 +656,12 @@ async function runCommunicationCli(namespace, argv, options = {}) {
         cwd: deliveryCwd,
       }, { appServer });
     } catch (error) {
-      const fallbackMessageId = createId();
-      const fallbackScheduleId = appMessageScheduleId(fallbackMessageId);
-      const fallbackText = renderCommunication(
-        parsed,
-        route,
-        text,
-        fallbackScheduleId,
-      );
-      await transact(
-        store,
-        project,
-        (state) => {
-          const queued = enqueueAppMessage(state, {
-            id: fallbackMessageId,
-            sourceTaskId: senderTaskId,
-            targetTaskId: route.targetTaskId,
-            text: fallbackText,
-          }, { now: timestamp });
-          return { state: queued.state, result: queued.queued };
-        },
-        { now: timestamp },
-      );
-      committedEvidence = {
-        ...(parsed.operation === "notify"
-          ? { replyExpected: false }
-          : { conversationId: committed.result.id }),
-        taskId: route.targetTaskId,
-        messageId: fallbackMessageId,
-        delivery: "queued",
-        recommendedAction: "wait_for_delivery",
-      };
-      await startSupervisor(project.root);
-      writeJson(stdout, {
-        run: "partial",
-        operation: parsed.operation,
-        code: typeof error?.code === "string"
-          ? bounded(error.code, 128)
-          : "MESSAGE_SEND_FAILED",
-        message: bounded(error?.message ?? "Direct delivery failed"),
-        ...committedEvidence,
-      });
-      return 2;
+      // A direct-runtime target must never be moved to a heartbeat, including
+      // authority mismatches and writer conflicts. Preserve any committed
+      // Conversation evidence and let the caller inspect the failed delivery.
+      throw error;
     }
+
     committedEvidence = {
       ...(parsed.operation === "notify"
         ? { replyExpected: false }

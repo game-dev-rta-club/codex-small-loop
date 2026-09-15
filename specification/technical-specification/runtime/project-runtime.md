@@ -303,3 +303,21 @@ APP_MESSAGE_STATUS_CONFLICT
 - [Conversation state](/implementation/components/runtime/source/conversation.mjs)
 - [Ledger tests](/implementation/components/runtime/tests/task-ledger.test.mjs)
 - [Atomic store tests](/implementation/components/runtime/tests/atomic-json-store.test.mjs)
+
+## Deletion wake and idle exit
+
+`schedule delete` durably saves its project-local request before calling
+`startRecoverySupervisor`. A completed receipt does not start a supervisor;
+a repeated queued receipt retries startup. Startup failure returns `run: partial`,
+the request ID, `completed: false`, and `recommendedAction: start_supervisor`.
+A restricted or unverifiable Codex caller cannot start the supervisor.
+
+`supervisor-admission.json` serializes wake registration and idle ownership
+release with an AtomicJsonStore lock. Every successful start or reuse publishes
+a fresh wake ticket. The supervisor samples the ticket before processing work;
+it exits only if the ticket is unchanged, releasing its process lock while
+still holding the admission lock. A concurrent starter therefore either changes
+the ticket and causes another pass, or observes released ownership and starts
+a replacement. This handshake also keeps a newly started, immediately idle
+supervisor alive until its startup has been observed. No AI turn is required
+for schedule deletion.
