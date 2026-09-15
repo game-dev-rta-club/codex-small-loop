@@ -274,10 +274,10 @@ test("routes every free-form field through one reversible quoted primitive", () 
     }
   }
   const literals = [...text.matchAll(/"(?:\\.|[^"\\])*"/g)].map((match) => match[0]);
-  assert.equal(literals.length, 13);
+  assert.equal(literals.length, 14);
   for (const literal of literals) assert.doesNotThrow(() => JSON.parse(literal));
   const decoded = literals.map((literal) => JSON.parse(literal));
-  assert.equal(decoded.filter((value) => value === hostile).length, 11);
+  assert.equal(decoded.filter((value) => value === hostile).length, 12);
   for (const value of [`${hostile}-null`]) {
     assert.ok(decoded.includes(value));
   }
@@ -319,4 +319,25 @@ test("fails closed for every unknown fixed grammar token", () => {
   assert.throws(() => formatSonnerText(projection({
     files: { root: { path: ".", name: ".", type: "file", children: [] } },
   })), /Files root must be a directory/);
+});
+
+test("marks the exact Work directory before counts without marking namesakes or descendants", () => {
+  const directory = (path, children = []) => ({ type: "directory", path, children });
+  const files = { root: directory(".", [
+    directory("Combat", [{ type: "file-counts", counts: [{ extension: "meta", count: 1 }, { extension: "cs", count: 3 }] }, directory("Combat/Effects")]),
+    directory("Other", [directory("Other/Combat")]),
+  ]) };
+  const value = projection({ files, workGraph: { status: "valid", works: [{
+    id: "combat", type: "Implementation", keyPoints: "Combat logic", nodePath: "Combat/.WORK_NODE.xml", inputs: [], outputs: [],
+  }] } });
+  assert.equal(formatSonnerText(value).split("Files:\n")[1].split("Runtime:")[0],
+    "  ./\n    Combat/ [WORK_NODE: combat] 1 meta, 3 cs\n      Effects/\n    Other/\n      Combat/\n");
+  assert.doesNotMatch(formatSonnerText(projection({ files })), /WORK_NODE:/);
+});
+
+test("shows a root Work node even when no visible files remain", () => {
+  const value = projection({ workGraph: { status: "valid", works: [{
+    id: "root", type: "Overview", keyPoints: "Purpose", nodePath: ".WORK_NODE.xml", inputs: [], outputs: [],
+  }] } });
+  assert.match(formatSonnerText(value), /Files:\n  \.\/ \[WORK_NODE: root\]\n/);
 });
