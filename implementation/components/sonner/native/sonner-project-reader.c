@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define PROTOCOL_VERSION 3
+#define PROTOCOL_VERSION 4
 #define MAX_REQUEST_BYTES (8U * 1024U * 1024U)
 #define MAX_PATHS 100000U
 #define MAX_PATH_BYTES 4096U
@@ -31,6 +31,8 @@
 
 struct path_request { char *path; uint32_t max_bytes; };
 struct request {
+  unsigned char include_files;
+  unsigned char git_discovery;
   uint64_t expected_dev;
   uint64_t expected_ino;
   struct path_request *paths;
@@ -243,6 +245,25 @@ static int list_directory_names(int directory_fd, struct strings *names) {
   int saved = errno; closedir(directory); if (saved != 0) return -1;
   qsort(names->items, names->count, sizeof(char *), compare_strings); return 0;
 }
+// Git already applied nested ignore/negation rules. Only enter directories
+// containing admitted paths; never enumerate ignored generated trees.
+static int admitted_work_path(const struct request *request, const char *project_path, int directory) {
+  if (!request->git_discovery) return 1;
+  char key[MAX_PATH_BYTES + 2];
+  size_t length = strlen(project_path);
+  memcpy(key, project_path, length);
+  if (directory) key[length++] = '/';
+  key[length] = '\0';
+  size_t low = 0, high = request->path_count;
+  while (low < high) {
+    size_t middle = low + (high - low) / 2;
+    if (strcmp(request->paths[middle].path, key) < 0) low = middle + 1;
+    else high = middle;
+  }
+  return low < request->path_count && (directory
+    ? strncmp(request->paths[low].path, key, length) == 0
+    : strcmp(request->paths[low].path, key) == 0);
+}
 static int discover_works(int directory_fd, const char *relative, const struct request *request,
     struct strings *works, struct strings *legacy_works, int *unsafe) {
   struct strings names = {0};
@@ -252,9 +273,11 @@ static int discover_works(int directory_fd, const char *relative, const struct r
     if (ignored_directory(name)) continue;
     char project_path[MAX_PATH_BYTES + 1];
     if (join_path(project_path, sizeof(project_path), relative, name) != 0) { *unsafe = 1; continue; }
+    if (!admitted_work_path(request, project_path, 0) && !admitted_work_path(request, project_path, 1)) continue;
     struct stat before;
     if (fstatat(directory_fd, name, &before, AT_SYMLINK_NOFOLLOW) != 0) { *unsafe = 1; continue; }
     if (S_ISDIR(before.st_mode)) {
+      if (!admitted_work_path(request, project_path, 1)) continue;
       transition("before-work-directory-open", project_path);
       int child = openat(directory_fd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
       struct stat opened;
@@ -366,7 +389,9 @@ static int parse_request(struct request *request) {
   if (read_exact(STDIN_FILENO, payload, length) != 0) { free(payload); return -1; }
   size_t offset = 0;
 #define NEED(bytes) do { if ((bytes) > length - offset) { free(payload); free_request(request); return -1; } } while (0)
-  NEED(17); if (payload[offset++] != PROTOCOL_VERSION) { free(payload); return -1; }
+  NEED(19); if (payload[offset++] != PROTOCOL_VERSION) { free(payload); return -1; }
+  request->include_files = payload[offset++]; request->git_discovery = payload[offset++];
+  if (request->include_files > 1 || request->git_discovery > 1) { free(payload); return -1; }
   request->expected_dev = read_u64(payload + offset); offset += 8;
   request->expected_ino = read_u64(payload + offset); offset += 8;
   NEED(4); request->path_count = read_u32(payload + offset); offset += 4;
@@ -446,7 +471,7 @@ int main(int argc, char **argv) {
   struct output_state output = { .max_bytes = request.max_output_bytes };
   if (emit_hello(&output) != 0) { close(root); free_request(&request); return 70; }
   int result = 0;
-  for (uint32_t index = 0; index < request.path_count && result == 0; index++) result = inspect_requested_path(root, &request.paths[index], &output);
+  for (uint32_t index = 0; request.include_files && index < request.path_count && result == 0; index++) result = inspect_requested_path(root, &request.paths[index], &output);
   struct strings works = {0}; struct strings legacy_works = {0}; int unsafe = 0;
   if (result == 0 && discover_works(root, "", &request, &works, &legacy_works, &unsafe) != 0) result = -1;
   qsort(works.items, works.count, sizeof(char *), compare_strings);

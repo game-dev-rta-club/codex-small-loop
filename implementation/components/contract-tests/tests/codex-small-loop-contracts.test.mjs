@@ -2546,7 +2546,7 @@ test("Sonner packages its descriptor-anchored project reader", async () => {
   const command = await read("implementation/components/commands/sonner.mjs");
   const view = await read("implementation/components/board/public/sonner-view.js");
   const provenance = await read("implementation/components/sonner/native/BUILD.md");
-  assert.match(source, /PROTOCOL_VERSION 3/);
+  assert.match(source, /PROTOCOL_VERSION 4/);
   assert.match(source, /openat\(/);
   assert.match(source, /AT_SYMLINK_NOFOLLOW/);
   assert.match(source, /F_DUPFD_CLOEXEC/);

@@ -158,7 +158,7 @@ references, reachability, cycle rejection, and deterministic topological
 ordering. A second standalone mapper command or implementation does not coexist with
 this authority.
 
-The reader retains one verified Root handle across two protocol-v3 phases. Its
+The reader retains one verified Root handle across two protocol-v4 phases. Its
 first phase adopts fd 3, changes cwd to it, and `execve`s fixed `/usr/bin/git`
 with `--work-tree=.`, cached/other/deduplicated/exclude-standard selection,
 optional locks and fsmonitor disabled, and an allowlisted non-interactive
@@ -177,9 +177,15 @@ Markdown files may contribute at most the first 64 KiB so a leading YAML
 frontmatter `keyPoints` scalar or block value can be returned. No body fallback is
 allowed.
 
-Sonner's internal Work-only loading mode skips Git but retains the same verified
-descriptor boundary, so focused validation and non-Git projects remain
-supported without a second public command. Standard
+Work discovery uses that same admitted path set, skipping directories without
+admitted descendants before opening them and skipping ignored marker files.
+Nested ignore files and negations remain Git-owned; tracked files remain
+admitted even when an ignore pattern matches. This also applies to legacy
+marker warnings. Sonner's internal Work-only loading mode queries Git without
+reading Files content. Only Git's explicit non-repository result enables the
+existing filesystem discovery for non-Git projects; other Git failures do not
+fall back to an unfiltered scan. Both modes retain the verified descriptor
+boundary. Standard
 linked-worktree and absolute-HOME global-exclude behavior remains Git-owned;
 Sonner does not parse or snapshot Git administrative metadata.
 

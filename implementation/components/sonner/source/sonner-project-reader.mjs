@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { readPortableSonnerProject } from "./sonner-portable-io.mjs";
 import { isExcludedSonnerProjectPath } from "./sonner-path-policy.mjs";
 
-export const SONNER_READER_PROTOCOL_VERSION = 3;
+export const SONNER_READER_PROTOCOL_VERSION = 4;
 export const SONNER_READER_TIMEOUT_MS = 5_000;
 export const SONNER_READER_MAX_PATHS = 100_000;
 export const SONNER_READER_MAX_PATH_BYTES = 4096;
@@ -63,8 +63,9 @@ export function isValidSonnerProjectPath(value) {
   return parts.every((part) => part.length > 0 && part !== "." && part !== ".." && Buffer.byteLength(part, "utf8") <= 512);
 }
 
-export function encodeSonnerReaderRequest({ rootIdentity, paths, maxWorks, maxWorkBytes, maxOutputBytes }) {
-  if (typeof rootIdentity?.dev !== "bigint" || typeof rootIdentity?.ino !== "bigint"
+export function encodeSonnerReaderRequest({ rootIdentity, paths, maxWorks, maxWorkBytes, maxOutputBytes, includeFiles = true, gitDiscovery = false }) {
+  if (typeof includeFiles !== "boolean" || typeof gitDiscovery !== "boolean"
+      || typeof rootIdentity?.dev !== "bigint" || typeof rootIdentity?.ino !== "bigint"
       || rootIdentity.dev < 0n || rootIdentity.ino < 0n || paths.length > SONNER_READER_MAX_PATHS
       || !Number.isInteger(maxWorks) || maxWorks < 0 || maxWorks > SONNER_READER_MAX_WORKS
       || !Number.isInteger(maxWorkBytes) || maxWorkBytes < 0 || maxWorkBytes > SONNER_READER_MAX_WORK_BYTES
@@ -80,11 +81,13 @@ export function encodeSonnerReaderRequest({ rootIdentity, paths, maxWorks, maxWo
     }
   }
   const buffers = normalized.map((entry) => Buffer.from(entry.path, "utf8"));
-  const length = 1 + 16 + 4 + buffers.reduce((sum, value) => sum + 2 + value.length + 4, 0) + 12;
+  const length = 3 + 16 + 4 + buffers.reduce((sum, value) => sum + 2 + value.length + 4, 0) + 12;
   if (length > 8 * 1024 * 1024) throw readerError("Sonner project reader request is too large.");
   const payload = Buffer.alloc(length);
   let offset = 0;
   payload[offset++] = SONNER_READER_PROTOCOL_VERSION;
+  payload[offset++] = Number(includeFiles);
+  payload[offset++] = Number(gitDiscovery);
   payload.writeBigUInt64BE(BigInt.asUintN(64, rootIdentity.dev), offset); offset += 8;
   payload.writeBigUInt64BE(BigInt.asUintN(64, rootIdentity.ino), offset); offset += 8;
   payload.writeUInt32BE(buffers.length, offset); offset += 4;
@@ -167,7 +170,7 @@ function gitEnvironment(environment = process.env) {
 
 async function runGitAdmission({ project, rootHandle, helperPath, spawnImpl, session,
   maxOutputBytes = SONNER_GIT_MAX_OUTPUT_BYTES, maxPaths = SONNER_READER_MAX_PATHS, environment,
-  onTransition = null }) {
+  onTransition = null, allowNonGit = false }) {
   session.throwIfAborted();
   const request = encodeSonnerGitRequest({ rootIdentity: project.rootIdentity, maxOutputBytes, maxPaths });
   const child = spawnImpl(helperPath, ["git-ls-files"], {
@@ -176,6 +179,7 @@ async function runGitAdmission({ project, rootHandle, helperPath, spawnImpl, ses
     env: { ...gitEnvironment(environment), ...(onTransition ? { SONNER_PROJECT_READER_CONTROL_FD: "4" } : {}) },
   });
   let stdout = Buffer.alloc(0);
+  let stderr = "";
   let stderrBytes = 0;
   let failure = false;
   let terminal = false;
@@ -198,7 +202,7 @@ async function runGitAdmission({ project, rootHandle, helperPath, spawnImpl, ses
     if (stdout.length > maxOutputBytes - chunk.length) { fail(); return; }
     stdout = Buffer.concat([stdout, chunk]);
   });
-  child.stderr.on("data", (chunk) => { stderrBytes += chunk.length; if (stderrBytes > SONNER_READER_MAX_STDERR_BYTES) fail(); });
+  child.stderr.on("data", (chunk) => { stderrBytes += chunk.length; if (stderrBytes > SONNER_READER_MAX_STDERR_BYTES) fail(); else stderr += chunk.toString("utf8"); });
   const control = onTransition ? child.stdio[4] : null;
   if (control) {
     control.setEncoding("utf8"); control.on("error", fail);
@@ -221,6 +225,9 @@ async function runGitAdmission({ project, rootHandle, helperPath, spawnImpl, ses
   child.stdin.end(request);
   const result = await closed;
   session.signal.removeEventListener("abort", abort);
+  if (allowNonGit && !failure && result.code === 128 && !result.signal && requestFinished
+      && stdout.length === 0 && controlBuffered.length === 0 && !controlActive
+      && stderr.trim() === "fatal: not a git repository (or any of the parent directories): .git") return null;
   if (failure || result.code !== 0 || result.signal || !requestFinished || controlBuffered.length !== 0 || controlActive) {
     throw readerError("Sonner Git admission failed.");
   }
@@ -476,19 +483,18 @@ export async function readSonnerProject({
     rootHandle = activeSession.rootHandle;
     await onPhase?.("after-root-open");
     activeSession.throwIfAborted();
-    let admittedPaths = [];
-    if (includeFiles) {
-      await onPhase?.("before-git-spawn");
-      admittedPaths = await runGitAdmission({ project, rootHandle, helperPath, spawnImpl, session: activeSession,
-        maxOutputBytes: maxGitOutputBytes, maxPaths: maxGitPaths, environment, onTransition });
-      await onPhase?.("after-git-output");
-      activeSession.throwIfAborted();
-    }
+    await onPhase?.("before-git-spawn");
+    const gitPaths = await runGitAdmission({ project, rootHandle, helperPath, spawnImpl, session: activeSession,
+      maxOutputBytes: maxGitOutputBytes, maxPaths: maxGitPaths, environment, onTransition, allowNonGit: !includeFiles });
+    await onPhase?.("after-git-output");
+    activeSession.throwIfAborted();
+    const admittedPaths = gitPaths ?? [];
     const normalized = admittedPaths.map((projectPath) => ({
       path: projectPath,
-      maxBytes: /\.md$/i.test(projectPath) ? 64 * 1024 : SONNER_READER_TEXT_DETECTION_BYTES,
+      maxBytes: includeFiles ? (/\.md$/i.test(projectPath) ? 64 * 1024 : SONNER_READER_TEXT_DETECTION_BYTES) : 0,
     }));
-    const request = encodeSonnerReaderRequest({ rootIdentity: project.rootIdentity, paths: normalized, maxWorks, maxWorkBytes, maxOutputBytes });
+    const request = encodeSonnerReaderRequest({ rootIdentity: project.rootIdentity, paths: normalized,
+      maxWorks, maxWorkBytes, maxOutputBytes, includeFiles, gitDiscovery: gitPaths !== null });
     await onPhase?.("before-content-spawn");
     activeSession.throwIfAborted();
     const child = spawnImpl(helperPath, [], {

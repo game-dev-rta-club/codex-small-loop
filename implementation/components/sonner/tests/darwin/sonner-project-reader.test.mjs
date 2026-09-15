@@ -85,7 +85,7 @@ function find(node, projectPath) {
   return null;
 }
 
-test("packaged helper is executable, signed universal arm64/x86_64, and reads protocol v3", async (t) => {
+test("packaged helper is executable, signed universal arm64/x86_64, and reads protocol v4", async (t) => {
   const details = await inspectSonnerUniversalMachO(PACKAGED_SONNER_PROJECT_READER);
   assert.deepEqual(details, { arm64: true, x86_64: true });
   await exec("/usr/bin/codesign", ["--verify", "--strict", PACKAGED_SONNER_PROJECT_READER], { env: {} });
@@ -104,7 +104,7 @@ test("request contains Root identity but never its pathname and rejects path/cou
     maxWorkBytes: 256 * 1024,
     maxOutputBytes: SONNER_READER_MAX_OUTPUT_BYTES,
   });
-  assert.equal(request[4], 3);
+  assert.equal(request[4], 4);
   assert.equal(request.includes(Buffer.from(root)), false);
   assert.throws(() => encodeSonnerReaderRequest({ rootIdentity: project.rootIdentity,
     paths: Array.from({ length: SONNER_READER_MAX_PATHS + 1 }, (_, index) => ({ path: `p${index}`, maxBytes: 0 })),
@@ -449,7 +449,7 @@ test("Git output protocol rejects malformed lists and normalizes Unicode by UTF-
   assert.ok(names.indexOf(first) < names.indexOf(second), JSON.stringify(names));
 });
 
-test("Work-only mode skips Git and supports a non-Git project", async (t) => {
+test("Work-only mode falls back to discovery only outside Git repositories", async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-small-loop-sonner-work-only-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, "docs")); await writeFile(path.join(root, "docs", ".WORK_NODE.xml"), marker());
@@ -459,18 +459,33 @@ test("Work-only mode skips Git and supports a non-Git project", async (t) => {
       if (arguments_[0] === "git-ls-files") gitSpawned = true;
       return spawn(command, arguments_, options);
     } });
-  assert.equal(gitSpawned, false);
+  assert.equal(gitSpawned, true);
   assert.equal(result.entries.length, 0);
   assert.equal(result.works.length, 1);
 });
 
-test("Git v3 request is bounded and contains identity but no Root pathname", async (t) => {
+test("Git v4 request is bounded and contains identity but no Root pathname", async (t) => {
   const tree = await admissionFixture(t); const project = await resolveProject(tree.root);
   const request = encodeSonnerGitRequest({ rootIdentity: project.rootIdentity });
-  assert.equal(request[4], 3);
+  assert.equal(request[4], 4);
   assert.equal(request.length, 29);
   assert.equal(request.includes(Buffer.from(tree.root)), false);
   assert.throws(() => encodeSonnerGitRequest({ rootIdentity: project.rootIdentity, maxOutputBytes: SONNER_GIT_MAX_OUTPUT_BYTES + 1 }));
   await assert.rejects(buildSonnerProject({ root: tree.root, key: project.key, rootIdentity: project.rootIdentity }),
     { code: "SONNER_PROJECT_READER_UNAVAILABLE" });
+});
+
+
+test("ignored directories are pruned before Work directory opens", async (t) => {
+  const { root } = await fixture(t);
+  await writeFile(path.join(root, ".gitignore"), "Library/\n");
+  await mkdir(path.join(root, "Library", "deep"), { recursive: true });
+  await writeFile(path.join(root, "Library", "deep", ".WORK_NODE.xml"), marker("Must not be read"));
+  const transitions = [];
+  const result = await readSonnerProject({ project: await resolveProject(root), helperPath: testHelper,
+    validateArchitecture: false, onTransition: (value) => transitions.push(value) });
+  assert.equal(result.workUnsafe, false);
+  assert.equal(result.works.length, 1);
+  assert.ok(transitions.some((value) => value === "before-work-directory-open:docs"));
+  assert.ok(transitions.every((value) => !value.includes(":Library")));
 });
