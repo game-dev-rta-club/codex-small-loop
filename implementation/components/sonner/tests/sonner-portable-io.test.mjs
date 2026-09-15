@@ -55,7 +55,7 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
 </work-node>
 `);
   await writeFile(path.join(root, "overview", "WORK_NODE.xml"), "legacy marker contents are not read\n");
-  await writeFile(path.join(root, ".gitignore"), "overview/.WORK_NODE.xml\noverview/WORK_NODE.xml\n");
+  await writeFile(path.join(root, ".gitignore"), "Library/\n");
   await writeFile(path.join(root, "README.md"), "---\nkeyPoints: Portable keyPoints.\n---\n\nBody is never projected.\n");
   await writeFile(path.join(root, "image.unknown"), Buffer.concat([
     Buffer.from([1, 2, 0, 3]),
@@ -93,7 +93,7 @@ test("Win32 portable Sonner publishes Work Graph, Files, and bounded Runtime wit
     type: "warning",
     code: "legacy-work-node",
     renameTo: "overview/.WORK_NODE.xml",
-  }]);
+  }, { type: "file-counts", counts: [{ extension: "xml", count: 1 }] }]);
   assert.equal(projection.runtime.status, "missing");
   const readme = projection.files.root.children.find(({ path: entryPath }) => entryPath === "README.md");
   assert.equal(readme.type, "file");

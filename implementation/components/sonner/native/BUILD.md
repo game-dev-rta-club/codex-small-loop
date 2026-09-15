@@ -4,8 +4,11 @@
 receives the already verified project Root as fd 3, walks descendants only with
 descriptor-relative no-follow operations, and returns bounded file-prefix and
 `.WORK_NODE.xml` bytes. Neither its request nor its arguments contain the Root
-pathname. Protocol v3 first runs the exact `git-ls-files` mode from the retained
-Root cwd, then uses the same Root handle for framed content and Work reads. The
+pathname. Protocol v4 first runs the exact `git-ls-files` mode from the retained
+Root cwd, then uses the same Root handle for framed content and Work reads. Git-admitted
+paths also bound Work discovery: directories without admitted descendants are
+not opened. The content request carries explicit file-output and Git-discovery
+flags; non-Git Work-only reads retain filesystem discovery. The
 installed plugin does not compile this helper at runtime.
 
 Build a universal macOS 13-or-later binary from the adjacent source:
@@ -22,7 +25,7 @@ chmod 755 sonner-project-reader
 
 The packaged output is ad-hoc signed and contains arm64 and x86_64 slices.
 Its SHA-256 is
-`22b9bfee6847aded34b83105418c4cf935570725f40d191f92e3d5649f6a77f3`.
+`982a0a119e828759ca867c75bd244e07bfa0e65c53aa4fe754979ed1397f6f8a`.
 Tests compile a temporary current-architecture helper with
 `SONNER_PROJECT_READER_TEST_HOOKS`; its control fd 4 pauses descriptor
 transitions so replacement and mutation races can be exercised without adding

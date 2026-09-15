@@ -167,38 +167,48 @@ function parseGitPaths(output, maximum = MAX_GIT_BYTES) {
     .filter((projectPath) => !isExcludedProjectPath(projectPath));
 }
 
-async function admittedPaths(session, environment = process.env) {
+async function admittedPaths(session, environment = process.env, allowNonGit = false) {
   await assertRoot(session);
   session.throwIfAborted();
   const remaining = session.remainingMs();
   if (remaining <= 0) throw session.signal.reason ?? portableError();
-  const { stdout } = await execFileAsync("git", [
-    "-c", "core.fsmonitor=false",
-    "-c", "core.hooksPath=NUL",
-    "-c", "core.untrackedCache=false",
-    "-c", "core.pager=cat",
-    "-C", session.project.root,
-    "ls-files", "-z", "--cached", "--others", "--exclude-standard",
-  ], {
-    shell: false,
-    encoding: "buffer",
-    maxBuffer: MAX_GIT_BYTES,
-    timeout: remaining,
-    windowsHide: true,
-    env: {
-      PATH: environment.PATH ?? environment.Path ?? "",
-      PATHEXT: environment.PATHEXT ?? ".COM;.EXE;.BAT;.CMD",
-      SystemRoot: environment.SystemRoot ?? environment.SYSTEMROOT ?? "C:\\Windows",
-      HOME: environment.HOME ?? environment.USERPROFILE ?? "",
-      USERPROFILE: environment.USERPROFILE ?? environment.HOME ?? "",
-      XDG_CONFIG_HOME: environment.XDG_CONFIG_HOME ?? "",
-      LC_ALL: "C",
-      LANG: "C",
-      GIT_TERMINAL_PROMPT: "0",
-      GIT_OPTIONAL_LOCKS: "0",
-      GIT_PAGER: "cat",
-    },
-  });
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync("git", [
+      "-c", "core.fsmonitor=false",
+      "-c", "core.hooksPath=NUL",
+      "-c", "core.untrackedCache=false",
+      "-c", "core.pager=cat",
+      "-C", session.project.root,
+      "ls-files", "-z", "--cached", "--others", "--exclude-standard",
+    ], {
+      shell: false,
+      encoding: "buffer",
+      maxBuffer: MAX_GIT_BYTES,
+      timeout: remaining,
+      windowsHide: true,
+      env: {
+        PATH: environment.PATH ?? environment.Path ?? "",
+        PATHEXT: environment.PATHEXT ?? ".COM;.EXE;.BAT;.CMD",
+        SystemRoot: environment.SystemRoot ?? environment.SYSTEMROOT ?? "C:\\Windows",
+        HOME: environment.HOME ?? environment.USERPROFILE ?? "",
+        USERPROFILE: environment.USERPROFILE ?? environment.HOME ?? "",
+        XDG_CONFIG_HOME: environment.XDG_CONFIG_HOME ?? "",
+        LC_ALL: "C",
+        LANG: "C",
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_OPTIONAL_LOCKS: "0",
+        GIT_PAGER: "cat",
+      },
+    }));
+  } catch (error) {
+    await assertRoot(session);
+    session.throwIfAborted();
+    if (allowNonGit && error.code === 128 && !error.killed && !error.signal
+        && !error.stdout?.length
+        && error.stderr?.toString().trim() === "fatal: not a git repository (or any of the parent directories): .git") return null;
+    throw error;
+  }
   await assertRoot(session);
   return parseGitPaths(stdout);
 }
@@ -224,11 +234,20 @@ async function readPortableDirectory(session, projectDirectory) {
   ));
 }
 
-async function discoverPortableWorks(session, {
+async function discoverPortableWorks(session, gitPaths, {
   maxWorks,
   maxWorkBytes,
   maxOutputBytes,
 }) {
+  const admitted = gitPaths === null ? null : new Set(gitPaths);
+  const admittedDirectories = new Set();
+  for (const projectPath of gitPaths ?? []) {
+    let slash = projectPath.lastIndexOf("/");
+    while (slash >= 0) {
+      admittedDirectories.add(projectPath.slice(0, slash));
+      slash = projectPath.lastIndexOf("/", slash - 1);
+    }
+  }
   const directories = ["."];
   let directoryIndex = 0;
   const works = [];
@@ -258,11 +277,12 @@ async function discoverPortableWorks(session, {
         ? entry.name
         : `${directory}/${entry.name}`;
       if (entry.isDirectory()) {
-        if (!EXCLUDED_PROJECT_DIRECTORY_NAMES.has(entry.name)) {
+        if (!EXCLUDED_PROJECT_DIRECTORY_NAMES.has(entry.name) && (admitted === null || admittedDirectories.has(projectPath))) {
           directories.push(projectPath);
         }
         continue;
       }
+      if (admitted !== null && !admitted.has(projectPath)) continue;
       if (entry.name === "WORK_NODE.xml") {
         if (legacyWorkNodes.length >= maxWorks) {
           workUnsafe = true;
@@ -340,12 +360,13 @@ export async function readPortableSonnerProject({ project, session, includeFiles
   maxWorks = 1024, maxWorkBytes = 256 * 1024, maxOutputBytes = 16 * 1024 * 1024,
   environment = process.env } = {}) {
   if (!session || session.project !== project || session.closed || session.platform !== "win32") throw portableError();
-  const discovered = await discoverPortableWorks(session, {
+  const gitPaths = await admittedPaths(session, environment, !includeFiles);
+  const discovered = await discoverPortableWorks(session, gitPaths, {
     maxWorks,
     maxWorkBytes,
     maxOutputBytes,
   });
-  const paths = includeFiles ? await admittedPaths(session, environment) : [];
+  const paths = includeFiles ? gitPaths : [];
   const entries = [];
   const { works, legacyWorkNodes, workUnsafe } = discovered;
   let { outputBytes } = discovered;

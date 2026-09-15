@@ -187,7 +187,7 @@ test("missing and invalid graphs still expose complete directories and files wit
 
 test("legacy WORK_NODE.xml is not loaded and appears as an actionable Files warning", async (t) => {
   const root = await repository(t);
-  await write(root, ".gitignore", "legacy/\n");
+  await write(root, ".gitignore", "Library/\n");
   await write(root, "legacy/WORK_NODE.xml", work("legacy", "Overview", "Old graph."));
   await git(root, "add", ".gitignore");
 

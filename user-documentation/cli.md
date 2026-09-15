@@ -47,6 +47,13 @@ deterministic Agent text containing Work Graph and Files. `--json` returns
 the lossless version-12 projection. Project-only output omits `runtime`;
 `--runtime` adds the same Runtime projection used by the Plugin and Board.
 It observes locally available records; it neither installs nor starts Codex.
+
+Work discovery and Files use the same Git-selected paths. Git-ignored files
+and directories (including Unity's `Library/` when ignored) are excluded from
+Work discovery, so ignored generated directories are not traversed. Nested
+`.gitignore` rules, negations, and standard Git excludes are respected. Already
+tracked files remain included, as they do in Git. Ignored `.WORK_NODE.xml` and
+legacy `WORK_NODE.xml` files do not produce Works or migration warnings.
 Other people's histories are not shared through Git.
 
 `--timeout-ms` sets the total inspection deadline (default 5000, maximum
