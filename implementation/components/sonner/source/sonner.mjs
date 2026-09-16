@@ -1,3 +1,4 @@
+import { hasMetadata } from "./sonner-metadata.mjs";
 import { runSonnerExtensions } from "./sonner-extensions.mjs";
 import { normalizeSonnerPath, below, validateSonnerQuery } from "./sonner-options.mjs";
 import path from "node:path";
@@ -348,7 +349,7 @@ function tree(files, legacyWorkNodes = [], rootPath = ".", countMetadata = false
     const filesHere = childFiles.get(directory) ?? [];
     const fileCounts = new Map();
     for (const file of filesHere) {
-      if (!countMetadata && file.type === "file" && (file.keyPoints != null || file.summary != null || file.description != null)) continue;
+      if (!countMetadata && hasMetadata(file)) continue;
       const extension = fileExtension(file.name);
       fileCounts.set(extension, (fileCounts.get(extension) ?? 0) + 1);
     }
@@ -364,7 +365,7 @@ function tree(files, legacyWorkNodes = [], rootPath = ".", countMetadata = false
       ...(childWarnings.get(directory) ?? [])
         .sort((left, right) => compareText(left.path, right.path)),
       ...filesHere
-        .filter((file) => file.type === "file" && (file.keyPoints != null || file.summary != null || file.description != null))
+        .filter((file) => hasMetadata(file))
         .map(({ text: _text, ...file }) => file)
         .sort((left, right) => compareText(left.path, right.path)),
       ...(counts.length === 0 ? [] : [{ type: "file-counts", counts }]),
@@ -430,7 +431,7 @@ export async function buildSonnerProject(project, {
       workGraph: publicWorkGraph(graph),
       files: {
         root: tree(
-          query.metadataOnly ? files.filter((file) => file.type === "file" && (file.keyPoints != null || file.summary != null || file.description != null)) : files,
+          query.metadataOnly ? files.filter((file) => hasMetadata(file)) : files,
           query.metadataOnly ? [] : legacyWorkNodes,
           reader.selection?.path ?? ".",
           query.metadataOnly === true,
