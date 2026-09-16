@@ -134,3 +134,48 @@ test("metadata-only keeps annotated files and ancestors, with stable hide/depth 
   await assert.rejects(exec(process.execPath, [cli, 'sonner', '--metadata-only', '--metadata-only'], { cwd: root }), (error) => error.code === 1);
   await assert.rejects(read({ metadataOnly: 'yes' }), { code: 'SONNER_CONFIG_INVALID' });
 });
+
+for (const platform of process.platform === 'darwin' ? ['darwin', 'win32'] : ['win32']) {
+  test(`${platform}: description survives JSON, text, hiding and metadata-only counts`, async (t) => {
+    const { root, write } = await fixture(t);
+    const description = 'プレイヤーを上に弾き飛ばすジャンプ台。';
+    await write('Combat/ジャンプ台.prefab.meta', 'description: ' + description);
+    await write('tools/extract.mjs', `export const apiVersion = 1;
+      export function extract({path}) {
+        if (path.endsWith('ジャンプ台.prefab.meta')) return {description: ${JSON.stringify('  ' + description + '  ')}};
+        if (path.endsWith('.cs')) return {keyPoints: 'knowledge', summary: 'summary', description: 'code description'};
+        return {description: '  '};
+      }`);
+    const read = (query = {}) => buildSonner(root, { includeRuntime: false,
+      query: { extensions: true, path: 'Combat', ...query }, readerOptions: { platform } });
+    const full = await read();
+    const asset = full.files.root.children.find((node) => node.name === 'ジャンプ台.prefab.meta');
+    assert.equal(JSON.parse(serializeSonner(full)).files.root.children.find((node) => node.path === asset.path).description, description);
+    assert.equal(asset.summary, undefined);
+    assert.equal(asset.keyPoints, null);
+    assert.match(formatSonnerText(full), /ジャンプ台.prefab.meta description="プレイヤーを上に弾き飛ばすジャンプ台。"/);
+    assert.deepEqual(full.files.root.children.find((node) => node.type === 'file-counts').counts, [{extension: 'meta', count: 1}, {extension: 'xml', count: 1}]);
+    const hidden = await read({ noKeyPoints: true, metadataOnly: true });
+    assert.doesNotMatch(serializeSonner(hidden), /"keyPoints"/);
+    assert.match(formatSonnerText(hidden), /summary="summary" description="code description"/);
+    assert.match(formatSonnerText(hidden), /ジャンプ台.prefab.meta description=/);
+    assert.deepEqual(hidden.files.root.children.find((node) => node.type === 'file-counts').counts,
+      [{extension: 'cs', count: 1}, {extension: 'meta', count: 1}]);
+    assert.ok(!hidden.files.root.children.some((node) => node.name === 'Player.cs.meta'));
+  });
+}
+
+test('description retains metadata validation and length limits', async (t) => {
+  const { root, write } = await fixture(t);
+  const read = () => buildSonner(root, { includeRuntime: false, query: { extensions: true, path: 'Combat' } });
+  for (const value of ['123', '[]', '{}', '"x".repeat(8193)']) {
+    await write('tools/extract.mjs', `export const apiVersion=1; export function extract() { return {description: ${value}}; }`);
+    await assert.rejects(read(), {code: 'SONNER_EXTENSION_FAILED'});
+  }
+  await write('tools/extract.mjs', 'export const apiVersion=1; export function extract() { return {description: "x".repeat(8192)}; }');
+  assert.equal((await read()).files.root.children.find((node) => node.type === 'file').description.length, 8192);
+  await write('tools/extract.mjs', 'export const apiVersion=1; export function extract() { return {description: null, arbitrary: "no"}; }');
+  await assert.rejects(read(), {code: 'SONNER_EXTENSION_FAILED'});
+  await write('tools/extract.mjs', 'export const apiVersion=1; export function extract() { return {description: null}; }');
+  assert.doesNotMatch(serializeSonner(await read()), /"description"/);
+});

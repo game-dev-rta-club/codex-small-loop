@@ -44,7 +44,7 @@ export const apiVersion = 1;
 
 export async function extract({ path, text }) {
   return readProjectMetadata(path, text);
-  // Return {}, { keyPoints: "..." }, { summary: "..." }, or both fields.
+  // Return {}, { keyPoints: "..." }, { summary: "..." }, { description: "..." }, or any combination of these fields.
 }
 ```
 
@@ -68,7 +68,7 @@ matching suffix wins, and duplicate suffixes are rejected. Modules are imported
 once per invocation and files are processed in deterministic path order. Relative
 imports work normally. No module executes when no selected file matches it.
 
-Results may contain only `keyPoints` and `summary`, each a string of at most
+Results may contain only `keyPoints`, `summary`, and `description`, each a string of at most
 8192 UTF-16 code units, null, or absent. Empty strings are omitted. Async
 extractors are supported. A throw, invalid result, failed import, excessive
 output, or operation timeout fails the invocation without retrying another
@@ -78,13 +78,14 @@ Use `console.error` for diagnostics; `console.log` is redirected to stderr.
 On failure, up to 4096 characters of captured diagnostics accompany the error.
 Do not write directly to stdout because it carries the result protocol.
 
-In the default view, a file with either metadata field is listed individually and is not also
+In the default view, a file with any of these metadata fields is listed individually and is not also
 included in the extension counts. Other files retain the existing count format:
 
 ```text
 Combat/ [WORK_NODE: combat] 2 meta, 3 cs
   Player.cs summary="Player: Controls movement and hook actions."
   Player.cs.meta keyPoints="Player asset import settings."
+  ジャンプ台.prefab.meta description="プレイヤーを上に弾き飛ばすジャンプ台。"
 ```
 
 The extractor defines its own metadata convention. For example, a Unity project
@@ -103,9 +104,9 @@ small-loop sonner --path Assets/Gameplay
 small-loop sonner --extensions --path Assets/Gameplay --depth 1 --no-key-points --json
 ```
 
-- `--metadata-only` shows only Files entries with non-empty `keyPoints` or
-  `summary`, retaining the directories needed to reach them. Extension counts summarize
-  those same matching files directly inside each directory (a file with both
+- `--metadata-only` shows only Files entries with non-empty `keyPoints`,
+  `summary`, or `description`, retaining the directories needed to reach them. Extension counts summarize
+  those same matching files directly inside each directory (a file with multiple
   fields counts once). These counts include the individually listed files,
   unlike the default view's counts of unannotated files. Legacy warnings and
   directories without matching descendants are omitted;
@@ -116,7 +117,7 @@ small-loop sonner --extensions --path Assets/Gameplay --depth 1 --no-key-points 
   to include metadata supplied by project modules. Applies to text and JSON.
 - `--no-key-points` omits `keyPoints` from both Work and file output, including
   JSON. Individual filenames, counts, and independently extracted `summary`
-  remain. This is an output option, not a request to skip metadata reads.
+  and `description` remain. This is an output option, not a request to skip metadata reads.
 - `--depth N` limits directory expansion in Files. The selected root has depth
   0; files/counts directly within a visible directory remain visible. At the
   boundary, omitted child directories are indicated by `truncated: true` in
@@ -138,7 +139,7 @@ Runtime remains a separate, project-wide observation when `--runtime` is used.
 ## Output schema 13
 
 The default document retains `version`, `workGraph`, `files`, and optional
-`runtime`. Metadata-bearing files may additionally carry `summary`. Hiding key
+`runtime`. Metadata-bearing files may additionally carry `summary` and `description`. Hiding key
 points removes that property rather than replacing it with an empty string.
 A depth-limited result adds `maxDepth` and marks truncated directories.
 A narrowed scope adds `selection` with `path`, `include`, `exclude`, and `partial`.

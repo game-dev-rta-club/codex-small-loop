@@ -20,9 +20,9 @@ const output = [];
 for (const file of files) {
   const value = await extractors.get(file.module)(Object.freeze({ path: file.path, text: file.text }));
   if (!value || typeof value !== "object" || Array.isArray(value)
-      || Object.keys(value).some((key) => !["keyPoints", "summary"].includes(key))) throw new Error("Invalid extension result");
+      || Object.keys(value).some((key) => !["keyPoints", "summary", "description"].includes(key))) throw new Error("Invalid extension result");
   const metadata = {};
-  for (const key of ["keyPoints", "summary"]) {
+  for (const key of ["keyPoints", "summary", "description"]) {
     if (value[key] == null) continue;
     if (typeof value[key] !== "string" || value[key].length > 8192) throw new Error("Invalid extension metadata");
     if (value[key].trim()) metadata[key] = value[key].trim();

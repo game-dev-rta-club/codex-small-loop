@@ -64,8 +64,8 @@ export async function runSonnerExtensions(project, entries, extensions, session)
     const result = new Map();
     output.forEach((value, index) => {
       if (!value || value.path !== files[index].path
-          || Object.keys(value).some((key) => !["path", "keyPoints", "summary"].includes(key))) throw failed();
-      for (const key of ["keyPoints", "summary"]) {
+          || Object.keys(value).some((key) => !["path", "keyPoints", "summary", "description"].includes(key))) throw failed();
+      for (const key of ["keyPoints", "summary", "description"]) {
         if (value[key] !== undefined && (typeof value[key] !== "string" || !value[key].length || value[key].length > 8192)) throw failed();
       }
       const { path: filename, ...metadata } = value;

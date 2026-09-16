@@ -160,7 +160,7 @@ function formatFileNode(node, lines, depth, workNodes) {
   }
   if (type === "file") {
     const metadata = [];
-    for (const key of ["keyPoints", "summary"]) {
+    for (const key of ["keyPoints", "summary", "description"]) {
       if (node[key] == null) continue;
       if (typeof node[key] !== "string" || node[key].length === 0) throw new TypeError(`Invalid file ${key}`);
       metadata.push(`${key}=${quoted(node[key])}`);
