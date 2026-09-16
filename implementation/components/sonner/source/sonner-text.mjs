@@ -1,3 +1,4 @@
+import { metadataEntries } from "./sonner-metadata.mjs";
 // Unicode 16.0 unsafe-display union, generated from:
 // - https://www.unicode.org/Public/16.0.0/ucd/extracted/DerivedGeneralCategory.txt
 //   General_Category Cc, Cf, Zl, and Zp
@@ -160,10 +161,10 @@ function formatFileNode(node, lines, depth, workNodes) {
   }
   if (type === "file") {
     const metadata = [];
-    for (const key of ["keyPoints", "summary"]) {
+    for (const [key] of metadataEntries(node)) {
       if (node[key] == null) continue;
       if (typeof node[key] !== "string" || node[key].length === 0) throw new TypeError(`Invalid file ${key}`);
-      metadata.push(`${key}=${quoted(node[key])}`);
+      metadata.push(`${/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? key : quoted(key)}=${quoted(node[key])}`);
     }
     lines.push(`${indentation}${display(pathName(node.path))}${metadata.length ? ` ${metadata.join(" ")}` : ""}`);
     return;

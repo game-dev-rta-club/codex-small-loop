@@ -1,3 +1,4 @@
+import { validMetadataKey } from "./sonner-metadata.mjs";
 import { spawn } from "node:child_process";
 import { lstat, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -64,8 +65,8 @@ export async function runSonnerExtensions(project, entries, extensions, session)
     const result = new Map();
     output.forEach((value, index) => {
       if (!value || value.path !== files[index].path
-          || Object.keys(value).some((key) => !["path", "keyPoints", "summary"].includes(key))) throw failed();
-      for (const key of ["keyPoints", "summary"]) {
+          || Object.keys(value).some((key) => key !== "path" && !validMetadataKey(key))) throw failed();
+      for (const key of Object.keys(value).filter((key) => key !== "path")) {
         if (value[key] !== undefined && (typeof value[key] !== "string" || !value[key].length || value[key].length > 8192)) throw failed();
       }
       const { path: filename, ...metadata } = value;

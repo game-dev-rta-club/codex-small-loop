@@ -1,3 +1,4 @@
+import { validMetadataKey } from "./sonner-metadata.mjs";
 // Project code runs only in this disposable process after explicit opt-in.
 import { pathToFileURL } from "node:url";
 const chunks = [];
@@ -20,9 +21,9 @@ const output = [];
 for (const file of files) {
   const value = await extractors.get(file.module)(Object.freeze({ path: file.path, text: file.text }));
   if (!value || typeof value !== "object" || Array.isArray(value)
-      || Object.keys(value).some((key) => !["keyPoints", "summary"].includes(key))) throw new Error("Invalid extension result");
-  const metadata = {};
-  for (const key of ["keyPoints", "summary"]) {
+      || Object.keys(value).some((key) => !validMetadataKey(key))) throw new Error("Invalid extension result");
+  const metadata = Object.create(null);
+  for (const key of Object.keys(value)) {
     if (value[key] == null) continue;
     if (typeof value[key] !== "string" || value[key].length > 8192) throw new Error("Invalid extension metadata");
     if (value[key].trim()) metadata[key] = value[key].trim();

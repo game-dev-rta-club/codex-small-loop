@@ -44,6 +44,7 @@
     "implementation/components/runtime/source/session-permissions.mjs",
     "implementation/components/runtime/source/retry-budget.mjs",
     "implementation/components/sonner/source/sonner-options.mjs",
+    "implementation/components/sonner/source/sonner-metadata.mjs",
     "implementation/components/sonner/source/sonner-extensions.mjs",
     "implementation/components/sonner/source/sonner-extension-worker.mjs"
   ],
