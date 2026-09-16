@@ -92,3 +92,45 @@ test("extensions require opt-in and failures are bounded", async (t) => {
   await write('tools/extract.mjs', 'export const apiVersion=1; export function extract() { while (true) {} }');
   await assert.rejects(read(true, 1000));
 });
+
+test("metadata-only keeps annotated files and ancestors, with stable hide/depth composition", async (t) => {
+  const { root, write } = await fixture(t);
+  await write('Empty/plain.txt', 'No annotation');
+  await write('Warnings/WORK_NODE.xml', 'legacy');
+  await write('tools/extract.mjs', `export const apiVersion = 1;
+    export function extract({path}) {
+      return path.endsWith('.cs') ? {keyPoints: 'Code knowledge', summary: 'Code summary'} : {keyPoints: 'Meta knowledge'};
+    }`);
+  const read = (query = {}) => buildSonner(root, { includeRuntime: false, query: { extensions: true, ...query } });
+  const full = await read();
+  const filtered = await read({ metadataOnly: true });
+  assert.deepEqual(filtered.workGraph, full.workGraph);
+  assert.equal(filtered.metadataOnly, true);
+  assert.match(formatSonnerText(filtered), /counts include listed files/);
+  const paths = [];
+  const visit = (node) => {
+    assert.ok(['directory', 'file', 'file-counts'].includes(node.type));
+    if (node.type === 'file-counts') return;
+    if (node.type === 'file') assert.ok(node.keyPoints || node.summary);
+    paths.push(node.path);
+    for (const child of node.children ?? []) visit(child);
+  };
+  visit(filtered.files.root);
+  assert.deepEqual(paths, ['.', 'Combat', 'Combat/Deep', 'Combat/Deep/info.md', 'Combat/Player.cs', 'Combat/Player.cs.meta']);
+  const combatCounts = filtered.files.root.children[0].children.find((child) => child.type === 'file-counts');
+  assert.deepEqual(combatCounts.counts, [{ extension: 'cs', count: 1 }, { extension: 'meta', count: 1 }]);
+  const deepCounts = filtered.files.root.children[0].children[0].children.find((child) => child.type === 'file-counts');
+  assert.deepEqual(deepCounts.counts, [{ extension: 'md', count: 1 }]);
+  const hidden = await read({ metadataOnly: true, noKeyPoints: true, depth: 1 });
+  assert.doesNotMatch(serializeSonner(hidden), /"keyPoints"/);
+  const combat = hidden.files.root.children[0];
+  assert.equal(combat.truncated, true);
+  assert.deepEqual(combat.children.find((child) => child.type === 'file-counts'), combatCounts);
+  assert.deepEqual(combat.children.filter((child) => child.type === 'file').map((child) => child.path), ['Combat/Player.cs', 'Combat/Player.cs.meta']);
+  const empty = await read({ metadataOnly: true, path: 'Empty' });
+  assert.deepEqual(empty.files.root.children, []);
+  const cliValue = JSON.parse((await exec(process.execPath, [cli, 'sonner', '--extensions', '--metadata-only', '--json'], { cwd: root })).stdout);
+  assert.deepEqual(cliValue, filtered);
+  await assert.rejects(exec(process.execPath, [cli, 'sonner', '--metadata-only', '--metadata-only'], { cwd: root }), (error) => error.code === 1);
+  await assert.rejects(read({ metadataOnly: 'yes' }), { code: 'SONNER_CONFIG_INVALID' });
+});

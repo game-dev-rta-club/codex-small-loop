@@ -159,6 +159,6 @@ full structured fields, including Work types and complete file paths.
 ## Project extensions and scoped queries
 
 Use `--extensions` to run project-owned metadata extractors configured in
-`.sonner.json`. Use `--no-key-points`, `--depth N`, and `--path DIR` to control
+`.sonner.json`. Use `--metadata-only`, `--no-key-points`, `--depth N`, and `--path DIR` to control
 the output and content scope. See [Sonner extensions and queries](/user-documentation/sonner-extensions.md)
 for the API, configuration, counting rules, and partial graph semantics.

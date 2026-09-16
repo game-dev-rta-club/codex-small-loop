@@ -78,7 +78,7 @@ Use `console.error` for diagnostics; `console.log` is redirected to stderr.
 On failure, up to 4096 characters of captured diagnostics accompany the error.
 Do not write directly to stdout because it carries the result protocol.
 
-A file with either metadata field is listed individually and is not also
+In the default view, a file with either metadata field is listed individually and is not also
 included in the extension counts. Other files retain the existing count format:
 
 ```text
@@ -97,11 +97,23 @@ project's extractor, which should return no metadata when uncertain.
 
 ```sh
 small-loop sonner --no-key-points
+small-loop sonner --extensions --metadata-only
 small-loop sonner --depth 2
 small-loop sonner --path Assets/Gameplay
 small-loop sonner --extensions --path Assets/Gameplay --depth 1 --no-key-points --json
 ```
 
+- `--metadata-only` shows only Files entries with non-empty `keyPoints` or
+  `summary`, retaining the directories needed to reach them. Extension counts summarize
+  those same matching files directly inside each directory (a file with both
+  fields counts once). These counts include the individually listed files,
+  unlike the default view's counts of unannotated files. Legacy warnings and
+  directories without matching descendants are omitted;
+  the selected root remains. JSON marks this mode with `metadataOnly: true`;
+  text includes a Files filter note. This filters output, not disk reads, and leaves
+  Work Graph and Runtime unchanged. Selection happens before `--no-key-points`
+  hides values and before `--depth` trims the tree. Use `--extensions` as well
+  to include metadata supplied by project modules. Applies to text and JSON.
 - `--no-key-points` omits `keyPoints` from both Work and file output, including
   JSON. Individual filenames, counts, and independently extracted `summary`
   remain. This is an output option, not a request to skip metadata reads.
