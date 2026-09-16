@@ -325,7 +325,7 @@ function legacyWarning(projectPath) {
   };
 }
 
-function tree(files, legacyWorkNodes = [], rootPath = ".") {
+function tree(files, legacyWorkNodes = [], rootPath = ".", countMetadata = false) {
   const warnings = legacyWorkNodes.map(legacyWarning);
   const directories = [...new Set([rootPath, ...directoryIndex([...files, ...warnings]).filter((directory) => below(directory, rootPath))])].sort(compareText);
   const childDirectories = new Map(directories.map((directory) => [directory, []]));
@@ -348,7 +348,7 @@ function tree(files, legacyWorkNodes = [], rootPath = ".") {
     const filesHere = childFiles.get(directory) ?? [];
     const fileCounts = new Map();
     for (const file of filesHere) {
-      if (file.type === "file" && (file.keyPoints != null || file.summary != null)) continue;
+      if (!countMetadata && file.type === "file" && (file.keyPoints != null || file.summary != null)) continue;
       const extension = fileExtension(file.name);
       fileCounts.set(extension, (fileCounts.get(extension) ?? 0) + 1);
     }
@@ -429,11 +429,17 @@ export async function buildSonnerProject(project, {
       version: SONNER_SCHEMA_VERSION,
       workGraph: publicWorkGraph(graph),
       files: {
-        root: tree(files, legacyWorkNodes, reader.selection?.path ?? "."),
+        root: tree(
+          query.metadataOnly ? files.filter((file) => file.type === "file" && (file.keyPoints != null || file.summary != null)) : files,
+          query.metadataOnly ? [] : legacyWorkNodes,
+          reader.selection?.path ?? ".",
+          query.metadataOnly === true,
+        ),
       },
       runtime,
     };
     if (!includeRuntime) delete projection.runtime;
+    if (query.metadataOnly) projection.metadataOnly = true;
     if (reader.selection?.partial) projection.selection = reader.selection;
     if (query.noKeyPoints) {
       for (const work of projection.workGraph.works ?? []) delete work.keyPoints;
@@ -485,6 +491,7 @@ function parseArguments(argv, defaults) {
     } else if (option === "--json") json = true;
     else if (option === "--runtime") includeRuntime = true;
     else if (option === "--extensions") query.extensions = true;
+    else if (option === "--metadata-only") query.metadataOnly = true;
     else if (option === "--no-key-points") query.noKeyPoints = true;
     else if (option === "--path") {
       if (!argv[index + 1] || argv[index + 1].startsWith("--")) return null;
@@ -519,7 +526,7 @@ function renderError(value, json) {
     : `Sonner error code=${JSON.stringify(value.error.code)} message=${JSON.stringify(value.error.message)}${value.error.details ? ` details=${JSON.stringify(value.error.details)}` : ""}\n`;
 }
 
-export const SONNER_CLI_USAGE = "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--extensions] [--no-key-points] [--depth <0..128>] [--path <directory>] [--timeout-ms <1..300000>]";
+export const SONNER_CLI_USAGE = "Usage: small-loop sonner [--project-root <path>] [--json] [--runtime] [--extensions] [--no-key-points] [--metadata-only] [--depth <0..128>] [--path <directory>] [--timeout-ms <1..300000>]";
 
 export async function runSonnerCli(argv = process.argv.slice(2), defaults = {}) {
   if (argv.length === 1 && ["--help", "-h"].includes(argv[0])) {

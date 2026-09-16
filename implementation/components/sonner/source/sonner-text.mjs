@@ -237,6 +237,7 @@ function formatRuntime(runtime, lines) {
 export function formatSonnerText(value) {
   const lines = [`Sonner v${value.version}`];
   if (value.selection) lines.push(`Scope: ${quoted(value.selection.path)} (partial project; external Work links are not validated)`);
+  if (value.metadataOnly) lines.push("Files filter: metadata only (counts include listed files)");
   if (value.maxDepth !== undefined) lines.push(`Files depth: ${value.maxDepth} (root = 0)`);
   formatWorkGraph(value.workGraph, lines);
   formatFiles(value.files, value.workGraph, lines);

@@ -73,8 +73,8 @@ export function sonnerSelection(config, options = {}) {
 
 export function validateSonnerQuery(query) {
   if (!query || typeof query !== "object" || Array.isArray(query)
-      || Object.keys(query).some((key) => !["path", "depth", "noKeyPoints", "extensions"].includes(key))) invalid("Invalid Sonner query.");
-  for (const key of ["noKeyPoints", "extensions"]) {
+      || Object.keys(query).some((key) => !["path", "depth", "noKeyPoints", "extensions", "metadataOnly"].includes(key))) invalid("Invalid Sonner query.");
+  for (const key of ["noKeyPoints", "extensions", "metadataOnly"]) {
     if (query[key] !== undefined && typeof query[key] !== "boolean") invalid(`Invalid ${key} option.`);
   }
   if (query.depth !== undefined && (!Number.isInteger(query.depth) || query.depth < 0 || query.depth > 128)) invalid("Invalid Sonner depth.");
