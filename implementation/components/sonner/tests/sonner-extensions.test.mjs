@@ -214,3 +214,32 @@ test('arbitrary field names cannot overwrite structure or bypass value limits', 
     await assert.rejects(read(), {code: 'SONNER_EXTENSION_FAILED'});
   }
 });
+
+for (const platform of process.platform === 'darwin' ? ['darwin', 'win32'] : ['win32']) {
+  test(`${platform}: project exclusions remove tracked Japanese paths from Files, Work and extractors`, async (t) => {
+    const { root, write } = await fixture(t);
+    const forbidden = 'Docs/参照禁止';
+    await write(`${forbidden}/secret.cs`, 'PRIVATE_CONTENT');
+    await write(`${forbidden}/nested/.WORK_NODE.xml`, 'malformed forbidden marker');
+    await write(`${forbidden}/WORK_NODE.xml`, 'legacy forbidden marker');
+    await write('Docs/参照禁止ではない/visible.cs', 'visible');
+    await write('Docs/single.cs', 'PRIVATE_CONTENT');
+    await write('.sonner.json', JSON.stringify({...settings, exclude: [forbidden, 'Docs/single.cs', 'Other']}));
+    await write('tools/extract.mjs', `export const apiVersion=1; export function extract({path, text}) {
+      if (path === 'Docs/single.cs' || path.startsWith('Docs/参照禁止/') || text.includes('PRIVATE_CONTENT')) throw Error('Excluded file reached extractor');
+      return {description: 'visible file'};
+    }`);
+    await exec('git', ['-C', root, 'add', '--', forbidden, 'Docs/single.cs']);
+    const read = (query = {}) => buildSonner(root, {includeRuntime: false, query: {extensions: true, ...query}, readerOptions: {platform}});
+    const value = await read();
+    assert.equal(value.workGraph.status, 'partial');
+    assert.deepEqual(value.workGraph.works.map((work) => work.id), ['combat', 'root']);
+    assert.doesNotMatch(JSON.stringify(value.files), /PRIVATE_CONTENT|secret\.cs|single\.cs|Docs\/参照禁止\//);
+    assert.match(formatSonnerText(value), /参照禁止ではない/);
+    for (const query of [{path: forbidden}, {path: `${forbidden}/nested`}, {path: forbidden, metadataOnly: true}]) {
+      const empty = await read(query);
+      assert.deepEqual(empty.files.root.children, []);
+      assert.deepEqual(empty.workGraph.works, []);
+    }
+  });
+}
