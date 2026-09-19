@@ -32,6 +32,35 @@ Git's admitted paths and cannot reintroduce Git-ignored content. A narrowed
 scope produces a partial Work Graph rather than claiming full graph validation.
 The configuration file itself is read even when outside the requested scope.
 
+## Excluding project files and directories
+
+Add project-relative paths to `exclude` in the root `.sonner.json` and commit
+that configuration so the team shares the same exclusions. For example:
+
+```json
+{
+  "version": 1,
+  "exclude": ["Docs/参照禁止", "Docs/private-notes.md"]
+}
+```
+
+Keep any existing `extensions` and `include` settings in the same object.
+A directory entry excludes all descendants; a file entry excludes just that
+file. Japanese names are supported. Paths are literal prefixes, not glob
+patterns: `Docs/参照禁止ではない` is not excluded by `Docs/参照禁止`.
+
+Exclusion applies before file-content reads, Work marker parsing, and extension
+input collection. Excluded files do not contribute to Files entries or counts,
+even when tracked by Git. `--path` and `--metadata-only` cannot override an
+exclusion. Selecting an excluded directory returns an empty scoped result.
+The selected root and exclusion settings may still appear as scope metadata;
+Git may enumerate filenames to determine the admitted set. The root configuration
+must remain readable so Sonner can apply it.
+
+This controls Sonner's project reader, not other tools or project code that
+performs its own IO. Record any broader agent reference prohibition in the
+project's `AGENTS.md` as well.
+
 ## Project-owned extraction
 
 Small Loop does not implement Unity `.meta` parsing or C# documentation parsing.
