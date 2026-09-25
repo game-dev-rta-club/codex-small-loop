@@ -21,15 +21,19 @@ Let's choose the Agent model.
 
 | Model | AA Score | AA Cost | AA Time | Recommended Plan | Best For |
 |---|---:|---:|---:|---|---|
-| Luna Max | 38 | US$0.18 | 338 sec | Plus | Keeping costs low |
-| **Terra High** | 34 | US$0.34 | 117 sec | Plus | Finishing quickly |
-| Astra Low | 46 | US$0.82 | 84 sec | Pro 5x | Balancing cost, speed, and accuracy |
-| Astra Medium | 50 | US$1.54 | 174 sec | Pro 20x | Prioritizing accuracy |
+| Luna Max | 37 | US$0.07 | 353 sec | Plus | Keeping costs low |
+| **Sol Medium** | 40 | US$0.25 | 60 sec | Plus | Finishing quickly |
+| Astra Low | 46 | US$0.82 | 97 sec | Pro 5x | Balancing cost, speed, and accuracy |
+| Astra Medium | 50 | US$1.54 | 199 sec | Pro 20x | Prioritizing accuracy |
 
-AA Intelligence Index v4.3, September 8, 2026. Cost is USD per evaluation task;
-Time is estimated generation time per task, excluding initial latency and tool
-execution. Luna and Terra scores include estimates. Recommended plans are usage
-guidance, not access requirements.
+AA Intelligence Index v4.3.2, September 25, 2026. Cost is the weighted average
+USD cost per evaluation task, calculated from benchmark token usage and prices.
+Time is calculated from benchmark output tokens and measured generation speed,
+excluding initial latency and tool execution, and rounded to whole seconds.
+Recommended plans are usage guidance, not access requirements.
+Sources: [Luna](https://artificialanalysis.ai/models/comparisons/gpt-6-luna-high-vs-gpt-6-luna),
+[Sol](https://artificialanalysis.ai/models/comparisons/gpt-6-sol-high-vs-gpt-6-sol-medium),
+[Astra](https://artificialanalysis.ai/models/comparisons/gpt-6-astra-low-vs-gpt-6-astra-medium).
 
 *You can also use separate models for thinking and implementation.*
 
@@ -38,4 +42,4 @@ guidance, not access requirements.
 | **1x** | 1x | 1x |
 | **1.5x** | 1.5x faster | 2.5x |
 
-**May I start with the standard Terra High model? Unless you explicitly select 1.5x, execution remains at 1x.**
+**May I start with the standard Sol Medium model? Unless you explicitly select 1.5x, execution remains at 1x.**

@@ -47,7 +47,7 @@ speed or defaulting it to 1x. With neither setting present, it proposes Terra
 High and explains the 1x default in the guide's Next Action section, for
 example:
 
-> Start with Terra High? Unless you explicitly select 1.5x, execution remains at 1x.
+> Start with Sol Medium? Unless you explicitly select 1.5x, execution remains at 1x.
 
 An explicit answer that supplies or changes a setting is agreement to that
 value and is not reconfirmed. On that next user-authored turn, the entry Skill
