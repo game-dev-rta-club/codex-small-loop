@@ -1,12 +1,12 @@
 {
-  "recordedAt": "2026-09-08T00:00:00+09:00",
+  "recordedAt": "2026-09-25T00:00:00+09:00",
   "benchmark": {
     "name": "Artificial Analysis Intelligence Index",
-    "version": "v4.3",
-    "sourceUrl": "https://artificialanalysis.ai/models/gpt-5-6-terra-high"
+    "version": "v4.3.2",
+    "sourceUrl": "https://artificialanalysis.ai/models/comparisons/gpt-6-sol-high-vs-gpt-6-sol-medium"
   },
   "defaultProfile": {
-    "modelId": "terra-high",
+    "modelId": "sol-medium",
     "speedId": "normal",
     "summary": "the standard profile"
   },
@@ -15,23 +15,25 @@
       "id": "luna-max",
       "label": "Luna Max",
       "recommendedPlan": "Plus",
-      "model": "gpt-5.6-luna",
+      "model": "gpt-6-luna",
       "reasoningEffort": "max",
       "summary": "Keeping costs low",
-      "aaScore": 38,
-      "aaCostUsd": 0.18,
-      "aaTimeSeconds": 338
+      "aaScore": 37,
+      "aaCostUsd": 0.07,
+      "aaTimeSeconds": 353,
+      "sourceUrl": "https://artificialanalysis.ai/models/comparisons/gpt-6-luna-high-vs-gpt-6-luna"
     },
     {
-      "id": "terra-high",
-      "label": "Terra High",
+      "id": "sol-medium",
+      "label": "Sol Medium",
       "recommendedPlan": "Plus",
-      "model": "gpt-5.6-terra",
-      "reasoningEffort": "high",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "medium",
       "summary": "Finishing quickly",
-      "aaScore": 34,
-      "aaCostUsd": 0.34,
-      "aaTimeSeconds": 117
+      "aaScore": 40,
+      "aaCostUsd": 0.25,
+      "aaTimeSeconds": 60,
+      "sourceUrl": "https://artificialanalysis.ai/models/comparisons/gpt-6-sol-high-vs-gpt-6-sol-medium"
     },
     {
       "id": "astra-low",
@@ -42,7 +44,8 @@
       "summary": "Balancing cost, speed, and accuracy",
       "aaScore": 46,
       "aaCostUsd": 0.82,
-      "aaTimeSeconds": 84
+      "aaTimeSeconds": 97,
+      "sourceUrl": "https://artificialanalysis.ai/models/comparisons/gpt-6-astra-low-vs-gpt-6-astra-medium"
     },
     {
       "id": "astra-medium",
@@ -53,7 +56,8 @@
       "summary": "Prioritizing accuracy",
       "aaScore": 50,
       "aaCostUsd": 1.54,
-      "aaTimeSeconds": 174
+      "aaTimeSeconds": 199,
+      "sourceUrl": "https://artificialanalysis.ai/models/comparisons/gpt-6-astra-low-vs-gpt-6-astra-medium"
     }
   ],
   "speeds": [
