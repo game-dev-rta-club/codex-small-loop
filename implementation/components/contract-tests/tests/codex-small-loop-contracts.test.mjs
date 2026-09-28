@@ -1348,7 +1348,7 @@ test("managed tasks inherit one explicit three-field execution profile", async (
   assert.match(launch, /default.*normal Codex tier.*null/is);
 
   assert.match(launch, /Role.*Assignment.*message.*Recovery/is);
-  assert.match(ledger, /schema version 10/i);
+  assert.match(ledger, /schema version 11/i);
   assert.match(ledger, /serviceTier/i);
   assert.match(ledger, /no migration path from earlier prototype ledgers/i);
 });
@@ -2029,7 +2029,7 @@ test("runtime capability references match the current implementation boundaries"
     "specification/technical-specification/runtime/review-snapshots-and-signals.md",
   );
 
-  assert.match(ledger, /schema version 10/i);
+  assert.match(ledger, /schema version 11/i);
   assert.match(ledger, /no migration path from earlier prototype ledgers/i);
   assert.match(ledger, /LEDGER_VERSION_UNSUPPORTED/i);
   assert.match(ledger, /pending launches/i);
@@ -2937,28 +2937,13 @@ test("reference docs record the detailed runtime contracts", async () => {
   assert.match(messageRouting, /awaiting_reply.*replied.*accepted/is);
   assert.match(messageRouting, /MESSAGE_TARGET_BUSY/);
   assert.match(messageRouting, /active obligation graph.*forest/is);
-  assert.match(messageRouting, /at-least-once/i);
-  assert.match(
-    messageRouting,
-    /acknowledge delivery after.*schedule disappears/is,
-  );
-  assert.match(messageRouting, /RRULE:FREQ=MINUTELY;INTERVAL=1/i);
-  assert.match(messageRouting, /past\s+timestamp/i);
-  assert.match(messageRouting, /codex-small-loop-message-/i);
-  assert.match(messageRouting, /first 32 hexadecimal.*SHA-256/is);
-  assert.match(
-    messageRouting,
-    /\$CODEX_HOME\/automations\/<schedule-id>\/automation\.toml/,
-  );
-  assert.match(messageRouting, /mode `0700`.*mode `0600`/is);
-  assert.match(messageRouting, /temporary heartbeat schedule/i);
-  assert.match(messageRouting, /receiver reads and requests deletion.*schedule read\/delete/is);
+  assert.match(messageRouting, /thread\/queue\/add/);
+  assert.match(messageRouting, /clientUserMessageId/);
+  assert.match(messageRouting, /userMessage\.clientId/);
+  assert.match(messageRouting, /APP_MESSAGE_DELIVERY_UNCONFIRMED/);
+  assert.match(messageRouting, /never blind resubmission/);
   assert.match(messageRouting, /=== Next Actions ===/);
   assert.match(messageRouting, /=== System Instructions ===/);
-  assert.match(messageRouting, /SCHEDULE_READ_FAILED/);
-  assert.match(messageRouting, /SCHEDULE_CONFLICT/);
-  assert.match(messageRouting, /SCHEDULE_WRITE_FAILED/);
-  assert.match(messageRouting, /SCHEDULE_ETAG_MISMATCH/);
   assert.match(messageRouting, /Initiator → Responder/i);
   assert.match(messageRouting, /Initiator ←\s*Responder/i);
   assert.match(messageRouting, /Interviewer → Review/i);

@@ -107,7 +107,7 @@ function lifecycleState(links) {
 
 function ledger(links, deliveries = []) {
   return validateTaskLedger({
-    version: 10,
+    version: 11,
     revision: 0,
     projectRoot: "/project",
     projectKey: "project-key",

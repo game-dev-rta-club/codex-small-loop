@@ -20,7 +20,7 @@ import {
   planPendingLaunchReconciliation,
   reconcileArchiveTerminations,
   reconcilePendingLaunches,
-  reconcileAppMessageSchedules,
+  deliverAppMessages,
   runDeferredForks,
   runHeartbeatRecovery,
   runHeartbeat,
@@ -29,11 +29,9 @@ import {
 import { AtomicJsonStore } from "../source/atomic-json-store.mjs";
 import { buildTaskForest } from "../source/task-forest.mjs";
 import {
-  acknowledgeScheduledAppMessage,
   enqueueAppMessage,
   initializeTaskLedger,
   leaseAppMessages,
-  markAppMessageScheduled,
   readTaskLedger,
   transactTaskLedger,
   validateTaskLedger,
@@ -543,7 +541,7 @@ function ledgerState(
   conversations = null,
 ) {
   return validateTaskLedger({
-    version: 10,
+    version: 11,
     revision: 0,
     projectRoot: "/project",
     projectKey: "project-key",
@@ -614,189 +612,6 @@ test("leases a bounded App batch for local mechanical delivery", async () => {
     "text",
   ]);
   assert.equal(result.state.appMessages[0].status, "leased");
-});
-
-test("materializes and reconciles an App message schedule", async () => {
-  let current = enqueueAppMessage(ledgerState([]), {
-    id: "message-1",
-    sourceTaskId: "child",
-    targetTaskId: "app-parent",
-    text: "done",
-  }, { now: "2026-07-25T01:00:00.000Z" }).state;
-  const transaction = async (
-    _store,
-    _project,
-    transform,
-  ) => {
-    const transformed = transform(current);
-    current = transformed.state;
-    return { state: current, result: transformed.result };
-  };
-  const created = [];
-  let schedulePresent = false;
-  const options = {
-    now: "2026-07-25T01:01:00.000Z",
-    leaseOwner: "supervisor",
-    automationRoot: "/codex/automations",
-    transactTaskLedger: transaction,
-    async applySchedule(input) {
-      created.push(input);
-      schedulePresent = true;
-      return {
-        automationId: "codex-small-loop-message-id",
-        file: "/codex/automations/message/automation.toml",
-        created: true,
-      };
-    },
-    async readSchedule({ scheduleId, targetTaskId, automationRoot }) {
-      assert.match(scheduleId, /^codex-small-loop-message-[a-f0-9]{32}$/);
-      assert.equal(targetTaskId, "app-parent");
-      assert.equal(automationRoot, "/codex/automations");
-      return {
-        automationId: "codex-small-loop-message-id",
-        file: "/codex/automations/message/automation.toml",
-        present: schedulePresent,
-      };
-    },
-  };
-
-  const scheduled = await reconcileAppMessageSchedules({
-    store: {},
-    project: { root: "/project" },
-  }, options);
-
-  assert.deepEqual(scheduled.deliveredMessageIds, []);
-  assert.deepEqual(scheduled.pendingMessageIds, ["message-1"]);
-  assert.equal(scheduled.state.appMessages[0].status, "scheduled");
-  assert.deepEqual(created, [{
-    scheduleId: "codex-small-loop-message-9deb880b43bdf6f465a0afb130aed71b",
-    targetTaskId: "app-parent",
-    prompt: "done",
-    intervalMinutes: 1,
-    ifMatch: "absent",
-    nowMs: Date.parse(options.now) - 60_000,
-    automationRoot: "/codex/automations",
-  }]);
-
-  const waiting = await reconcileAppMessageSchedules({
-    store: {},
-    project: { root: "/project" },
-  }, options);
-  assert.deepEqual(waiting.deliveredMessageIds, []);
-  assert.deepEqual(waiting.pendingMessageIds, ["message-1"]);
-  assert.equal(created.length, 1);
-
-  schedulePresent = false;
-  const delivered = await reconcileAppMessageSchedules({
-    store: {},
-    project: { root: "/project" },
-  }, options);
-  assert.deepEqual(delivered.deliveredMessageIds, ["message-1"]);
-  assert.deepEqual(delivered.pendingMessageIds, []);
-  assert.equal(delivered.state.appMessages[0].status, "delivered");
-});
-
-test("releases an App message when schedule creation fails", async () => {
-  let current = enqueueAppMessage(ledgerState([]), {
-    id: "message-1",
-    targetTaskId: "app-parent",
-    text: "retry me",
-  }, { now: "2026-07-25T01:00:00.000Z" }).state;
-  const transaction = async (
-    _store,
-    _project,
-    transform,
-  ) => {
-    const transformed = transform(current);
-    current = transformed.state;
-    return { state: current, result: transformed.result };
-  };
-
-  const result = await reconcileAppMessageSchedules({
-    store: {},
-    project: { root: "/project" },
-  }, {
-    now: "2026-07-25T01:01:00.000Z",
-    leaseOwner: "supervisor",
-    automationRoot: "/codex/automations",
-    transactTaskLedger: transaction,
-    async applySchedule() {
-      throw new Error("schedule unavailable");
-    },
-    async readSchedule() {
-      throw new Error("no scheduled messages expected");
-    },
-  });
-
-  assert.deepEqual(result.deliveredMessageIds, []);
-  assert.deepEqual(result.failedMessageIds, ["message-1"]);
-  assert.deepEqual(result.pendingMessageIds, ["message-1"]);
-  assert.equal(result.state.appMessages[0].status, "ready");
-  assert.equal(
-    result.state.appMessages[0].lastError.message,
-    "schedule unavailable",
-  );
-});
-
-test("accepts a concurrent schedule acknowledgement as an idempotent result", async () => {
-  let current = enqueueAppMessage(ledgerState([]), {
-    id: "message-1",
-    targetTaskId: "app-parent",
-    text: "already received",
-  }, { now: "2026-07-25T01:00:00.000Z" }).state;
-  current = leaseAppMessages(current, {
-    now: "2026-07-25T01:01:00.000Z",
-    leaseExpiresAt: "2026-07-25T01:06:00.000Z",
-    leaseOwner: "earlier-worker",
-  }).state;
-  current = markAppMessageScheduled(
-    current,
-    "message-1",
-    "earlier-worker",
-    "2026-07-25T01:01:01.000Z",
-  );
-  let transactionCount = 0;
-  const transaction = async (
-    _store,
-    _project,
-    transform,
-  ) => {
-    transactionCount += 1;
-    if (transactionCount === 2) {
-      current = acknowledgeScheduledAppMessage(
-        current,
-        "message-1",
-        "2026-07-25T01:01:30.000Z",
-      );
-    }
-    const transformed = transform(current);
-    current = transformed.state;
-    return { state: current, result: transformed.result };
-  };
-
-  const result = await reconcileAppMessageSchedules({
-    store: {},
-    project: { root: "/project" },
-  }, {
-    now: "2026-07-25T01:02:00.000Z",
-    leaseOwner: "supervisor",
-    automationRoot: "/codex/automations",
-    transactTaskLedger: transaction,
-    async readSchedule() {
-      return {
-        automationId: "codex-small-loop-message-id",
-        file: "/codex/automations/message/automation.toml",
-        present: false,
-      };
-    },
-    async applySchedule() {
-      throw new Error("no ready messages expected");
-    },
-  });
-
-  assert.deepEqual(result.deliveredMessageIds, ["message-1"]);
-  assert.deepEqual(result.pendingMessageIds, []);
-  assert.equal(result.state.appMessages[0].status, "delivered");
 });
 
 function interruptDelivery(taskId, parentTaskId = "root") {
@@ -1528,7 +1343,7 @@ test("builds the minimal unchanged idle heartbeat report", () => {
   });
 });
 
-test("reports App message schedule failures as degraded heartbeat events", () => {
+test("reports Desktop queue failures as degraded heartbeat events", () => {
   const report = buildHeartbeatReport({
     state: ledgerState([]),
     ...emptyHeartbeatPhases(),
@@ -2150,4 +1965,77 @@ test("heartbeat executable emits one bounded JSON error", async () => {
   assert.equal(stderr, "");
   assert.equal(stdout.trim().split("\n").length, 1);
   assert.equal(JSON.parse(stdout).code, "HEARTBEAT_CLI_USAGE");
+});
+
+function appDeliveryFixture() {
+  let state = enqueueAppMessage(ledgerState([]), {
+    id: "message-1", targetTaskId: "app-parent", text: "done",
+  }, { now: "2026-07-25T01:00:00.000Z" }).state;
+  let observed = "absent";
+  let sends = 0;
+  const options = {
+    now: "2026-07-25T01:01:00.000Z", leaseOwner: "supervisor",
+    transactTaskLedger: async (_store, _project, transform) => {
+      const result = transform(state); state = result.state; return result;
+    },
+    appServer: {
+      inspectTaskMessage: async () => ({ status: observed }),
+      queueTaskMessage: async ({ taskId, messageId }) => {
+        assert.equal(state.appMessages[0].status, "sending");
+        sends++; observed = "queued";
+        return { taskId, messageId, queueId: "queue-1" };
+      },
+    },
+  };
+  return { options, state: () => state, sends: () => sends,
+    observe: (value) => { observed = value; },
+    run: () => deliverAppMessages({ store: {}, project: { root: "/project" } }, options),
+  };
+}
+
+test("queues once and waits for actual receipt, not queue disappearance", async () => {
+  const f = appDeliveryFixture();
+  await f.run();
+  assert.equal(f.state().appMessages[0].status, "queued");
+  await f.run();
+  assert.equal(f.sends(), 1);
+  f.observe("absent");
+  await f.run();
+  assert.equal(f.state().appMessages[0].status, "queued");
+  assert.equal(f.state().appMessages[0].lastError.code, "APP_MESSAGE_DELIVERY_UNCONFIRMED");
+  f.observe("delivered");
+  const result = await f.run();
+  assert.deepEqual(result.deliveredMessageIds, ["message-1"]);
+  assert.equal(f.sends(), 1);
+});
+
+test("reconciles a lost enqueue response after restart without sending again", async () => {
+  const f = appDeliveryFixture();
+  f.options.appServer.queueTaskMessage = async () => {
+    f.observe("queued"); throw new Error("connection lost");
+  };
+  await f.run();
+  assert.equal(f.state().appMessages[0].status, "sending");
+  f.options.appServer.queueTaskMessage = () => { throw new Error("must not retry"); };
+  await f.run();
+  assert.equal(f.state().appMessages[0].status, "queued");
+  f.observe("delivered");
+  await f.run();
+  assert.equal(f.state().appMessages[0].status, "delivered");
+});
+
+test("holds ambiguous dispatch and retries only preflight failures", async () => {
+  const f = appDeliveryFixture();
+  f.options.appServer.inspectTaskMessage = async () => { throw new Error("offline"); };
+  await f.run();
+  assert.equal(f.state().appMessages[0].status, "ready");
+  assert.equal(f.sends(), 0);
+  f.options.appServer.inspectTaskMessage = async () => ({ status: "absent" });
+  f.options.appServer.queueTaskMessage = async () => { throw new Error("lost response"); };
+  await f.run();
+  assert.equal(f.state().appMessages[0].status, "sending");
+  const count = f.state().appMessages[0].attemptCount;
+  await f.run();
+  assert.equal(f.state().appMessages[0].attemptCount, count);
+  assert.equal(f.state().appMessages[0].lastError.code, "APP_MESSAGE_DELIVERY_UNCONFIRMED");
 });

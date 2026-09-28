@@ -47,7 +47,7 @@ function link(parentTaskId, childTaskId) {
 
 function ledger(overrides = {}) {
   return {
-    version: 10,
+    version: 11,
     revision: 0,
     projectRoot: PROJECT_ROOT,
     projectKey: `key:${PROJECT_ROOT}`,
@@ -415,10 +415,7 @@ test("replies to an App Controller without reading its locked session", async ()
   assert.equal(current.sent.length, 0);
   assert.equal(current.state().conversations[0].state, "replied");
   assert.equal(current.state().appMessages[0].targetTaskId, "controller-task");
-  assert.match(
-    current.state().appMessages[0].text,
-    /schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task --if-match <returned-etag>/,
-  );
+  assert.doesNotMatch(current.state().appMessages[0].text, /schedule|delete_schedule/);
   assert.doesNotMatch(
     current.state().appMessages[0].text,
     /schedule (?:read|delete)[^\n]*--task primary-task/,
@@ -536,17 +533,14 @@ test("queues repeated notifications to an unmanaged App-owned Task", async () =>
     current.state().appMessages[0].text,
     /Codex Small Loop · Notification/,
   );
-  assert.match(
-    current.state().appMessages[0].text,
-    /=== Next Actions ===[\s\S]*schedule read --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task[\s\S]*schedule delete --schedule codex-small-loop-message-[a-f0-9]{32} --task controller-task --if-match <returned-etag>/,
-  );
+  assert.doesNotMatch(current.state().appMessages[0].text, /schedule|delete_schedule/);
   assert.doesNotMatch(
     current.state().appMessages[0].text,
     /Conversation ID|conversation reply|conversation accept/,
   );
   assert.notEqual(
-    current.state().appMessages[0].text,
-    current.state().appMessages[1].text,
+    current.state().appMessages[0].id,
+    current.state().appMessages[1].id,
   );
   assert.equal(current.sent.length, 0);
   assert.equal(current.supervisorStarts(), 2);

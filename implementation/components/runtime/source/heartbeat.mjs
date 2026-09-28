@@ -7,10 +7,7 @@ import path from "node:path";
 import { processScheduleDeletions } from "./schedule-delete-queue.mjs";
 
 import {
-  appMessageScheduleId,
-  applySchedule,
   defaultAutomationRoot,
-  readSchedule,
 } from "./schedule.mjs";
 import { AtomicJsonStore } from "./atomic-json-store.mjs";
 import {
@@ -39,7 +36,6 @@ import {
   deliverMechanicalActions,
 } from "./task-messaging.mjs";
 import {
-  acknowledgeScheduledAppMessage,
   acknowledgeDelivery,
   compactTaskLedger,
   discardDelivery,
@@ -47,7 +43,8 @@ import {
   hasPendingWork,
   leaseAppMessages,
   leaseDeliveries,
-  markAppMessageScheduled,
+  markAppMessageSending,
+  settleAppMessage,
   readTaskLedger,
   releaseDelivery,
   releaseAppMessage,
@@ -90,130 +87,72 @@ export async function leaseHeartbeatAppMessages(ledger, options) {
   };
 }
 
-export async function reconcileAppMessageSchedules(ledger, options) {
+export async function deliverAppMessages(ledger, options) {
   const leased = await leaseHeartbeatAppMessages(ledger, options);
-  const automationRoot = options.automationRoot;
-  const inspectSchedule = options.readSchedule ?? readSchedule;
-  const createSchedule = options.applySchedule ?? applySchedule;
-  const scheduledMessages = leased.state.appMessages.filter(
-    ({ status }) => status === "scheduled",
-  );
-  const scheduledOutcomes = await Promise.all(
-    scheduledMessages.map(async (message) => {
-      try {
-        const inspection = await inspectSchedule({
-          scheduleId: appMessageScheduleId(message.id),
-          targetTaskId: message.targetTaskId,
-          automationRoot,
-        });
-        return {
-          id: message.id,
-          status: inspection.present ? "waiting" : "delivered",
-        };
-      } catch (error) {
-        return { id: message.id, status: "waiting", error };
-      }
-    }),
-  );
-  const leasedOutcomes = await Promise.all(leased.messages.map(
-    async (message) => {
-    try {
-      await createSchedule({
-        scheduleId: appMessageScheduleId(message.id),
-        targetTaskId: message.targetTaskId,
-        prompt: message.text,
-        intervalMinutes: 1,
-        ifMatch: "absent",
-        nowMs: Math.max(0, Date.parse(options.now) - 60_000),
-        automationRoot,
-      });
-      return { id: message.id, status: "scheduled" };
-    } catch (error) {
-      return { id: message.id, status: "ready", error };
-    }
-  }));
-  const outcomes = [...scheduledOutcomes, ...leasedOutcomes];
-
-  if (outcomes.length === 0) {
-    return {
-      state: leased.state,
-      deliveredMessageIds: [],
-      failedMessageIds: [],
-      pendingMessageIds: [],
-    };
+  const transact = options.transactTaskLedger ?? transactTaskLedger;
+  const appServer = options.appServer;
+  let state = leased.state;
+  const deliveredMessageIds = [];
+  const failedMessageIds = [];
+  async function update(mutator) {
+    const committed = await transact(ledger.store, ledger.project,
+      (current) => ({ state: mutator(current), result: null }), { now: options.now });
+    state = committed.state;
   }
-
-  const transaction = await (
-    options.transactTaskLedger ?? transactTaskLedger
-  )(
-    ledger.store,
-    ledger.project,
-    (state) => {
-      let nextState = state;
-      for (const outcome of outcomes) {
-        const current = nextState.appMessages.find(
-          ({ id }) => id === outcome.id,
-        );
-        if (!current) {
-          continue;
-        }
-        if (
-          outcome.status === "delivered"
-          && current.status === "scheduled"
-        ) {
-          nextState = acknowledgeScheduledAppMessage(
-              nextState,
-              outcome.id,
-              options.now,
-            );
-        } else if (
-          outcome.status === "scheduled"
-          && current.status === "leased"
-          && current.leaseOwner === options.leaseOwner
-        ) {
-          nextState = markAppMessageScheduled(
-            nextState,
-            outcome.id,
-            options.leaseOwner,
-            options.now,
-          );
-        } else if (
-          outcome.status === "ready"
-          && current.status === "leased"
-          && current.leaseOwner === options.leaseOwner
-        ) {
-          nextState = releaseAppMessage(
-              nextState,
-              outcome.id,
-              options.leaseOwner,
-              outcome.error,
-              options.now,
-            );
+  // Reconcile previously dispatched messages first. Never infer delivery from queue absence.
+  for (const message of leased.state.appMessages.filter(
+    ({ status }) => status === "sending" || status === "queued")) {
+    try {
+      const observed = await appServer.inspectTaskMessage({
+        taskId: message.targetTaskId, messageId: message.id,
+      });
+      const status = observed.status;
+      if (!["queued", "delivered", "absent"].includes(status)) throw new Error("Invalid delivery observation");
+      const error = status === "absent" ? {
+        code: "APP_MESSAGE_DELIVERY_UNCONFIRMED",
+        message: "No queue entry or received message found. Not resent; inspect the target chat.",
+      } : null;
+      await update((current) => settleAppMessage(current, message.id,
+        status === "absent" ? message.status : status, options.now, error));
+      if (status === "delivered") deliveredMessageIds.push(message.id);
+      if (error) failedMessageIds.push(message.id);
+    } catch (error) {
+      await update((current) => settleAppMessage(current, message.id, message.status, options.now, error));
+      failedMessageIds.push(message.id);
+    }
+  }
+  for (const message of leased.messages) {
+    let dispatched = false;
+    try {
+      // Read-only preflight: unsupported API / connection failure may be retried safely.
+      const observed = await appServer.inspectTaskMessage({
+        taskId: message.targetTaskId, messageId: message.id,
+      });
+      if (!["queued", "delivered", "absent"].includes(observed.status)) throw new Error("Invalid delivery observation");
+      await update((current) => markAppMessageSending(current, message.id, options.leaseOwner, options.now));
+      dispatched = true;
+      if (observed.status === "absent") {
+        const receipt = await appServer.queueTaskMessage({
+          taskId: message.targetTaskId, messageId: message.id, text: message.text,
+        });
+        if (receipt?.taskId !== message.targetTaskId || receipt?.messageId !== message.id || !receipt?.queueId) {
+          throw new Error("No matching queue receipt");
         }
       }
-      return { state: nextState, result: null };
-    },
-    { now: options.now },
-  );
-
+      const status = observed.status === "delivered" ? "delivered" : "queued";
+      await update((current) => settleAppMessage(current, message.id, status, options.now));
+      if (status === "delivered") deliveredMessageIds.push(message.id);
+    } catch (error) {
+      await update((current) => dispatched
+        ? settleAppMessage(current, message.id, "sending", options.now, error)
+        : releaseAppMessage(current, message.id, options.leaseOwner, error, options.now));
+      failedMessageIds.push(message.id);
+    }
+  }
   return {
-    state: transaction.state,
-    deliveredMessageIds: outcomes
-      .filter(({ status }) => status === "delivered")
-      .map(({ id }) => id)
-      .sort(),
-    failedMessageIds: outcomes
-      .filter(({ error }) => error)
-      .map(({ id }) => id)
-      .sort(),
-    pendingMessageIds: outcomes
-      .filter(({ status }) =>
-        status === "waiting"
-        || status === "scheduled"
-        || status === "ready"
-      )
-      .map(({ id }) => id)
-      .sort(),
+    state, deliveredMessageIds, failedMessageIds,
+    pendingMessageIds: state.appMessages.filter(({ status }) =>
+      ["ready", "leased", "sending", "queued"].includes(status)).map(({ id }) => id),
   };
 }
 
@@ -1473,7 +1412,7 @@ export function buildHeartbeatReport(input) {
         ({ status }) =>
           status === "ready"
           || status === "leased"
-          || status === "scheduled",
+          || status === "sending" || status === "queued",
       ).length,
     },
     events,
@@ -1544,8 +1483,8 @@ function heartbeatDependencies(options) {
       options.runLifecycleDeliveries ?? runLifecycleDeliveries,
     buildHeartbeatReport:
       options.buildHeartbeatReport ?? buildHeartbeatReport,
-    reconcileAppMessageSchedules:
-      options.reconcileAppMessageSchedules ?? reconcileAppMessageSchedules,
+    deliverAppMessages:
+      options.deliverAppMessages ?? deliverAppMessages,
     now: options.now ?? (() => new Date().toISOString()),
     createLeaseOwner: options.createLeaseOwner ?? randomUUID,
   };
@@ -1561,7 +1500,7 @@ function defaultHeartbeatAppServer(project, options) {
   });
 }
 
-function defaultAppMessageAutomationRoot(options) {
+function defaultScheduleAutomationRoot(options) {
   return defaultAutomationRoot(options.env ?? process.env);
 }
 
@@ -1571,7 +1510,7 @@ export async function runHeartbeat(input, options = {}) {
   const project = await dependencies.resolveProject(projectRoot);
   // Drain deletion requests even when later task observation/recovery fails.
   const scheduleDeletions = await (options.processScheduleDeletions ?? processScheduleDeletions)(project, {
-    automationRoot: options.automationRoot ?? defaultAppMessageAutomationRoot(options),
+    automationRoot: options.automationRoot ?? defaultScheduleAutomationRoot(options),
   });
   const store = options.store ?? new AtomicJsonStore(project.stateFile);
   const runtime = await dependencies.assertRuntimeAvailable(project, {
@@ -1598,17 +1537,14 @@ export async function runHeartbeat(input, options = {}) {
   try {
     const appMessageResult = options.processAppMessages !== false
       && hasPendingAppMessages(runtime.ledger)
-      ? await dependencies.reconcileAppMessageSchedules(
+      ? await dependencies.deliverAppMessages(
           ledger,
           {
             now: requireNow(dependencies.now),
             leaseOwner,
             leaseDurationMs: options.leaseDurationMs,
             limit: options.appMessageLimit,
-            automationRoot: options.automationRoot
-              ?? defaultAppMessageAutomationRoot(options),
-            applySchedule: options.applySchedule,
-            readSchedule: options.readSchedule,
+            appServer,
             transactTaskLedger: options.transactTaskLedger,
           },
         )

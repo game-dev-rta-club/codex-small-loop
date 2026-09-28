@@ -107,9 +107,11 @@ node <plugin-root>/components/commands/message.mjs notify \
 
 A Notification may target a readable managed or unmanaged Task, including one
 in another project. It creates no Conversation, reply obligation, acceptance
-step, or Recovery work. A queued App-owned Notification includes an exact
-temporary-schedule cleanup action; follow that generated action after reading
-the message.
+step, or Recovery work. App-owned messages are submitted through Codex's queue;
+the receiver has no schedule cleanup to perform. `delivery: "queued"` means the
+message is durably saved for delivery, not that the recipient has completed it.
+Do not resend it. If delivery cannot be confirmed, inspect runtime diagnostics
+and the target chat; never create a delivery schedule as fallback.
 
 Use a Conversation whenever the message asks for work, a reply, or a decision.
 
@@ -206,8 +208,8 @@ operations and do not edit automation TOML directly.
 
 For a Controller heartbeat, use one stable ID shaped
 `codex-small-loop-monitor-<controller-task-id>-g<generation>` for that schedule
-lifetime and update that same ID. Temporary message schedules are derived by the runtime
-under `codex-small-loop-message-`; callers do not invent them.
+lifetime and update that same ID. Message delivery uses the Codex queue and
+does not create schedules.
 
 Create an exact current-Task schedule only when it is absent:
 
@@ -234,25 +236,22 @@ node <plugin-root>/components/commands/schedule.mjs delete \
 ```
 
 After apply, read back and confirm the complete definition and returned etag.
-Deletion is asynchronous: run from the project root or pass `--project-root`.
-`change: deletion_queued` with `completed: false` means the project-local request
-was accepted; continue the received message without waiting or polling in this
-turn. The existing runtime deletes the schedule using its own filesystem
-permissions. Repeat the identical delete command later to inspect the receipt;
-`completed: true` proves deletion. A stopped runtime leaves the request pending
-until it resumes. Failed receipts return a nonzero exit code.
-After delete, a lifecycle transition requiring removal must wait for an exact
-read with `present: false`; request acceptance alone does not authorize it.
+Run deletion from the project root or pass `--project-root`. The command starts
+the runtime and waits up to 120 seconds for deletion using the runtime's filesystem
+permissions. Success returns `completed: true` and an exact read with `present: false`.
+After delete succeeds, require that returned `present: false` before changing
+the lifecycle state.
+Wait for the command to finish, including continuing an execution-tool session
+if it yields while the process is running. Then continue the Role's next lifecycle
+action in the same turn; no later notification or heartbeat is needed.
+Failure or timeout returns nonzero and does not authorize a removal-dependent
+transition. A timeout does not cancel the saved request. Inspect its cause and
+repeat the identical command to check the same receipt when appropriate.
 Never retry an etag
 mismatch blindly: read again and let the caller's Role decide whether the new
 definition still authorizes the intended transition. The CLI refuses to
 operate a schedule for a Task other than `CODEX_THREAD_ID` and refuses IDs
 outside the `codex-small-loop-` namespace.
-
-A queued App-owned message contains this same read-then-delete action. Follow
-it before continuing; acceptance of the deletion request is sufficient to
-continue. The runtime acknowledges delivery when the temporary
-schedule disappears.
 
 When a Codex Small Loop Heartbeat request reaches this Task only after Codex
 App `automation_update` was unavailable or rejected, load

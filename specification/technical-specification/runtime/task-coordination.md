@@ -403,7 +403,7 @@ third, Heartbeat confirms the exact task/turn boundary and promotes it whether
 the accepted turn is running, ended, or aborted. Once the relationship
 exists, ordinary recovery owns any interrupted work.
 
-Ledger version 10 stores the assignment, execution-profile override,
+Ledger version 11 stores the assignment, execution-profile override,
 `roleTurnId`, and `assignmentTurnId`, then uses the Launch ID as the first
 Conversation ID during atomic promotion. Earlier prototype ledgers are not
 migrated. They fail closed with `LEDGER_VERSION_UNSUPPORTED`; reinitialize the

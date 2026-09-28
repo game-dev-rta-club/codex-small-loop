@@ -21,7 +21,9 @@ Codex Small Loop stores private coordination state under:
         <signal-name>.md
 ```
 
-The directory is private and added to `.gitignore`. On macOS it uses mode
+The directory is private. In a Git repository, the runtime adds its path to
+Git's local `info/exclude`, leaving the project worktree unchanged. Outside Git,
+it uses a project `.gitignore`. On macOS it uses mode
 `0700`, with atomically created state files using mode `0600`. On Windows its
 inherited ACL is replaced with an inheritable ACL granting full control only
 to the current user, SYSTEM, and Administrators; the runtime reads the ACL back
@@ -95,13 +97,13 @@ or unreadable diagnostic is also reported instead of being ignored.
 
 Repair:
 
-- prepares the private directory and `.gitignore`;
+- prepares the private directory and the appropriate Git ignore rule;
 - initializes a missing ledger;
 - recovers the shared atomic-store lock through its normal transaction path;
 - compacts terminal runtime data; and
 - removes obsolete project-local Automation TOML files.
 
-It does not create, modify, or require the temporary message schedules.
+It does not create, modify, or require Codex automation schedules.
 It also does not erase a Supervisor failure diagnostic or manufacture a ready
 result. The returned inspection remains `repair_required` until a successful
 Heartbeat clears that evidence.
@@ -116,7 +118,7 @@ acceptance state from being misread as current reply obligations.
 
 ## Active-State Ledger
 
-`state.json` uses schema version 10 and stores the canonical project identity,
+`state.json` uses schema version 11 and stores the canonical project identity,
 revision metadata, managed Tasks, pending launches, launch links,
 Conversations, mechanical deliveries, and App messages. Pending launch records
 also retain the complete assignment and resolved `model`, `reasoningEffort`,
@@ -141,7 +143,7 @@ all other directory errors still fail the commit.
 Active state is bounded. Delivered messages, terminal launch records, and
 settled lifecycle deliveries are compacted when they no longer protect
 dependent work. Accepted Conversations remain durable assignment history in
-version 10; the local Board uses each Responder's earliest one as its
+version 11; the local Board uses each Responder's earliest one as its
 compaction-safe membership authority. Review Signals are retained separately
 and do not keep the runtime active.
 
@@ -241,9 +243,10 @@ expired leases can be reclaimed.
 
 #### App Messages
 
-App-owned targets use ready, leased, scheduled, delivered, or discarded
+App-owned targets use ready, leased, sending, queued, delivered, or discarded
 messages. The source Task ID, target Task ID, and complete rendered text are
-persisted. Schedule IDs derive from message IDs and are not stored separately.
+persisted. The message ID is passed to Codex as `clientUserMessageId`. Dispatch
+intent is durable before sending; queue receipt and history arrival are separate.
 
 ### Activity
 
@@ -252,7 +255,7 @@ The local Recovery Supervisor remains active for:
 - pending launches;
 - an `awaiting_reply` Conversation whose Responder is not stopped;
 - ready or leased mechanical deliveries; or
-- ready, leased, or scheduled App messages.
+- ready, leased, sending, or queued App messages.
 
 A replied or accepted Conversation alone does not keep it running.
 
@@ -311,6 +314,11 @@ APP_MESSAGE_STATUS_CONFLICT
 a repeated queued receipt retries startup. Startup failure returns `run: partial`,
 the request ID, `completed: false`, and `recommendedAction: start_supervisor`.
 A restricted or unverifiable Codex caller cannot start the supervisor.
+After startup, the CLI waits up to 120 seconds for the receipt and confirms
+schedule absence before success. Timeout returns nonzero with the durable
+request ID and `recommendedAction: inspect_deletion`; it does not cancel the
+request. A completed receipt also requires an absent read, so a recreated
+schedule cannot be mistaken for a successful current deletion.
 
 `supervisor-admission.json` serializes wake registration and idle ownership
 release with an AtomicJsonStore lock. Every successful start or reuse publishes

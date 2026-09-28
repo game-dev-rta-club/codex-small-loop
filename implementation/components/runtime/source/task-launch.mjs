@@ -1561,7 +1561,6 @@ async function createManagedTask(input, options, operation) {
           operation: "start",
           responderTaskId: childTaskId,
           responderRole: role,
-          scheduleId: null,
           text: assignment,
         }),
         cwd: project.root,

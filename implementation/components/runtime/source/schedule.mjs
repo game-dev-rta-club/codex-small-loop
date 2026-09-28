@@ -130,19 +130,6 @@ export function defaultAutomationRoot(env = process.env) {
   return path.join(codexDirectory, "automations");
 }
 
-export function appMessageScheduleId(messageId) {
-  if (
-    typeof messageId !== "string"
-    || messageId.length === 0
-    || messageId.length > 1_024
-  ) {
-    throw new TypeError("messageId must be a non-empty bounded string");
-  }
-  return `codex-small-loop-message-${
-    createHash("sha256").update(messageId).digest("hex").slice(0, 32)
-  }`;
-}
-
 function location(input) {
   const automationRoot = requireAutomationRoot(input.automationRoot);
   const scheduleId = requireScheduleId(input.scheduleId);

@@ -459,7 +459,7 @@ test("promotion fails closed on duplicate ownership, self-links, and cycles", ()
 
 function coordinatorState(overrides = {}) {
   return {
-    version: 10,
+    version: 11,
     revision: 0,
     projectRoot: "/project",
     projectKey: "project-key",

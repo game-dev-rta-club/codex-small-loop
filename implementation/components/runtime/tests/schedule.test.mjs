@@ -12,7 +12,6 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  appMessageScheduleId,
   applySchedule,
   deleteSchedule,
   readSchedule,
@@ -143,17 +142,6 @@ test("rejects a symlink schedule file and path-like schedule IDs", async (t) => 
   await assert.rejects(
     readSchedule({ ...base, scheduleId: "codex-small-loop-../escape" }),
     /scheduleId/,
-  );
-});
-
-test("derives stable opaque message schedule IDs", () => {
-  assert.equal(
-    appMessageScheduleId("message-1"),
-    appMessageScheduleId("message-1"),
-  );
-  assert.match(
-    appMessageScheduleId("unsafe/message id"),
-    /^codex-small-loop-message-[a-f0-9]{32}$/,
   );
 });
 

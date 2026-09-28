@@ -99,9 +99,10 @@ states or schedules run in parallel. This uses Codex Small Loop
 `schedule apply/read/delete`, not Codex App `automation_update`, raw TOML, or
 project cron. Create uses `if-match=absent`; update and delete consume a read
 etag, and deletion is confirmed by a final absent read. The delete CLI queues
-a project-local request for the runtime; `deletion_queued` does not permit a
-transition requiring absence. Preserve the current state until the runtime has
-processed it, including when that runtime must be restarted. There is no timeout.
+a project-local request for the runtime and waits up to 120 seconds for completion,
+then confirms absence before success. Continue the lifecycle in the same turn
+after the command finishes. Failure or timeout preserves the current lifecycle
+state and the saved request; acceptance alone never permits a transition.
 An inherited App scheduling failure loads
 `$codex-small-loop:recover-unavailable-thread-schedules`, which returns the
 request to this same exact-Task, etag-guarded boundary without adding a raw
@@ -146,7 +147,7 @@ Task and Turn IDs and treats a bounded timeout as a normal in-progress result.
 
 ## Heartbeat Pipeline
 
-One `heartbeat.mjs` pass reconciles pending launches and App-message schedules,
+One `heartbeat.mjs` pass reconciles pending launches and Desktop message queues,
 observes active Tasks, applies lifecycle deliveries, derives every leaf
 Responder in the active obligation forest, sends deduplicated recovery messages
 to eligible terminal Responders, and compacts settled records. Independent
@@ -774,7 +775,7 @@ Automation entry point.
 ### Pipeline
 
 1. Resolve or initialize the project runtime.
-2. Reconcile existing App-owned message schedules and materialize newly queued
+2. Reconcile existing Desktop queue messages and submit ready
    messages without blocking other branches.
 3. Observe managed Tasks, active Conversations, Parents of queued forks, and
    exact accepted assignment turns from Codex JSONL.
@@ -798,23 +799,13 @@ Automation entry point.
 The pass evaluates parallel branches independently. One failed observation or
 delivery produces a partial result without suppressing healthy siblings.
 
-### App Message Schedules
+### Desktop Queue Messages
 
-For each ready App-schedule message, Heartbeat creates one deterministic
-schedule under the Codex automation directory. The schedule:
-
-- targets the exact App task;
-- uses `RRULE:FREQ=MINUTELY;INTERVAL=1`;
-- stores `created_at` and `updated_at` one minute in the past so the next minute
-  is selected immediately;
-- preserves the queued message and appends the exact Codex Small Loop
-  `schedule read` then etag-guarded `schedule delete` calls; and
-- remains `scheduled` in the ledger while its TOML file exists.
-
-When a later pass finds the schedule missing, it records the message as
-delivered. Creation or inspection failures return the message to `ready` for
-retry and make the Heartbeat result `partial` and `degraded` with bounded
-`app_message_failed` events.
+Heartbeat leases ready messages and submits them through `thread/queue/add`.
+It persists dispatch intent first, then reconciles the same message ID against
+Codex's queue and persisted user messages. Preflight failures retry up to 50
+attempts. Uncertain sends are inspected without resubmission. Queue removal
+alone is not delivery evidence. See [Conversations](/specification/technical-specification/runtime/conversations.md#desktop-queue-delivery).
 
 ### Recovery Timing
 
@@ -859,7 +850,7 @@ A Conversation is eligible when:
 3. the Responder Task is not stopped or archived;
 4. its latest observable turn is terminal (`ended` or `aborted`);
 5. no queued App message from that Responder to the Conversation Initiator is
-   ready, leased, or scheduled;
+   ready, leased, sending, or queued;
 6. the Initiator is not processing that report; and
 7. no resume or recovery delivery already protects the same execution boundary.
 
@@ -975,14 +966,13 @@ Each pass:
 - observes only managed Tasks participating in active Conversations or pending
   launch reconciliation;
 - applies archive termination and stop/resume deliveries;
-- materializes and reconciles temporary App-owned message schedules;
+- submits and reconciles Desktop queue messages;
 - derives every leaf Responder across the active Conversation forest;
 - sends deduplicated Recovery messages to eligible terminal Responders; and
 - removes terminal runtime records whose dependent work has settled.
 
 Message and Recovery failures remain durable and retryable. An App message
-keeps the Supervisor alive while its schedule exists, so schedule deletion can
-be reconciled into a delivered ledger state. One branch failure does not hide
+keeps the Supervisor alive until receipt is confirmed in the target history. One branch failure does not hide
 independent siblings.
 
 ### Scaling
@@ -1008,8 +998,7 @@ diagnostic is retained and reported.
 
 If the diagnostic itself cannot be persisted, the Supervisor exits instead of
 continuing invisibly. A later Codex Small Loop command restarts a Supervisor that
-is no longer running. Temporary App-message schedules do not restart the
-Supervisor itself; without an OS service, machine restart or `SIGKILL` requires
+is no longer running. Without an OS service, machine restart or `SIGKILL` requires
 another Codex Small Loop command to invoke it.
 
 ### Implementation

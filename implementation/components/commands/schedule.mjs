@@ -9,7 +9,7 @@ import {
   defaultAutomationRoot,
   readSchedule,
 } from "../runtime/source/schedule.mjs";
-import { queueScheduleDeletion } from "../runtime/source/schedule-delete-queue.mjs";
+import { queueScheduleDeletion, waitScheduleDeletion } from "../runtime/source/schedule-delete-queue.mjs";
 import { resolveProject } from "../runtime/source/project.mjs";
 
 const MAX_MESSAGE_BYTES = 64 * 1_024;
@@ -21,14 +21,15 @@ Create or update the current Task's schedule:
 Read the current Task's exact schedule definition and etag:
   schedule read --schedule <id> --task <task-id>
 
-Request deletion of the current Task's exact schedule by the project runtime:
+Delete the current Task's exact schedule through the project runtime and wait for completion:
   schedule delete --schedule <id> --task <task-id> --if-match <etag> [--project-root <path>]
   Run from the project root, or supply --project-root.
-  change=deletion_queued means accepted, not deleted. The runtime must be running.
-  Repeat the same command to read the receipt; completed=true proves deletion.
+  Waits up to 120 seconds for the runtime, then confirms the schedule is absent.
+  Exit 0 means completed=true and present=false. Timeout does not cancel the request.
+  Repeat the same command to inspect or finish the same saved request.
 
 Pass the apply prompt with --message, or write it to standard input.
-Results are one JSON object: exit 0 for ok and 1 for failed.
+Results are one JSON object: exit 0 for ok, 1 for failed, and 2 for an unconfirmed saved request.
 `;
 
 function cliError(code, message) {
@@ -131,6 +132,7 @@ export async function runScheduleCli(argv, options = {}) {
   const env = options.env ?? process.env;
   let operation = "schedule";
   let queuedDeletion = null;
+  let recommendedAction = "inspect_deletion";
   try {
     if (argv.length === 1 && new Set(["help", "--help"]).has(argv[0])) {
       stdout.write(HELP);
@@ -162,8 +164,18 @@ export async function runScheduleCli(argv, options = {}) {
       });
       if (!result.completed) {
         queuedDeletion = result;
+        recommendedAction = "start_supervisor";
         await (options.startSupervisor ?? startRecoverySupervisor)(project.root, { env });
+        recommendedAction = "inspect_deletion";
+        result = await (options.waitScheduleDeletion ?? waitScheduleDeletion)({
+          project, scheduleId: parsed.scheduleId, targetTaskId: parsed.targetTaskId, ifMatch: parsed.ifMatch,
+        }, options.deletionWaitOptions);
       }
+      const current = await (options.readSchedule ?? readSchedule)({
+        automationRoot, scheduleId: parsed.scheduleId, targetTaskId: parsed.targetTaskId,
+      });
+      if (current.present) throw cliError("SCHEDULE_DELETE_UNCONFIRMED", "The schedule is present after the deletion receipt; read its current definition before taking further action.");
+      result = { ...result, present: false };
     } else {
       const prompt = parsed.message === undefined
         ? await readPrompt(options.stdin ?? process.stdin)
@@ -184,7 +196,7 @@ export async function runScheduleCli(argv, options = {}) {
     stdout.write(`${JSON.stringify({
       run: queuedDeletion ? "partial" : "failed",
       operation,
-      ...(queuedDeletion ? { ...queuedDeletion, recommendedAction: "start_supervisor" } : {}),
+      ...(queuedDeletion ? { ...queuedDeletion, recommendedAction } : {}),
       code: bounded(error?.code ?? "SCHEDULE_FAILED", 128),
       message: bounded(error?.message ?? "Schedule operation failed"),
     })}\n`);
