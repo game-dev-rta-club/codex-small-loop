@@ -11,7 +11,6 @@ import {
   replyToConversation,
   startConversation,
 } from "./conversation.mjs";
-import { appMessageScheduleId } from "./schedule.mjs";
 import { resolveProject } from "./project.mjs";
 import {
   enqueueAppMessage,
@@ -33,7 +32,7 @@ const MAX_MESSAGE_BYTES = 64 * 1_024;
 const MAX_OUTPUT_MESSAGE_LENGTH = 512;
 const MAX_TASK_ID_LENGTH = 512;
 const DIRECT_THREAD_SOURCES = new Set(["codex-small-loop"]);
-const SCHEDULE_THREAD_SOURCES = new Set(["user", "subagent"]);
+const APP_THREAD_SOURCES = new Set(["user", "subagent"]);
 const BODY_OPERATIONS = new Set(["notify", "start", "reply", "continue"]);
 const MESSAGE_OPERATIONS = new Set([
   "notify",
@@ -93,9 +92,9 @@ function validRole(value) {
     && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value);
 }
 
-function scheduleDeliveryFor(threadSource) {
+function appDeliveryFor(threadSource) {
   if (DIRECT_THREAD_SOURCES.has(threadSource)) return false;
-  if (SCHEDULE_THREAD_SOURCES.has(threadSource)) return true;
+  if (APP_THREAD_SOURCES.has(threadSource)) return true;
   throw messageError(
     "MESSAGE_TASK_SOURCE_UNSUPPORTED",
     "Target Task has no supported threadSource",
@@ -410,10 +409,9 @@ function errorResult(error, operation = "message") {
   };
 }
 
-function renderCommunication(parsed, route, text, scheduleId) {
+function renderCommunication(parsed, route, text) {
   const message = parsed.operation === "notify"
     ? renderNotificationMessage({
-      scheduleId,
       targetTaskId: route.targetTaskId,
       text,
     })
@@ -424,7 +422,6 @@ function renderCommunication(parsed, route, text, scheduleId) {
       operation: parsed.operation,
       responderTaskId: route.responderTaskId,
       responderRole: route.responderRole,
-      scheduleId,
       text,
     });
   return parsed.reloadRole
@@ -543,13 +540,10 @@ async function runCommunicationCli(namespace, argv, options = {}) {
         "Codex App returned no matching target Task source",
       );
     }
-    const sourceUsesSchedule = scheduleDeliveryFor(target.threadSource);
-    const scheduleDelivery = !isManagedTask(ledger, route.targetTaskId) && sourceUsesSchedule;
-    const messageId = scheduleDelivery ? createId() : null;
-    const scheduleId = messageId === null
-      ? null
-      : appMessageScheduleId(messageId);
-    const rendered = renderCommunication(parsed, route, text, scheduleId);
+    const sourceUsesQueue = appDeliveryFor(target.threadSource);
+    const appDelivery = !isManagedTask(ledger, route.targetTaskId) && sourceUsesQueue;
+    const messageId = appDelivery ? createId() : null;
+    const rendered = renderCommunication(parsed, route, text);
     if (Buffer.byteLength(rendered, "utf8") > MAX_MESSAGE_BYTES) {
       throw messageError(
         "MESSAGE_TEXT_TOO_LARGE",
@@ -557,7 +551,7 @@ async function runCommunicationCli(namespace, argv, options = {}) {
       );
     }
     let committed = null;
-    if (parsed.operation !== "notify" || scheduleDelivery) {
+    if (parsed.operation !== "notify" || appDelivery) {
       committed = await transact(
         store,
         project,
@@ -571,7 +565,7 @@ async function runCommunicationCli(namespace, argv, options = {}) {
               senderTaskId,
               timestamp,
             );
-          if (!scheduleDelivery) {
+          if (!appDelivery) {
             return {
               state: transitioned.state,
               result: transitioned.conversation,
@@ -591,7 +585,7 @@ async function runCommunicationCli(namespace, argv, options = {}) {
         { now: timestamp },
       );
     }
-    if (scheduleDelivery) {
+    if (appDelivery) {
       committedEvidence = {
         ...(parsed.operation === "notify"
           ? { replyExpected: false }
@@ -610,7 +604,7 @@ async function runCommunicationCli(namespace, argv, options = {}) {
       };
     }
 
-    if (scheduleDelivery) {
+    if (appDelivery) {
       await startSupervisor(project.root);
       writeJson(stdout, {
         run: "ok",

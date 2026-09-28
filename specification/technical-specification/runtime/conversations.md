@@ -10,7 +10,7 @@ keyPoints: >-
 
 `conversation.mjs` is the Agent-facing route for managed exchanges that require
 a reply. `message.mjs` owns one-way Notification to any readable Task;
-`schedule.mjs` owns exact temporary-schedule inspection and cleanup. Task launch ancestry and
+Task launch ancestry and
 project membership do not constrain Notification targets.
 If an exchange asks for a reply, work, or a decision, use a Conversation. If it
 carries information only, use a Notification.
@@ -39,15 +39,8 @@ No reply or acknowledgement is required.
 <notification body>
 ```
 
-Direct Notification ends after the message. Every queued App-owned message
-renders the existing program-owned schedule cleanup action:
-
-```text
-=== Next Actions ===
-1. Request deletion of this delivery schedule before continuing.
-   First run `schedule read --schedule <schedule-id> --task <target-task-id>`.
-   Then run `schedule delete --schedule <schedule-id> --task <target-task-id> --if-match <returned-etag>`.
-```
+Notifications end after the message, including queued Desktop delivery.
+No schedule or receiver cleanup action is generated.
 
 For direct delivery, success contains the accepted `turnId`, `delivery`, and
 `replyExpected: false`. For App-owned delivery, success contains a durable
@@ -121,19 +114,15 @@ Turn. The Role procedures decide which work-stage entry commands include the
 flag.
 
 The Conversation transition and an App-owned queued message commit in one
-ledger transaction. For direct delivery, the transition commits before the
-external send. If that send fails, the runtime durably queues the exact rendered
-message with its schedule-cleanup action, starts supervision, returns
-`run: "partial"`, `delivery: "queued"`, and exit status `2`, and tells the
-caller to wait for delivery rather than repeat the state transition. A failure
-before any durable mutation returns `run: "failed"` and exit status `1`.
+ledger transaction. The Supervisor submits App-owned messages to Codex's queue.
+For direct delivery, the transition commits before the external send; failures
+retain committed evidence and never fall back to a schedule. A failure before
+any durable mutation returns `run: "failed"` and exit status `1`.
 
 ## Envelope
 
-Notification has no direction. Direct Notification has no next action; queued
-Notification has only its mechanical schedule-deletion action. A queued
-Conversation puts that cleanup first and its Conversation action second in
-one ordered `Next Actions` block. Start and continue render
+Notification has no direction and no next action. Conversation messages contain
+only their Conversation action in `Next Actions`. Start and continue render
 Initiator → Responder. Reply renders Initiator ← Responder:
 
 ```text
@@ -179,14 +168,14 @@ codex-small-loop
 
 user or subagent
   → append the exact rendered prompt to appMessages
-  → create one temporary heartbeat schedule
-  → acknowledge delivery after the schedule disappears
+  → submit through thread/queue/add with the message ID as clientUserMessageId
+  → acknowledge delivery when userMessage.clientId appears in target history
 
 missing or unknown
   → fail closed
 ```
 
-Managed ledger membership prevents a Task from being rerouted through an App heartbeat. Conversation position does not otherwise choose transport. A new Conversation still requires a managed same-project target;
+Managed ledger membership keeps a Task on direct runtime delivery. Conversation position does not otherwise choose transport. A new Conversation still requires a managed same-project target;
 Notification accepts any readable active Task.
 
 Direct routing uses metadata-only `thread/read`, profile-preserving
@@ -214,34 +203,36 @@ require full access. A standalone shell remains governed by OS permissions.
 Custom named profiles are not assumed to grant full access. Permission mismatch
 diagnostics retain expected and actual contexts without changing authority.
 
-## App Message Schedule
+## Desktop Queue Delivery
 
-Each queued App message derives a schedule ID
-`codex-small-loop-message-<first 32 hexadecimal SHA-256 characters>` and writes:
+`ready → leased → sending → queued → delivered` records local dispatch and
+receipt separately. The CLI's `delivery: "queued"` means durably accepted by
+Small Loop, not necessarily submitted to Codex yet. The existing Supervisor
+performs the send through the same app-server connection.
 
-```text
-$CODEX_HOME/automations/<schedule-id>/automation.toml
-```
+Before dispatch, `inspectTaskMessage` checks `thread/queue/list` and then
+`thread/read` history. Queue pages are followed by cursor. A known queue item
+or a matching `userMessage.clientId` is reused without another send. The runtime
+persists `sending` before calling `thread/queue/add`, using the ledger message
+ID as `clientUserMessageId`. A matching receipt advances it to `queued`.
 
-The schedule is `ACTIVE`, uses `RRULE:FREQ=MINUTELY;INTERVAL=1`, and has a past
-timestamp so the next minute is eligible. On macOS, directories use mode `0700`
-and files use mode `0600`. On Windows, each schedule directory replaces
-inherited access with the same verified current-user, SYSTEM, and
-Administrators ACL as the project runtime, and its files inherit that policy.
-Creation is atomic and idempotent. Delivery is at-least-once
-until the receiver reads and requests deletion of the exact temporary schedule with Whole
-Job Loop `schedule read/delete` by following the generated `Next Actions`; the runtime
-acknowledges delivery after the schedule disappears.
+Preflight failures may retry, at most 50 attempts including the first. Once
+sending may have happened, a connection failure or runtime restart triggers
+read-only reconciliation, never blind resubmission. Queue absence alone does
+not prove receipt: it may mean cancellation. If neither queue nor history
+confirms it, `APP_MESSAGE_DELIVERY_UNCONFIRMED` requires inspection of the target
+chat. Other inspection errors remain visible and may be checked again.
 
-Stable schedule failures include:
+`delivered` means the message reached the chat history, not that the agent
+finished its reply. Conversation handling retains that responsibility. Pending
+Desktop messages continue to defer the sender's premature abnormal recovery.
+No `thread/resume`, `turn/start`, or `turn/steer` is used for this transport;
+Codex Desktop consumes its queue and retains the target's execution settings.
+A dormant/not-loaded chat may remain queued until Desktop resumes it.
 
-```text
-SCHEDULE_READ_FAILED
-SCHEDULE_CONFLICT
-SCHEDULE_WRITE_FAILED
-SCHEDULE_ETAG_MISMATCH
-SCHEDULE_TARGET_MISMATCH
-```
+Requires a Codex runtime exposing the experimental queue API. Unsupported
+runtimes surface the API error; there is no schedule fallback. Ledger version
+11 is for fresh work; no migration of old delivery state is provided.
 
 ## Fail-Closed Rules
 
@@ -249,7 +240,7 @@ SCHEDULE_TARGET_MISMATCH
 - Unmanaged or cross-project targets are valid only for Notification.
 - Unauthorized Conversation operations fail without transition.
 - Busy targets and cycles fail without delivery.
-- Unknown or untrackable turn state fails.
+- Direct delivery requires a known turn state; queue delivery does not infer live state.
 - Caller-authored protocol markers fail.
 - Missing Task or Turn IDs in App responses fail.
 

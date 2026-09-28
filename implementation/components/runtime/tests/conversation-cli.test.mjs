@@ -22,7 +22,7 @@ function output() {
 
 function ledger() {
   return {
-    version: 10,
+    version: 11,
     revision: 0,
     projectRoot: "/project",
     projectKey: "key:/project",

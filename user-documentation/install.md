@@ -85,7 +85,9 @@ The first managed operation initializes the private project runtime
 automatically. For example, a Child Task creates the private local runtime
 automatically.
 No Runtime Task, project-wide Codex Automation, or user setup step is required.
-App-message delivery may create a temporary schedule automatically.
+Desktop message delivery uses Codex queue APIs and creates no temporary schedule.
+Use an updated Codex Desktop. Ledger version 11 requires fresh project runtime
+state; stop existing work before switching from version 10.
 `runtime.mjs status` and `repair` remain available for explicit diagnosis.
 
 `$codex-small-loop:handling-user-requests` is the user-facing entry Skill. On the

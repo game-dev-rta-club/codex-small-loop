@@ -229,7 +229,7 @@ async function readLedger(project) {
   } catch (cause) {
     throw new ActivityDataError(
       "ACTIVITY_LEDGER_UNAVAILABLE",
-      "The version-10 project ledger is unavailable or does not match this canonical project.",
+      "The version-11 project ledger is unavailable or does not match this canonical project.",
       cause,
     );
   }

@@ -90,3 +90,16 @@ test("rejects malformed or empty Desktop version output", async () => {
     (error) => error.code === "CODEX_DESKTOP_VERSION_INVALID",
   );
 });
+
+
+test("attests the nested Desktop CLI layout and rejects escaped nested executables", async () => {
+  const nested = `${APP_BUNDLE}/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex`;
+  for (const escaped of [false, true]) {
+    const result = attestInstalledDesktopCodex(validDependencies({realpath: async value => {
+      if (value === EXECUTABLE) throw new Error("missing old layout");
+      return value === nested && escaped ? "/tmp/codex" : value;
+    }}));
+    if (escaped) await assert.rejects(result, {code:"CODEX_DESKTOP_IDENTITY_INVALID"});
+    else assert.equal((await result).executablePath, nested);
+  }
+});

@@ -62,7 +62,7 @@ function snapshot(
 
 function ledgerState(links, deliveries = []) {
   return validateTaskLedger({
-    version: 10,
+    version: 11,
     revision: 0,
     projectRoot: "/project",
     projectKey: "project-key",
@@ -212,7 +212,7 @@ test("recovers a terminal leaf without waiting for elapsed time", () => {
   assert.deepEqual(plan.waitingTaskIds, []);
 });
 
-test("defers only the leaf whose outbound App message schedule is pending", () => {
+test("defers only the leaf whose outbound App message queue is pending", () => {
   const forest = buildTaskForest([
     link("root", "child-a"),
     link("root", "child-b"),
@@ -225,7 +225,7 @@ test("defers only the leaf whose outbound App message schedule is pending", () =
     appMessages: [{
       sourceTaskId: "child-a",
       targetTaskId: "root",
-      status: "scheduled",
+      status: "queued",
       createdAt: "2026-07-25T01:59:00.000Z",
       updatedAt: "2026-07-25T01:59:30.000Z",
       terminalAt: null,

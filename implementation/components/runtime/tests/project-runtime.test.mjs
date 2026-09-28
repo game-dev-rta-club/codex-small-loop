@@ -37,7 +37,7 @@ test("initializes a project-local runtime without Codex Automation", async () =>
     assert.equal(result.project.root, project.root);
     assert.equal(
       JSON.parse(await readFile(project.stateFile, "utf8")).version,
-      10,
+      11,
     );
     await assert.rejects(readFile(
       path.join(project.directory, "automation.toml"),

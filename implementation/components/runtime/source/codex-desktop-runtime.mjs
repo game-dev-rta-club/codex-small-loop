@@ -66,16 +66,6 @@ export async function readMacProcess(pid) {
   }
 }
 
-function deriveAppBundle(executablePath) {
-  if (macPath.basename(executablePath) !== "codex") return null;
-  const resources = macPath.dirname(executablePath);
-  if (macPath.basename(resources) !== "Resources") return null;
-  const contents = macPath.dirname(resources);
-  if (macPath.basename(contents) !== "Contents") return null;
-  const appBundlePath = macPath.dirname(contents);
-  return appBundlePath.endsWith(".app") ? appBundlePath : null;
-}
-
 function parseApplicationPath(source) {
   const appBundlePath = String(source).trim().replace(/\/+$/, "");
   if (!macPath.isAbsolute(appBundlePath) || !appBundlePath.endsWith(".app")) {
@@ -230,26 +220,31 @@ export async function attestInstalledDesktopCodex({
     );
   }
 
-  const expectedExecutable = macPath.join(
-    canonicalBundle,
-    "Contents",
-    "Resources",
-    "codex",
-  );
+  const candidates = [
+    macPath.join(canonicalBundle, "Contents", "Resources", "codex"),
+    macPath.join(canonicalBundle, "Contents", "Resources", "codex-cli",
+      "CodexCLI.app", "Contents", "MacOS", "codex"),
+  ];
   let canonicalExecutable;
-  try {
-    canonicalExecutable = await realpath(expectedExecutable);
-  } catch (cause) {
+  for (const candidate of candidates) {
+    try {
+      canonicalExecutable = await realpath(candidate);
+    } catch {
+      continue;
+    }
+    // Accept only known layouts inside the attested bundle, never an escaped symlink.
+    if (!candidates.includes(canonicalExecutable)) {
+      throw desktopRuntimeError(
+        "CODEX_DESKTOP_IDENTITY_INVALID",
+        "The Codex Desktop executable resolves outside its signed app bundle.",
+      );
+    }
+    break;
+  }
+  if (!canonicalExecutable) {
     throw desktopRuntimeError(
       "CODEX_DESKTOP_IDENTITY_INVALID",
       "The signed Codex App does not contain a readable Codex executable.",
-      cause,
-    );
-  }
-  if (deriveAppBundle(canonicalExecutable) !== canonicalBundle) {
-    throw desktopRuntimeError(
-      "CODEX_DESKTOP_IDENTITY_INVALID",
-      "The Codex Desktop executable resolves outside its signed app bundle.",
     );
   }
 

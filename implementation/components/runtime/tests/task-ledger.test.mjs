@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { AtomicJsonStore } from "../source/atomic-json-store.mjs";
 import {
-  acknowledgeScheduledAppMessage,
+  settleAppMessage,
   acknowledgeAppMessage,
   acknowledgeDelivery,
   compactTaskLedger,
@@ -18,7 +18,7 @@ import {
   initializeTaskLedger,
   leaseDeliveries,
   leaseAppMessages,
-  markAppMessageScheduled,
+  markAppMessageSending,
   migrateTaskLedger,
   readTaskLedger,
   releaseDelivery,
@@ -145,7 +145,7 @@ function recoveryDelivery(overrides = {}) {
 function state(overrides = {}) {
   const currentProject = project();
   const snapshot = {
-    version: 10,
+    version: 11,
     revision: 0,
     projectRoot: currentProject.root,
     projectKey: currentProject.key,
@@ -327,7 +327,7 @@ test("retains a accepted branch while its child report is pending", () => {
   assert.equal(compacted.appMessages.length, 1);
 });
 
-test("initializes version 10 idempotently", async () => {
+test("initializes version 11 idempotently", async () => {
   await withStore(async ({
     project: currentProject,
     store,
@@ -344,7 +344,7 @@ test("initializes version 10 idempotently", async () => {
     );
 
     assert.deepEqual(initialized, {
-      version: 10,
+      version: 11,
       revision: 0,
       projectRoot: currentProject.root,
       projectKey: currentProject.key,
@@ -390,7 +390,7 @@ test("initialization rejects an incompatible stored ledger", async () => {
   });
 });
 
-test("validates an exact immutable version 10 snapshot", () => {
+test("validates an exact immutable version 11 snapshot", () => {
   const raw = state({
     pendingLaunches: [
       pendingLaunch("assignment_started", {
@@ -1123,7 +1123,7 @@ test("allows an App message to target a managed Parent", () => {
   assert.equal(queued.queued.status, "ready");
 });
 
-test("leases App messages and records scheduled, delivered, retry, and archived outcomes", () => {
+test("leases App messages and records sending, delivered, retry, and archived outcomes", () => {
   let current = validateTaskLedger(state(), project());
   current = enqueueAppMessage(current, {
     id: "message-1",
@@ -1153,18 +1153,19 @@ test("leases App messages and records scheduled, delivered, retry, and archived 
     leaseExpiresAt: "2026-07-25T00:30:00.000Z",
     leaseOwner: "runtime-turn-2",
   });
-  current = markAppMessageScheduled(
+  current = markAppMessageSending(
     leased.state,
     "message-1",
     "runtime-turn-2",
     "2026-07-25T00:18:00.000Z",
   );
-  assert.equal(current.appMessages[0].status, "scheduled");
+  assert.equal(current.appMessages[0].status, "sending");
   assert.equal(hasPendingWork(current), true);
 
-  current = acknowledgeScheduledAppMessage(
+  current = settleAppMessage(
     current,
     "message-1",
+    "delivered",
     "2026-07-25T00:18:30.000Z",
   );
   assert.equal(current.appMessages[0].status, "delivered");
@@ -1192,7 +1193,7 @@ test("leases App messages and records scheduled, delivered, retry, and archived 
 test("accepts only the current ledger version", () => {
   const current = state();
   assert.deepEqual(
-    migrateTaskLedger(current, 10, { project: project() }),
+    migrateTaskLedger(current, 11, { project: project() }),
     validateTaskLedger(current, project()),
   );
   expectLedgerError(
@@ -1202,7 +1203,7 @@ test("accepts only the current ledger version", () => {
     "LEDGER_VERSION_UNSUPPORTED",
   );
   expectLedgerError(
-    () => migrateTaskLedger({ ...current, version: 9 }, 10, {
+    () => migrateTaskLedger({ ...current, version: 9 }, 11, {
       project: project(),
     }),
     "LEDGER_VERSION_UNSUPPORTED",
@@ -1225,7 +1226,7 @@ test("delivery attempt limits survive serialization and do not block healthy sib
   assert.equal(again.leased.length, 0);
 });
 
-test("App messages stop at the same attempt limit while scheduled cleanup stays independent", () => {
+test("App messages stop at the same attempt limit while queue reconciliation stays independent", () => {
   let current = enqueueAppMessage(state(), { id: "message", targetTaskId: "app-task", text: "hello" }, { now: CREATED_AT }).state;
   current = { ...current, appMessages: current.appMessages.map((x) => ({ ...x, attemptCount: 50 })) };
   const result = leaseAppMessages(current, { now: UPDATED_AT, leaseOwner: "worker", leaseExpiresAt: "2026-07-25T00:30:00.000Z" });

@@ -172,7 +172,7 @@ function summarizeWork(ledger) {
     pendingAppMessages: ledger.appMessages.filter(({ status }) =>
       status === "ready"
       || status === "leased"
-      || status === "scheduled"
+      || status === "sending" || status === "queued"
     ).length,
   };
 }

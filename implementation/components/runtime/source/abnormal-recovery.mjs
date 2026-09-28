@@ -70,7 +70,7 @@ function shouldDeferRecovery(
   if (messages.some(({ status }) =>
     status === "ready"
     || status === "leased"
-    || status === "scheduled"
+    || status === "sending" || status === "queued"
   )) {
     return true;
   }

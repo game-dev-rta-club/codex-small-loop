@@ -64,7 +64,7 @@ Role, so callers do not duplicate it.
 
 The target's `threadSource` selects transport. Daemon-managed delivery returns
 a started or steered turn. App-owned delivery returns a durable queued message
-and an exact temporary-schedule cleanup action. Agents follow generated actions
+without receiver cleanup. The runtime submits it through the Codex queue. Agents follow generated actions
 and do not construct protocol markers or substitute transports.
 
 ## Task-Owned Schedules
@@ -75,8 +75,8 @@ an exact preceding read. Apply is followed by exact read-back, and deletion is
 followed by confirmation of absence. The command permits only the current
 `CODEX_THREAD_ID` to operate its exact `codex-small-loop-` schedule.
 
-This is the canonical boundary for Controller heartbeat schedules and
-temporary App-message delivery schedules. Agents do not use Codex App
+This is the canonical boundary for Controller heartbeat schedules.
+Message delivery creates no schedule. Agents do not use Codex App
 `automation_update`, edit automation TOML, enumerate unrelated schedules, or
 blindly retry an etag mismatch.
 

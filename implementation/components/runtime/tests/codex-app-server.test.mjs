@@ -132,6 +132,24 @@ reader.on("line", (line) => {
     respond(message, { userAgent: "mock" }, scenario === "partial" ? "partial" : "normal");
     return;
   }
+  if (scenario.startsWith("queue-")) {
+    if (message.method === "thread/queue/add") {
+      respond(message, { queuedSubmission: { id: "q-1", clientUserMessageId:
+        scenario === "queue-invalid" ? "wrong" : message.params.clientUserMessageId } });
+      return;
+    }
+    if (message.method === "thread/queue/list") {
+      const waiting = scenario === "queue-waiting" && message.params.cursor;
+      respond(message, { data: waiting ? [{ id: "q-1", clientUserMessageId: "msg-1" }] : [],
+        nextCursor: scenario === "queue-waiting" && !message.params.cursor ? "next" : null });
+      return;
+    }
+    if (message.method === "thread/read") {
+      respond(message, { thread: { id: message.params.threadId, turns: [{ items:
+        scenario === "queue-received" ? [{ type: "userMessage", clientId: "msg-1" }] : [] }] } });
+      return;
+    }
+  }
   if (message.method === "thread/start") {
     if (scenario === "request-error") {
       write({
@@ -1643,5 +1661,29 @@ test("restricted fork fails before acquiring a writer", async () => {
     await assert.rejects(client.forkTask({ taskId: "parent-task", cwd: "/project", runContext: context }),
       { code: "DAEMON_FULL_ACCESS_REQUIRED" });
     assert.equal((await readTranscript(transcript)).some(x => x.method === "thread/fork"), false);
+  });
+});
+
+
+test("Desktop queue sending preserves message ID without resuming a task", async () => {
+  await withMock("queue-waiting", async ({ client, transcript }) => {
+    assert.deepEqual(await client.queueTaskMessage({taskId:"desktop",messageId:"msg-1",text:"hello"}),
+      { taskId:"desktop",messageId:"msg-1",queueId:"q-1" });
+    assert.deepEqual(await client.inspectTaskMessage({taskId:"desktop",messageId:"msg-1"}), {status:"queued"});
+    const calls = await readTranscript(transcript);
+    assert.equal(calls.filter(x=>x.method === "thread/queue/list").length, 2);
+    assert.equal(calls.some(x=>["thread/resume","turn/start","turn/steer"].includes(x.method)), false);
+  });
+});
+
+test("Desktop delivery needs history evidence after queue removal", async () => {
+  for (const [scenario,status] of [["queue-received","delivered"],["queue-absent","absent"]]) {
+    await withMock(scenario, async ({client}) => {
+      assert.deepEqual(await client.inspectTaskMessage({taskId:"desktop",messageId:"msg-1"}), {status});
+    });
+  }
+  await withMock("queue-invalid", async ({client}) => {
+    await assert.rejects(client.queueTaskMessage({taskId:"desktop",messageId:"msg-1",text:"hello"}),
+      {code:"APP_SERVER_RESPONSE_INVALID"});
   });
 });

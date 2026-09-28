@@ -41,7 +41,7 @@ function link(parentTaskId, childTaskId, role, sourceTaskId = parentTaskId, life
 
 function ledger(project = { root: "/project", key: "key" }, overrides = {}) {
   return {
-    version: 10, projectRoot: project.root, projectKey: project.key, revision: 0, createdAt: AT, updatedAt: AT,
+    version: 11, projectRoot: project.root, projectKey: project.key, revision: 0, createdAt: AT, updatedAt: AT,
     managedTasks: [{ taskId: PRIMARY, name: "Primary", role: "primary", createdAt: AT }],
     pendingLaunches: [], links: [link(ROOT, PRIMARY, "primary")],
     conversations: [conversation("assign-primary", ROOT, "controller", PRIMARY, "primary")],
@@ -491,7 +491,7 @@ test("missing, malformed, unsupported, and wrong-project ledgers fail before dis
   const options = { discoverSessionFiles: async () => { discoveryCalls += 1; return { candidates: [], truncated: false }; } };
   await assert.rejects(loadActivity(project.root, options), (error) => error instanceof ActivityDataError && error.code === "ACTIVITY_LEDGER_UNAVAILABLE");
   await mkdir(project.directory, { recursive: true });
-  for (const raw of ["{", JSON.stringify({ ...ledger(project), version: 11 }), JSON.stringify({ ...ledger(project), projectRoot: "/wrong" })]) {
+  for (const raw of ["{", JSON.stringify({ ...ledger(project), version: 12 }), JSON.stringify({ ...ledger(project), projectRoot: "/wrong" })]) {
     await writeFile(project.stateFile, raw);
     await assert.rejects(loadActivity(project.root, options), (error) => error.code === "ACTIVITY_LEDGER_UNAVAILABLE");
   }

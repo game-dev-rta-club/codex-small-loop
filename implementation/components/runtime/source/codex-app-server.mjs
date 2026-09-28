@@ -585,6 +585,61 @@ export class CodexAppServerClient {
     return Object.freeze({ taskId, turnId, interrupted: true });
   }
 
+  async queueTaskMessage({ taskId, messageId, text }) {
+    taskId = requireIdentifier(taskId, "taskId");
+    messageId = requireIdentifier(messageId, "messageId");
+    if (typeof text !== "string" || !text.trim()) throw new TypeError("text is required");
+    await this.connect();
+    const result = await this.#request("thread/queue/add", {
+      threadId: taskId, clientUserMessageId: messageId,
+      input: [{ type: "text", text }],
+    }, "queueTaskMessage");
+    const receipt = result?.queuedSubmission;
+    if (!receipt?.id || receipt.clientUserMessageId !== messageId) {
+      throw createError("APP_SERVER_RESPONSE_INVALID", "queueTaskMessage",
+        "Codex returned no matching queue receipt");
+    }
+    return { taskId, messageId, queueId: receipt.id };
+  }
+
+  async inspectTaskMessage({ taskId, messageId }) {
+    taskId = requireIdentifier(taskId, "taskId");
+    messageId = requireIdentifier(messageId, "messageId");
+    await this.connect();
+    let cursor;
+    const seen = new Set();
+    do {
+      const page = await this.#request("thread/queue/list", {
+        threadId: taskId, limit: 100, ...(cursor ? { cursor } : {}),
+      }, "inspectTaskMessage");
+      if (!Array.isArray(page?.data)
+        || (page.nextCursor !== null && typeof page.nextCursor !== "string")) {
+        throw createError("APP_SERVER_RESPONSE_INVALID", "inspectTaskMessage",
+          "Codex returned an invalid queue page");
+      }
+      if (page.data.some((entry) => entry.clientUserMessageId === messageId)) {
+        return { status: "queued" };
+      }
+      cursor = page.nextCursor;
+      if (cursor && seen.has(cursor)) {
+        throw createError("APP_SERVER_RESPONSE_INVALID", "inspectTaskMessage",
+          "Codex returned a repeated queue cursor");
+      }
+      seen.add(cursor);
+    } while (cursor);
+    // Queue disappearance alone also means cancellation, not necessarily delivery.
+    const result = await this.#request("thread/read", {
+      threadId: taskId, includeTurns: true,
+    }, "inspectTaskMessage");
+    if (result?.thread?.id !== taskId || !Array.isArray(result.thread.turns)) {
+      throw createError("APP_SERVER_RESPONSE_INVALID", "inspectTaskMessage",
+        "Codex returned no matching task history");
+    }
+    const received = result.thread.turns.some((turn) =>
+      turn.items?.some((item) => item.type === "userMessage" && item.clientId === messageId));
+    return { status: received ? "delivered" : "absent" };
+  }
+
   async readTask({ taskId }) {
     await this.connect();
     taskId = requireIdentifier(taskId, "taskId");

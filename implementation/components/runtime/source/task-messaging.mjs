@@ -55,10 +55,6 @@ function requireTaskId(value, label) {
   return value;
 }
 
-function requireNullableTaskId(value, label) {
-  return value === null ? null : requireTaskId(value, label);
-}
-
 export function isMessageDisplayLine(value) {
   return typeof value === "string"
     && value.length > 0
@@ -127,7 +123,6 @@ export function renderConversationMessage(options) {
       "operation",
       "responderTaskId",
       "responderRole",
-      "scheduleId",
       "text",
     ],
   );
@@ -157,18 +152,8 @@ export function renderConversationMessage(options) {
     );
   }
   const text = requireAgentBody(options.text, "text");
-  const scheduleId = requireNullableTaskId(options.scheduleId, "scheduleId");
   const arrow = options.operation === "reply" ? "←" : "→";
   const actions = [];
-  if (scheduleId !== null) {
-    actions.push({
-      type: "delete_schedule",
-      scheduleId,
-      targetTaskId: options.operation === "reply"
-        ? initiatorTaskId
-        : responderTaskId,
-    });
-  }
   actions.push(options.operation === "reply"
     ? {
       type: "continue_or_accept_conversation",
@@ -195,9 +180,8 @@ ${ROLE_CONTINUATION_REMINDER}`;
 }
 
 export function renderNotificationMessage(options) {
-  requireExactOptions(options, ["scheduleId", "targetTaskId", "text"]);
+  requireExactOptions(options, ["targetTaskId", "text"]);
   const text = requireAgentBody(options.text, "text");
-  const scheduleId = requireNullableTaskId(options.scheduleId, "scheduleId");
   const targetTaskId = requireTaskId(options.targetTaskId, "targetTaskId");
   const rendered = `=== Codex Small Loop · Notification ===
 
@@ -205,15 +189,7 @@ No reply or acknowledgement is required.
 
 === Message ===
 ${text}`;
-  return scheduleId === null
-    ? rendered
-    : `${rendered}
-
-${renderNextActions([{
-  type: "delete_schedule",
-  scheduleId,
-  targetTaskId,
-}])}`;
+  return rendered;
 }
 
 export function renderNextActions(actions) {
@@ -224,18 +200,6 @@ export function renderNextActions(actions) {
   const rendered = actions.map((action, index) => {
     if (action === null || typeof action !== "object" || Array.isArray(action)) {
       throw new TypeError("next action must be an object");
-    }
-    if (action.type === "delete_schedule") {
-      requireExactOptions(action, ["scheduleId", "targetTaskId", "type"]);
-      const scheduleId = requireTaskId(action.scheduleId, "scheduleId");
-      const targetTaskId = requireTaskId(
-        action.targetTaskId,
-        "targetTaskId",
-      );
-      return `${index + 1}. Request deletion of this delivery schedule before continuing.
-   First run Codex Small Loop \`schedule read --schedule ${scheduleId} --task ${targetTaskId}\`.
-   Then run \`schedule delete --schedule ${scheduleId} --task ${targetTaskId} --if-match <returned-etag>\`.
-   Run from the project root. If deletion_queued is returned, continue with this message; the runtime handles deletion. Do not wait or repeatedly retry in this turn.`;
     }
     if (action.type === "reply_to_conversation") {
       requireExactOptions(action, ["conversationId", "type"]);

@@ -6,7 +6,7 @@ import { parseAtomicJsonSource } from "./atomic-json-store.mjs";
 import { validateConversationState } from "./conversation.mjs";
 import { buildTaskForest } from "./task-forest.mjs";
 
-const VERSION = 10;
+const VERSION = 11;
 const MAX_ID_LENGTH = 1_024;
 const MAX_ERROR_MESSAGE_LENGTH = 1_024;
 const REASONING_EFFORTS = new Set([
@@ -43,7 +43,8 @@ const DELIVERY_STATUSES = new Set(["ready", "leased", "delivered"]);
 const APP_MESSAGE_STATUSES = new Set([
   "ready",
   "leased",
-  "scheduled",
+  "sending",
+  "queued",
   "delivered",
   "discarded",
 ]);
@@ -1097,7 +1098,7 @@ function validateAppMessages(value, managedTasks, project, operation) {
     }
     const ready = message.status === "ready";
     const leased = message.status === "leased";
-    const scheduled = message.status === "scheduled";
+    const pending = message.status === "sending" || message.status === "queued";
     const terminal = message.status === "delivered"
       || message.status === "discarded";
     if (
@@ -1113,12 +1114,11 @@ function validateAppMessages(value, managedTasks, project, operation) {
         || message.terminalAt !== null
         || message.terminalReason !== null
       ))
-      || (scheduled && (
+      || (pending && (
         message.leaseOwner !== null
         || message.leaseExpiresAt !== null
         || message.terminalAt !== null
         || message.terminalReason !== null
-        || message.lastError !== null
       ))
       || (terminal && (
         message.leaseOwner !== null
@@ -1477,7 +1477,7 @@ export function hasPendingAppMessages(state) {
     ({ status }) =>
       status === "ready"
       || status === "leased"
-      || status === "scheduled",
+      || status === "sending" || status === "queued",
   );
 }
 
@@ -1499,7 +1499,7 @@ export function compactTaskLedger(state) {
       (
         message.status === "ready"
         || message.status === "leased"
-        || message.status === "scheduled"
+        || message.status === "sending" || message.status === "queued"
       )
       && typeof message.sourceTaskId === "string"
     ) {
@@ -1540,7 +1540,7 @@ export function compactTaskLedger(state) {
     appMessages: state.appMessages.filter(({ status }) =>
       status === "ready"
       || status === "leased"
-      || status === "scheduled"
+      || status === "sending" || status === "queued"
     ),
   }, "compactTaskLedger");
 }
@@ -2168,61 +2168,32 @@ export function acknowledgeAppMessage(
   }, "acknowledgeAppMessage");
 }
 
-export function markAppMessageScheduled(
-  state,
-  messageId,
-  leaseOwner,
-  now,
-) {
-  const project = projectFromState(state);
-  const timestamp = normalizeTimestamp(
-    now,
-    project,
-    "markAppMessageScheduled",
-  );
+// Persist dispatch intent before RPC. An interrupted sender must reconcile, never blindly resend.
+export function markAppMessageSending(state, messageId, leaseOwner, now) {
   const { message, index } = requireAppMessage(state, messageId);
   requireAppMessageLease(message, leaseOwner, state);
   return withAppMessage(state, index, {
-    ...message,
-    status: "scheduled",
-    leaseOwner: null,
-    leaseExpiresAt: null,
-    updatedAt: timestamp,
-    terminalAt: null,
-    terminalReason: null,
+    ...message, status: "sending", leaseOwner: null, leaseExpiresAt: null,
+    updatedAt: normalizeTimestamp(now, projectFromState(state), "markAppMessageSending"),
     lastError: null,
-  }, "markAppMessageScheduled");
+  }, "markAppMessageSending");
 }
 
-export function acknowledgeScheduledAppMessage(
-  state,
-  messageId,
-  now,
-) {
-  const project = projectFromState(state);
-  const timestamp = normalizeTimestamp(
-    now,
-    project,
-    "acknowledgeScheduledAppMessage",
-  );
+export function settleAppMessage(state, messageId, status, now, error = null) {
   const { message, index } = requireAppMessage(state, messageId);
-  if (message.status !== "scheduled") {
-    throw appMessageOperationError(
-      "APP_MESSAGE_STATUS_CONFLICT",
-      "The App message is not waiting in a schedule.",
-      state,
-    );
+  if (message.status === "delivered") return state;
+  if (message.status === "queued" && status === "sending") status = "queued";
+  if (!["sending", "queued"].includes(message.status)
+    || !["sending", "queued", "delivered"].includes(status)) {
+    throw appMessageOperationError("APP_MESSAGE_STATUS_CONFLICT",
+      "Only dispatched App messages may be reconciled.", state);
   }
+  const timestamp = normalizeTimestamp(now, projectFromState(state), "settleAppMessage");
   return withAppMessage(state, index, {
-    ...message,
-    status: "delivered",
-    leaseOwner: null,
-    leaseExpiresAt: null,
-    updatedAt: timestamp,
-    terminalAt: timestamp,
-    terminalReason: null,
-    lastError: null,
-  }, "acknowledgeScheduledAppMessage");
+    ...message, status, updatedAt: timestamp,
+    terminalAt: status === "delivered" ? timestamp : null,
+    lastError: error ? boundedStoredError(error, timestamp) : null,
+  }, "settleAppMessage");
 }
 
 export function releaseAppMessage(

@@ -41,7 +41,6 @@ test("renders Conversation direction and exact follow-up commands", () => {
       operation: "start",
       responderTaskId: "task-review",
       responderRole: "review",
-      scheduleId: null,
       text: "Please explain the Signal boundary.",
     }),
     `=== Codex Small Loop · Interviewer → Review ===
@@ -70,7 +69,6 @@ After completing the protocol actions above, resume the currently loaded Role an
       operation: "reply",
       responderTaskId: "task-review",
       responderRole: "review",
-      scheduleId: null,
       text: "The boundary is the current snapshot.",
     }),
     `=== Codex Small Loop · Interviewer ← Review ===
@@ -102,7 +100,6 @@ test("appends the Role-continuation reminder to every Conversation operation", (
       operation,
       responderTaskId: "task-execute",
       responderRole: "execute",
-      scheduleId: null,
       text: "Continue the current work.",
     });
     assert.equal(
@@ -119,7 +116,6 @@ test("appends the Role-continuation reminder to every Conversation operation", (
 test("renders a one-way notification without a reply instruction", () => {
   assert.equal(
     renderNotificationMessage({
-      scheduleId: null,
       targetTaskId: "task-controller",
       text: "The E2E run completed.",
     }),
@@ -136,11 +132,6 @@ test("renders all supported actions through one Next Actions contract", () => {
   assert.equal(
     renderNextActions([
       {
-        type: "delete_schedule",
-        scheduleId: "codex-small-loop-message-notification",
-        targetTaskId: "task-controller",
-      },
-      {
         type: "reply_to_conversation",
         conversationId: "conversation-1",
       },
@@ -150,67 +141,15 @@ test("renders all supported actions through one Next Actions contract", () => {
       },
     ]),
     `=== Next Actions ===
-1. Request deletion of this delivery schedule before continuing.
-   First run Codex Small Loop \`schedule read --schedule codex-small-loop-message-notification --task task-controller\`.
-   Then run \`schedule delete --schedule codex-small-loop-message-notification --task task-controller --if-match <returned-etag>\`.
-   Run from the project root. If deletion_queued is returned, continue with this message; the runtime handles deletion. Do not wait or repeatedly retry in this turn.
-
-2. Reply to this Conversation after completing the requested work.
+1. Reply to this Conversation after completing the requested work.
    Conversation ID: conversation-1
    Use Codex Small Loop \`conversation reply --conversation conversation-1\`.
 
-3. Continue or accept this replied Conversation.
+2. Continue or accept this replied Conversation.
    Conversation ID: conversation-2
    Use Codex Small Loop \`conversation continue --conversation conversation-2\` to ask for another reply.
    Use Codex Small Loop \`conversation accept --conversation conversation-2\` to close only this Conversation.`,
   );
-});
-
-test("renders scheduled messages with schedule deletion in the same action list", () => {
-  const conversation = renderConversationMessage({
-    conversationId: "conversation-1",
-    initiatorTaskId: "task-interviewer",
-    initiatorRole: "interviewer",
-    operation: "start",
-    responderTaskId: "task-review",
-    responderRole: "review",
-    scheduleId: "codex-small-loop-message-conversation",
-    text: "Please explain the Signal boundary.",
-  });
-  assert.equal(conversation.match(/^=== Next Actions ===$/gm)?.length, 1);
-  assert.match(
-    conversation,
-    /schedule read --schedule codex-small-loop-message-conversation --task task-review[\s\S]*schedule delete --schedule codex-small-loop-message-conversation --task task-review --if-match <returned-etag>[\s\S]*2\. Reply to this Conversation/,
-  );
-
-  const reply = renderConversationMessage({
-    conversationId: "conversation-1",
-    initiatorTaskId: "task-controller",
-    initiatorRole: "controller",
-    operation: "reply",
-    responderTaskId: "task-primary",
-    responderRole: "primary",
-    scheduleId: "codex-small-loop-message-reply",
-    text: "The Milestone is complete.",
-  });
-  assert.match(
-    reply,
-    /schedule read --schedule codex-small-loop-message-reply --task task-controller[\s\S]*schedule delete --schedule codex-small-loop-message-reply --task task-controller --if-match <returned-etag>[\s\S]*2\. Continue or accept this replied Conversation/,
-  );
-  assert.doesNotMatch(
-    reply,
-    /schedule (?:read|delete)[^\n]*--task task-primary/,
-  );
-
-  const notification = renderNotificationMessage({
-    scheduleId: "codex-small-loop-message-notification",
-    targetTaskId: "task-controller",
-    text: "The E2E run completed.",
-  });
-  assert.equal(notification.match(/^=== Next Actions ===$/gm)?.length, 1);
-  assert.match(notification, /1\. Request deletion of this delivery schedule/);
-  assert.doesNotMatch(notification, /Reply to this Conversation/);
-  assert.doesNotMatch(notification, /resume the currently loaded Role/);
 });
 
 test("rejects program protocol markers with LF or CRLF line endings", () => {
@@ -226,8 +165,7 @@ test("rejects program protocol markers with LF or CRLF line endings", () => {
         operation: "start",
         responderTaskId: "task-execute",
         responderRole: "execute",
-        scheduleId: null,
-        text,
+          text,
       }),
       /program-owned protocol marker/,
     );
@@ -252,8 +190,7 @@ test("rejects malformed Conversation message inputs", () => {
         operation: "start",
         responderTaskId: "task-review",
         responderRole: "review",
-        scheduleId: null,
-        text: "Check the result.",
+          text: "Check the result.",
         [key]: value,
       }),
       new RegExp(key),
