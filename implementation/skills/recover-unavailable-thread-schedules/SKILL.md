@@ -68,11 +68,12 @@ node <plugin-root>/components/commands/schedule.mjs delete \
 ```
 
 Run deletion from the project root (or pass `--project-root`).
-`deletion_queued` acknowledges a durable request, not completed removal. The
-project runtime performs the deletion; if it is stopped, the request remains
-pending until it runs again. Preserve the current lifecycle state while pending;
-only an absent read permits a transition that requires removal. Do not spin or
-retry repeatedly in the same turn.
+The command starts the project runtime and waits up to 120 seconds for deletion.
+Wait for its process to finish even if the execution tool yields a session ID.
+Success confirms `completed: true` and `present: false`; continue the lifecycle
+without waiting for a later heartbeat. On failure or timeout, preserve the current
+lifecycle state. Timeout leaves the saved request intact; inspect the cause before
+repeating the same command to check its receipt.
 
 Resume a previously paused definition only through a new `apply` with
 `if-match=absent` and its complete preserved prompt and cadence. Never edit,
@@ -100,4 +101,3 @@ Report:
 - the recovered operation and confirmed stored definition or absence;
 - the etag/read-back evidence; and
 - the real Heartbeat Turn, or the no-new-Turn interval evidence.
-

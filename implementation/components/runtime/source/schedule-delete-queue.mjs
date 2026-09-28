@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { link, lstat, mkdir, open, readdir, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { deleteSchedule, requireScheduleId } from "./schedule.mjs";
 
 const MAX_BYTES = 4096;
@@ -105,6 +106,23 @@ export async function queueScheduleDeletion({ project, scheduleId, targetTaskId,
   const value = await readRecord(filename);
   if (value.status === "failed") throw failure(value.code ?? "SCHEDULE_DELETE_FAILED", "Runtime could not delete this schedule; inspect the project-local deletion receipt.");
   return result(value);
+}
+
+export async function waitScheduleDeletion({ project, scheduleId, targetTaskId, ifMatch }, {
+  timeoutMs = 120_000, pollMs = 200, now = () => performance.now(), delay = sleep,
+} = {}) {
+  const queue = await directory(project);
+  if (!queue) throw failure("SCHEDULE_RUNTIME_MISSING", "Deletion receipt directory is missing.");
+  const filename = path.join(queue, `${requestIdentity({ scheduleId, targetTaskId, ifMatch })}.json`);
+  const deadline = now() + timeoutMs;
+  for (;;) {
+    const value = await readRecord(filename);
+    if (value.status === "completed") return result(value);
+    if (value.status === "failed") throw failure(value.code ?? "SCHEDULE_DELETE_FAILED", "Runtime could not delete this schedule; inspect the deletion receipt.");
+    const remaining = deadline - now();
+    if (remaining <= 0) throw failure("SCHEDULE_DELETE_TIMEOUT", "Deletion completion is unconfirmed. The saved request remains pending; inspect or retry the same request.");
+    await delay(Math.min(pollMs, remaining));
+  }
 }
 
 export async function processScheduleDeletions(project, {

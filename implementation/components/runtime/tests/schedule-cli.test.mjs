@@ -39,6 +39,10 @@ test("runs the public apply/read/delete CAS flow in an isolated automation root"
     env: { CODEX_THREAD_ID: "task-cli" },
     now: () => 100,
     async startSupervisor(root) { assert.equal(root, (await resolveProject(automationRoot)).root); },
+    deletionWaitOptions: { async delay() {
+      assert.equal((await readSchedule({ automationRoot, scheduleId: base[1], targetTaskId: base[3] })).present, true);
+      await processScheduleDeletions(await resolveProject(automationRoot), { automationRoot });
+    } },
   };
   await mkdir(path.join(automationRoot, ".codex-small-loop"));
 
@@ -69,11 +73,10 @@ test("runs the public apply/read/delete CAS flow in an isolated automation root"
     ...options,
     stdout: deletedOutput.stream,
   }), 0);
-  assert.equal(deletedOutput.json().change, "deletion_queued");
-  assert.equal(deletedOutput.json().completed, false);
+  assert.equal(deletedOutput.json().change, "deleted");
+  assert.equal(deletedOutput.json().completed, true);
+  assert.equal(deletedOutput.json().present, false);
   const schedule = { automationRoot, scheduleId: base[1], targetTaskId: base[3] };
-  assert.equal((await readSchedule(schedule)).present, true);
-  await processScheduleDeletions(await resolveProject(automationRoot), { automationRoot });
   assert.equal((await readSchedule(schedule)).present, false);
   const receipt = output();
   assert.equal(await runScheduleCli(["delete", ...base, "--if-match", applied.etag], { ...options, stdout: receipt.stream }), 0);
@@ -104,7 +107,7 @@ test("a saved deletion reports startup failure and retries wake on the same rece
   const argv = ["delete", "--schedule", "codex-small-loop-monitor-wake", "--task", "caller",
     "--if-match", `sha256:${"a".repeat(64)}`];
   const first = output();
-  const options = { cwd: root, env: { CODEX_THREAD_ID: "caller" } };
+  const options = { cwd: root, automationRoot: root, env: { CODEX_THREAD_ID: "caller" } };
   assert.equal(await runScheduleCli(argv, { ...options, stdout: first.stream,
     async startSupervisor() { throw Object.assign(new Error("full access required"), { code: "DAEMON_FULL_ACCESS_REQUIRED" }); },
   }), 2);
@@ -114,7 +117,7 @@ test("a saved deletion reports startup failure and retries wake on the same rece
   const second = output();
   let wakes = 0;
   assert.equal(await runScheduleCli(argv, { ...options, stdout: second.stream,
-    async startSupervisor() { wakes++; },
+    async startSupervisor() { wakes++; await processScheduleDeletions(await resolveProject(root), { automationRoot: root }); },
   }), 0);
   assert.equal(wakes, 1);
   assert.equal(second.json().requestId, first.json().requestId);
@@ -147,4 +150,60 @@ test("deletion after an idle supervisor is drained by a fresh supervisor", async
   }), 0);
   assert.equal(iterations, 1);
   assert.equal((await readSchedule({ automationRoot: root, scheduleId: base[1], targetTaskId: base[3] })).present, false);
+});
+
+test("timeout preserves the request and a later identical call confirms deletion", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "schedule-timeout-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, ".codex-small-loop"));
+  const base = ["--schedule", "codex-small-loop-timeout", "--task", "caller"];
+  const options = { cwd: root, automationRoot: root, env: { CODEX_THREAD_ID: "caller" } };
+  const applied = output();
+  await runScheduleCli(["apply", ...base, "--if-match", "absent", "--interval-minutes", "1", "--message", "monitor"], { ...options, stdout: applied.stream });
+  const argv = ["delete", ...base, "--if-match", applied.json().etag];
+  const timedOut = output();
+  assert.equal(await runScheduleCli(argv, { ...options, stdout: timedOut.stream,
+    async startSupervisor() {}, deletionWaitOptions: { timeoutMs: 0 },
+  }), 2);
+  assert.equal(timedOut.json().code, "SCHEDULE_DELETE_TIMEOUT");
+  assert.equal(timedOut.json().completed, false);
+  assert.equal(timedOut.json().recommendedAction, "inspect_deletion");
+  assert.equal((await readSchedule({ automationRoot: root, scheduleId: base[1], targetTaskId: base[3] })).present, true);
+  await processScheduleDeletions(await resolveProject(root), { automationRoot: root });
+  const completed = output();
+  assert.equal(await runScheduleCli(argv, { ...options, stdout: completed.stream,
+    startSupervisor() { throw new Error("completed request must not restart runtime"); },
+  }), 0);
+  assert.equal(completed.json().requestId, timedOut.json().requestId);
+  assert.equal(completed.json().present, false);
+});
+
+test("daemon deletion failure is returned instead of successful acceptance", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "schedule-delete-failed-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, ".codex-small-loop"));
+  const stdout = output();
+  assert.equal(await runScheduleCli(["delete", "--schedule", "codex-small-loop-failed", "--task", "caller", "--if-match", `sha256:${"b".repeat(64)}`], {
+    cwd: root, automationRoot: root, env: { CODEX_THREAD_ID: "caller" }, stdout: stdout.stream,
+    async startSupervisor() {
+      await processScheduleDeletions(await resolveProject(root), { automationRoot: root,
+        async remove() { throw Object.assign(new Error("changed"), { code: "SCHEDULE_ETAG_MISMATCH" }); },
+      });
+    },
+  }), 2);
+  assert.equal(stdout.json().code, "SCHEDULE_ETAG_MISMATCH");
+  assert.equal(stdout.json().completed, false);
+});
+
+test("an old completed receipt cannot prove a recreated schedule absent", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "schedule-recreated-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, ".codex-small-loop"));
+  const stdout = output();
+  assert.equal(await runScheduleCli(["delete", "--schedule", "codex-small-loop-recreated", "--task", "caller", "--if-match", `sha256:${"c".repeat(64)}`], {
+    cwd: root, env: { CODEX_THREAD_ID: "caller" }, stdout: stdout.stream,
+    async queueScheduleDeletion() { return { completed: true, change: "deleted" }; },
+    async readSchedule() { return { present: true }; },
+  }), 1);
+  assert.equal(stdout.json().code, "SCHEDULE_DELETE_UNCONFIRMED");
 });

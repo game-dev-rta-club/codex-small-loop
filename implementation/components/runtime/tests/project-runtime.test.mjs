@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  mkdir,
   mkdtemp,
   readFile,
   rm,
@@ -9,6 +10,8 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 import { resolveProject } from "../source/project.mjs";
 import {
@@ -17,6 +20,7 @@ import {
   prepareProjectRuntime,
   repairProjectRuntime,
 } from "../source/project-setup.mjs";
+const execFileAsync = promisify(execFile);
 
 async function withProject(run) {
   const root = await mkdtemp(path.join(os.tmpdir(), "whole-job-runtime-"));
@@ -65,6 +69,33 @@ test("creates the runtime automatically on first use", async () => {
     assert.deepEqual(runtime.ledger.links, []);
     assert.match(await readFile(path.join(root, ".gitignore"), "utf8"),
       /\/\.codex-small-loop\//);
+  });
+});
+
+test("a Git project ignores private runtime without adding a worktree file", async () => {
+  await withProject(async (root) => {
+    await execFileAsync("git", ["-C", root, "init", "--initial-branch=main"]);
+    const project = await resolveProject(root);
+    await assertRuntimeAvailable(project);
+    await assert.rejects(readFile(path.join(root, ".gitignore"), "utf8"), { code: "ENOENT" });
+    const { stdout: ignored } = await execFileAsync("git", ["-C", root, "check-ignore", ".codex-small-loop/state.json"]);
+    assert.equal(ignored.trim(), ".codex-small-loop/state.json");
+    const { stdout: status } = await execFileAsync("git", ["-C", root, "status", "--porcelain"]);
+    assert.equal(status, "");
+  });
+});
+
+test("a nested Git project excludes only its own runtime without editing .gitignore", async () => {
+  await withProject(async (root) => {
+    await execFileAsync("git", ["-C", root, "init", "--initial-branch=main"]);
+    const nested = path.join(root, "nested");
+    await mkdir(nested);
+    await writeFile(path.join(root, ".gitignore"), "build/\n");
+    await assertRuntimeAvailable(await resolveProject(nested));
+    assert.equal(await readFile(path.join(root, ".gitignore"), "utf8"), "build/\n");
+    assert.match(await readFile(path.join(root, ".git", "info", "exclude"), "utf8"), /\/nested\/\.codex-small-loop\//);
+    const { stdout: ignored } = await execFileAsync("git", ["-C", root, "check-ignore", "nested/.codex-small-loop/state.json"]);
+    assert.equal(ignored.trim(), "nested/.codex-small-loop/state.json");
   });
 });
 

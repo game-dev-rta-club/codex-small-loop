@@ -273,17 +273,19 @@ store verifies target Task and etag before deletion. An absent schedule is
 already complete; a changed etag is a terminal conflict. No request can supply
 a filesystem destination.
 
-`deletion_queued` means durable acceptance, not deletion. The receiver continues
-the message after acceptance; it does not poll or wait in the same turn. A
-repeat of the identical command reads the same receipt. `completed: true`
-means the runtime completed deletion; failures return a nonzero exit code.
+The delete CLI waits up to 120 seconds for the durable receipt, then reads the
+exact schedule and requires absence before returning success (`completed: true`,
+`present: false`). The receiver waits for the CLI process, then continues its
+lifecycle in the same turn. Acceptance alone never returns success. Failures
+and timeout return nonzero; timeout leaves the request intact and reports its
+ID so the identical command can check the same receipt later.
 The runtime retries transient read/write/lock failures at 30-second intervals
 up to three attempts and stays active while requests remain pending. It
 records failures in the heartbeat report and project-local receipt.
 
-Queued requests survive restart. If runtime stopped before the request arrived,
-processing waits for its next start; the restricted receiver does not launch
-a replacement runtime. Completed receipts remain for duplicate suppression.
+Queued requests survive restart. The CLI wakes the existing supervisor mechanism
+after saving a request, subject to its full-access requirement. Startup failure
+leaves the request saved and returns nonzero. Completed receipts remain for duplicate suppression.
 Delivery acknowledgment still depends on actual schedule absence, never merely
 on enqueueing the request. Delete acknowledgment and message execution are
 separate; repeated schedule firings before cleanup remain possible.

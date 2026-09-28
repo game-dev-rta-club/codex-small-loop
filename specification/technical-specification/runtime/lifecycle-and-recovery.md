@@ -99,9 +99,10 @@ states or schedules run in parallel. This uses Codex Small Loop
 `schedule apply/read/delete`, not Codex App `automation_update`, raw TOML, or
 project cron. Create uses `if-match=absent`; update and delete consume a read
 etag, and deletion is confirmed by a final absent read. The delete CLI queues
-a project-local request for the runtime; `deletion_queued` does not permit a
-transition requiring absence. Preserve the current state until the runtime has
-processed it, including when that runtime must be restarted. There is no timeout.
+a project-local request for the runtime and waits up to 120 seconds for completion,
+then confirms absence before success. Continue the lifecycle in the same turn
+after the command finishes. Failure or timeout preserves the current lifecycle
+state and the saved request; acceptance alone never permits a transition.
 An inherited App scheduling failure loads
 `$codex-small-loop:recover-unavailable-thread-schedules`, which returns the
 request to this same exact-Task, etag-guarded boundary without adding a raw

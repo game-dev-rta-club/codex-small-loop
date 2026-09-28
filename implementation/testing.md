@@ -220,6 +220,13 @@ and retry of the same durable receipt after startup failure. An isolated CLI
 apply/delete test verifies that a fresh supervisor drains the deletion and
 confirms schedule absence without starting an AI turn.
 
+On 2026-09-28, the completion-wait change passed 18 focused schedule CLI,
+deletion-queue, and schedule-store tests. These cover waiting for the real
+filesystem receipt before success, timeout with later reuse of the same request,
+daemon failure, and refusing success when the schedule exists after a completed
+receipt. Both edited skills passed validation. The full E2E was not rerun for
+this focused change.
+
 The subsequent `051234` E2E completed the 101 → Review finding → 55 → four-role
 Review PASS sequence. All eight managed Tasks retained full access and all
 16 Conversations were accepted. Its terminal monitor deletion stalled in a

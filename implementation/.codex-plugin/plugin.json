@@ -1,6 +1,6 @@
 {
   "name": "codex-small-loop",
-  "version": "0.1.2+codex.20260925045009",
+  "version": "0.1.3+codex.20260928022934",
   "description": "A Codex-native loop-engineering environment for delegating outcomes and continuing until completion is proven.",
   "author": {
     "name": "Game Dev RTA Club",

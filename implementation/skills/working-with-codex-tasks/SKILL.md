@@ -236,15 +236,17 @@ node <plugin-root>/components/commands/schedule.mjs delete \
 ```
 
 After apply, read back and confirm the complete definition and returned etag.
-Deletion is asynchronous: run from the project root or pass `--project-root`.
-`change: deletion_queued` with `completed: false` means the project-local request
-was accepted; continue the received message without waiting or polling in this
-turn. The existing runtime deletes the schedule using its own filesystem
-permissions. Repeat the identical delete command later to inspect the receipt;
-`completed: true` proves deletion. A stopped runtime leaves the request pending
-until it resumes. Failed receipts return a nonzero exit code.
-After delete, a lifecycle transition requiring removal must wait for an exact
-read with `present: false`; request acceptance alone does not authorize it.
+Run deletion from the project root or pass `--project-root`. The command starts
+the runtime and waits up to 120 seconds for deletion using the runtime's filesystem
+permissions. Success returns `completed: true` and an exact read with `present: false`.
+After delete succeeds, require that returned `present: false` before changing
+the lifecycle state.
+Wait for the command to finish, including continuing an execution-tool session
+if it yields while the process is running. Then continue the Role's next lifecycle
+action in the same turn; no later notification or heartbeat is needed.
+Failure or timeout returns nonzero and does not authorize a removal-dependent
+transition. A timeout does not cancel the saved request. Inspect its cause and
+repeat the identical command to check the same receipt when appropriate.
 Never retry an etag
 mismatch blindly: read again and let the caller's Role decide whether the new
 definition still authorizes the intended transition. The CLI refuses to

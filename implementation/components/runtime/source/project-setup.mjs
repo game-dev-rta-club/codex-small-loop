@@ -8,6 +8,8 @@ import {
   rm,
 } from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 import { AtomicJsonStore } from "./atomic-json-store.mjs";
 import { protectPrivateDirectory } from "./private-directory.mjs";
@@ -23,6 +25,7 @@ import {
 } from "./task-ledger.mjs";
 
 const IGNORE_ENTRY = "/.codex-small-loop/";
+const execFileAsync = promisify(execFile);
 
 function unsafeRuntimeDirectory(cause) {
   const error = new Error("Project private runtime must be a real directory.", cause ? { cause } : undefined);
@@ -88,12 +91,31 @@ async function writeTextAtomically(file, source) {
   }
 }
 
+async function ignoreTarget(projectRoot) {
+  try {
+    const [{ stdout: topLevel }, { stdout: gitPath }] = await Promise.all([
+      execFileAsync("git", ["-C", projectRoot, "rev-parse", "--show-toplevel"]),
+      execFileAsync("git", ["-C", projectRoot, "rev-parse", "--git-path", "info/exclude"]),
+    ]);
+    const root = path.resolve(topLevel.trim());
+    const relative = path.relative(root, projectRoot);
+    if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw new Error("Project root is outside its Git repository.");
+    }
+    const prefix = relative ? `${relative.split(path.sep).join("/")}/` : "";
+    return { file: path.resolve(projectRoot, gitPath.trim()), entry: `/${prefix}.codex-small-loop/` };
+  } catch (error) {
+    if (error?.code !== 128 && error?.code !== "ENOENT") throw error;
+    return { file: path.join(projectRoot, ".gitignore"), entry: IGNORE_ENTRY };
+  }
+}
+
 export async function ensureProjectIgnored(projectRoot) {
-  const file = path.join(projectRoot, ".gitignore");
+  const { file, entry } = await ignoreTarget(projectRoot);
   const source = await readOptionalText(file);
   const matches = source
     .split(/\r?\n/)
-    .filter((line) => line === IGNORE_ENTRY)
+    .filter((line) => line === entry)
     .length;
   if (matches === 1) {
     return false;
@@ -102,7 +124,8 @@ export async function ensureProjectIgnored(projectRoot) {
     const prefix = source.length === 0 || source.endsWith("\n")
       ? source
       : `${source}\n`;
-    await writeTextAtomically(file, `${prefix}${IGNORE_ENTRY}\n`);
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeTextAtomically(file, `${prefix}${entry}\n`);
     return true;
   }
 
@@ -110,7 +133,7 @@ export async function ensureProjectIgnored(projectRoot) {
   const next = source
     .split(/\r?\n/)
     .filter((line) => {
-      if (line !== IGNORE_ENTRY) return true;
+      if (line !== entry) return true;
       if (retained) return false;
       retained = true;
       return true;
@@ -125,7 +148,6 @@ export async function prepareProjectRuntime(project) {
   const gitignoreChanged = await ensureProjectIgnored(project.root);
   return {
     directory: project.directory,
-    gitignoreFile: path.join(project.root, ".gitignore"),
     gitignoreChanged,
   };
 }
